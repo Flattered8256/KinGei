@@ -1,5 +1,6 @@
 mod model;
 mod serializer;
+mod repository;
 mod database;
 use dotenvy::dotenv;
 use std::env;
@@ -11,5 +12,5 @@ async fn main() {
         .expect("缺少DATABASE_URL,请检查项目根目录下的.env文件");
 
     let pool = database::create_pool(&database_url).await;
-    
+
 }
