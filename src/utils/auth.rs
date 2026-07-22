@@ -1,4 +1,4 @@
-use jsonwebtoken::{encode, EncodingKey, Header};
+use jsonwebtoken::{EncodingKey, Header, TokenData, encode, decode,DecodingKey, Validation};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use std::env;
@@ -20,4 +20,15 @@ pub fn create_token(user_id: Uuid) ->Result<String,  AppError> {
         exp: (now + chrono::Duration::hours(24)).timestamp(),
     };
     Ok(encode(&Header::default(), &claims, &EncodingKey::from_secret(secret.as_bytes()))?)
+}
+
+pub fn verify_token(token: &str) -> Result<Claims, AppError> {
+    let secret = env::var("JWT_SECRET").expect("JWT_SECRET must be set");
+    let data: TokenData<Claims> = decode(token, &DecodingKey::from_secret(secret.as_bytes()), &Validation::default())?;
+    Ok(data.claims)
+}
+
+pub fn get_user_id_from_token(token: &str) -> Result<Uuid, AppError> {
+    let claims = verify_token(token)?;
+    Ok(claims.sub) 
 }
