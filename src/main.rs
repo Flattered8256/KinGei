@@ -1,4 +1,5 @@
 mod model;
+mod handler;
 mod serializer;
 mod repository;
 mod database;
