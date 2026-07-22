@@ -7,6 +7,7 @@ mod error;
 mod service;
 mod utils;
 mod middleware;
+mod router;
 use dotenvy::dotenv;
 use std::env;
 #[tokio::main]
