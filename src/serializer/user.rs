@@ -11,6 +11,11 @@ pub struct UserResponse{
     pub email: String,
     pub created_at: DateTime<Utc>,
 }
+ #[derive(Debug, Serialize)]
+pub struct LoginResponse{
+    pub token: String,
+    pub user: UserResponse,
+}
 
 #[derive(Debug,Deserialize)]
 pub struct CreateUserRequest{

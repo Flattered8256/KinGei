@@ -14,6 +14,17 @@ pub enum AppError {
 
     #[error("{0}")]
     User(#[from] UserError),
+
+    #[error("Bcrypt error: {0}")]
+    Bcrypt(#[from] bcrypt::BcryptError),  
+
+    #[error("JWT error: {0}")]
+    JWT(#[from] jsonwebtoken::errors::Error),
+}
+
+fn internal_error() -> Response {
+    let code = "InternalServerError".to_string();
+    (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { code })).into_response()
 }
 
 #[derive(Debug, Serialize)]
@@ -27,8 +38,15 @@ impl IntoResponse for AppError {
             AppError::User(user_err) => user_err.into_response(),
             AppError::Database(e) => {
                 tracing::error!(?e, "database error");
-                let code = "Internal Server Error".to_string();
-                (StatusCode::INTERNAL_SERVER_ERROR,Json(ErrorResponse{ code })).into_response()
+                internal_error()
+            }
+            AppError::Bcrypt(e) => {
+                tracing::error!(?e, "bcrypt error");
+                internal_error()
+            }
+            AppError::JWT(e) => {
+                tracing::error!(?e, "jwt error");
+                internal_error()
             }
         }
     }

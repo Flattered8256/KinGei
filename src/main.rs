@@ -2,6 +2,9 @@ mod model;
 mod serializer;
 mod repository;
 mod database;
+mod error;
+mod service;
+mod utils;
 use dotenvy::dotenv;
 use std::env;
 #[tokio::main]
