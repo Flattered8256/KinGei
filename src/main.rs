@@ -5,6 +5,7 @@ mod database;
 mod error;
 mod service;
 mod utils;
+mod middleware;
 use dotenvy::dotenv;
 use std::env;
 #[tokio::main]
