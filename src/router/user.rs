@@ -1,14 +1,15 @@
-use axum::{Router, middleware, routing::{get, patch, post}, {extract::{State, Path}, Json}};
-use crate::{handler::user, service::user::UserService};
+use axum::{Router, middleware, routing::{get, patch, post}};
+use crate::{handler::user};
 use std::sync::Arc;
 use crate::middleware::auth;
-pub fn public_routes() -> Router<Arc<UserService>> {
+use crate::state::AppState;
+pub fn public_routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/register", post(user::register))
         .route("/login", post(user::login))
 }
 
-pub fn protected_routes() -> Router<Arc<UserService>> {
+pub fn protected_routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/change_password", patch(user::change_password))
         .route("/update", patch(user::update))

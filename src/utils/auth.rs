@@ -27,8 +27,3 @@ pub fn verify_token(token: &str) -> Result<Claims, AppError> {
     let data: TokenData<Claims> = decode(token, &DecodingKey::from_secret(secret.as_bytes()), &Validation::default())?;
     Ok(data.claims)
 }
-
-pub fn get_user_id_from_token(token: &str) -> Result<Uuid, AppError> {
-    let claims = verify_token(token)?;
-    Ok(claims.sub) 
-}
