@@ -26,10 +26,7 @@ async fn main() {
     
     let app_state = Arc::new(AppState::new(pool));
 
-    let app = router::user::public_routes()
-        .merge(router::user::protected_routes())
-        .with_state(app_state)
-        .into_make_service();
+    let app = router::create_router(app_state).into_make_service();
 
     let port = env::var("PORT").expect("缺少PORT,请检查项目根目录下的.env文件");
     let addr = format!("0.0.0.0:{}", port);
