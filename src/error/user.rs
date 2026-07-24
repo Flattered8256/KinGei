@@ -12,6 +12,8 @@ pub enum UserError {
     InvalidCredentials,
     #[error("PasswordMismatch")]
     PasswordMismatch,
+    #[error("InvalidToken")]
+    InvalidToken,
 }
 
 #[derive(Debug, Serialize)]
@@ -26,6 +28,7 @@ impl IntoResponse for UserError {
                 UserError::NotFound => (StatusCode::NOT_FOUND, self.to_string()),
                 UserError::InvalidCredentials => (StatusCode::UNAUTHORIZED, self.to_string()),
                 UserError::PasswordMismatch => (StatusCode::UNAUTHORIZED, self.to_string()),
+                UserError::InvalidToken => (StatusCode::UNAUTHORIZED, self.to_string()),
             };
 
             (status, Json(UserErrorResponse { code: error_response })).into_response()

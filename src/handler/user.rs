@@ -1,7 +1,7 @@
 use axum::{extract::{State, Path}, Json, Extension};
 use std::sync::Arc;
 use crate::error::AppError;
-use crate::serializer::user::{CreateUserRequest, UserResponse, LoginRequest, LoginResponse, ChangePasswordRequest, UpdateUserRequest};
+use crate::serializer::user::{CreateUserRequest, UserResponse, LoginRequest, LoginResponse, ChangePasswordRequest, UpdateUserRequest, RefreshTokenRequest, RefreshTokenResponse};
 use uuid::Uuid;
 use crate::state::AppState;
 pub async fn register(
@@ -43,5 +43,13 @@ pub async fn find(
     Path(email): Path<String>,
 ) -> Result<Json<UserResponse>, AppError> {
     let result = service.user_service.find(&email).await?;
+    Ok(Json(result))
+}
+
+pub async fn refresh(
+    State(service): State<Arc<AppState>>,
+    Json(req): Json<RefreshTokenRequest>,
+) -> Result<Json<RefreshTokenResponse>, AppError> {
+    let result = service.user_service.refresh(req).await?;
     Ok(Json(result))
 }

@@ -13,7 +13,9 @@ pub struct UserResponse{
 }
  #[derive(Debug, Serialize)]
 pub struct LoginResponse{
-    pub token: String,
+    pub access_token: String,
+    pub refresh_token: String,
+    pub token_type: String,
     pub user: UserResponse,
 }
 
@@ -41,6 +43,18 @@ pub struct UpdateUserRequest{
 pub struct ChangePasswordRequest{
     pub old_password: String,
     pub new_password: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RefreshTokenRequest {
+    pub refresh_token: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct RefreshTokenResponse {
+    pub access_token: String,
+    pub refresh_token: String,
+    pub token_type: String,
 }
 
 impl From<User> for UserResponse {

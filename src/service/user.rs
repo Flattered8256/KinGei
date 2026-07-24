@@ -2,12 +2,13 @@ use std::sync::Arc;
 use uuid::Uuid;
 use chrono::Utc;
 
-use crate::utils::auth::create_token;
+use crate::utils::auth::{create_access_token, create_refresh_token, verify_refresh_token};
 use crate::model::user::User;
 use crate::repository::user::{UserRepository, UpdateUser};
 use crate::serializer::user::{
     UserResponse, CreateUserRequest, LoginRequest,
-    UpdateUserRequest, ChangePasswordRequest, LoginResponse
+    UpdateUserRequest, ChangePasswordRequest, LoginResponse,
+    RefreshTokenRequest, RefreshTokenResponse,
 };
 use crate::error::user::UserError;
 use crate::error::AppError;                     
@@ -44,9 +45,12 @@ impl UserService {
         if !bcrypt::verify(&request.password, &user.password_hash)? {
             return Err(AppError::User(UserError::InvalidCredentials));
         }
-        let token = create_token(user.id)?;
+        let access_token = create_access_token(user.id)?;
+        let refresh_token = create_refresh_token(user.id)?;
         Ok(LoginResponse{
-            token,
+            access_token,
+            refresh_token,
+            token_type: "Bearer".to_string(),
             user: UserResponse::from(user),
         })
     }
@@ -91,5 +95,21 @@ impl UserService {
     pub async fn find(&self, email: &str) -> Result<UserResponse, AppError> {
         let user = self.repo.find_by_email(email).await?.ok_or(AppError::User(UserError::NotFound))?;
         return Ok(UserResponse::from(user))
+    }
+
+    pub async fn refresh(&self, request: RefreshTokenRequest) -> Result<RefreshTokenResponse, AppError> {
+        let claims = verify_refresh_token(&request.refresh_token)?;
+        
+        // 验证用户是否存在
+        self.repo.find_by_id(claims.sub).await?.ok_or(AppError::User(UserError::NotFound))?;
+
+        let new_access_token = create_access_token(claims.sub)?;
+        let new_refresh_token = create_refresh_token(claims.sub)?;
+
+        Ok(RefreshTokenResponse {
+            access_token: new_access_token,
+            refresh_token: new_refresh_token,
+            token_type: "Bearer".to_string(),
+        })
     }
 }

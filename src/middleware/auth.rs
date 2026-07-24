@@ -1,5 +1,5 @@
 use axum::{extract::Request, middleware::Next, response::Response};
-use crate::utils::auth:: verify_token;
+use crate::utils::auth:: verify_access_token;
 use crate::error::AppError;
 use crate::error::user::UserError;
 pub async fn auth_middleware(mut req: Request, next: Next) -> Result<Response, AppError>{
@@ -14,7 +14,7 @@ pub async fn auth_middleware(mut req: Request, next: Next) -> Result<Response, A
         }
     };
 
-    let claims = verify_token(token)?;
+    let claims = verify_access_token(token)?;
 
     req.extensions_mut().insert(claims.sub);
 
