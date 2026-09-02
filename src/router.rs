@@ -1,5 +1,6 @@
 pub mod user;
 pub mod friend;
+pub mod chat;
 
 use axum::Router;
 use std::sync::Arc;
@@ -10,5 +11,6 @@ pub fn create_router(state: Arc<AppState>) -> Router {
     Router::new()
         .nest("/user", user::public_routes().merge(user::protected_routes()))
         .nest("/friend", friend::protected_routes())
+        .nest("/chat", chat::protected_routes())
         .with_state(state)
 }

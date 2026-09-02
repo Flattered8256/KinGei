@@ -1,6 +1,7 @@
 // error.rs
 pub mod user;
 pub mod friend;
+pub mod chat;
 
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
@@ -9,6 +10,7 @@ use serde::Serialize;
 use sqlx;                                              
 use crate::error::user::UserError;
 use crate::error::friend::FriendError;
+use crate::error::chat::ChatError;
 #[derive(Debug, thiserror::Error)]
 pub enum AppError {
     #[error("Database error: {0}")]
@@ -19,6 +21,9 @@ pub enum AppError {
 
     #[error("{0}")]
     Friend(#[from] FriendError),
+
+    #[error("{0}")]
+    Chat(#[from] ChatError),
 
     #[error("Bcrypt error: {0}")]
     Bcrypt(#[from] bcrypt::BcryptError),  
@@ -42,6 +47,7 @@ impl IntoResponse for AppError {
         match self {
             AppError::User(user_err) => user_err.into_response(),
             AppError::Friend(friend_err) => friend_err.into_response(),
+            AppError::Chat(chat_err) => chat_err.into_response(),
             AppError::Database(e) => {
                 tracing::error!(?e, "database error");
                 internal_error()
