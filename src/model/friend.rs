@@ -1,8 +1,10 @@
 use sqlx::FromRow;
 use uuid::Uuid;
 use chrono::{DateTime,Utc};
+use serde::Serialize;
 
-#[derive(Debug,sqlx::Type)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type, Serialize)]
+#[sqlx(rename_all = "PascalCase")]
 pub enum Status{
     Accept,
     Pending,

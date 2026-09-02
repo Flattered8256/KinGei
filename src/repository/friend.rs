@@ -154,6 +154,24 @@ impl FriendRequestRepository {
         .await
     }
 
+    pub async fn find_by_pair(
+        &self,
+        sender_id: Uuid,
+        receiver_id: Uuid,
+    ) -> Result<Option<FriendRequest>, sqlx::Error> {
+        sqlx::query_as::<_, FriendRequest>(
+            r#"
+            SELECT id, sender_id, receiver_id, status, created_at, updated_at
+            FROM friend_request
+            WHERE sender_id = ? AND receiver_id = ?
+            "#,
+        )
+        .bind(&sender_id)
+        .bind(&receiver_id)
+        .fetch_optional(&self.pool)
+        .await
+    }
+
     pub async fn find_by_status(
         &self,
         sender_id: Uuid,
@@ -224,6 +242,60 @@ impl FriendRequestRepository {
         .bind(&id)
         .fetch_optional(&self.pool)
         .await
+    }
+
+    pub async fn accept_and_create_friend(
+        &self,
+        id: i64,
+        sender_id: Uuid,
+        receiver_id: Uuid,
+    ) -> Result<(FriendRequest, Vec<Friend>), sqlx::Error> {
+        let mut tx = self.pool.begin().await?;
+        let now = Utc::now();
+        let status = Status::Accept;
+
+        let request = sqlx::query_as::<_, FriendRequest>(
+            r#"
+            UPDATE friend_request
+            SET status = ?, updated_at = ?
+            WHERE id = ?
+            RETURNING id, sender_id, receiver_id, status, created_at, updated_at
+            "#,
+        )
+        .bind(&status)
+        .bind(&now)
+        .bind(&id)
+        .fetch_one(&mut *tx)
+        .await?;
+
+        let a = sqlx::query_as::<_, Friend>(
+            r#"
+            INSERT INTO friend(user_id, friend_id, created_at)
+            VALUES (?, ?, ?)
+            RETURNING id, user_id, friend_id, created_at
+            "#,
+        )
+        .bind(&sender_id)
+        .bind(&receiver_id)
+        .bind(&now)
+        .fetch_one(&mut *tx)
+        .await?;
+
+        let b = sqlx::query_as::<_, Friend>(
+            r#"
+            INSERT INTO friend(user_id, friend_id, created_at)
+            VALUES (?, ?, ?)
+            RETURNING id, user_id, friend_id, created_at
+            "#,
+        )
+        .bind(&receiver_id)
+        .bind(&sender_id)
+        .bind(&now)
+        .fetch_one(&mut *tx)
+        .await?;
+
+        tx.commit().await?;
+        Ok((request, vec![a, b]))
     }
 
     pub async fn delete(

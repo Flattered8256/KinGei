@@ -1,4 +1,5 @@
 pub mod user;
+pub mod friend;
 
 use axum::Router;
 use std::sync::Arc;
@@ -8,5 +9,6 @@ use crate::state::AppState;
 pub fn create_router(state: Arc<AppState>) -> Router {
     Router::new()
         .nest("/user", user::public_routes().merge(user::protected_routes()))
+        .nest("/friend", friend::protected_routes())
         .with_state(state)
 }

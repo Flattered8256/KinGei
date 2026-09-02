@@ -1,12 +1,14 @@
 // error.rs
 pub mod user;
+pub mod friend;
 
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use serde::Serialize;
 use sqlx;                                              
-use crate::error::user::UserError;     
+use crate::error::user::UserError;
+use crate::error::friend::FriendError;
 #[derive(Debug, thiserror::Error)]
 pub enum AppError {
     #[error("Database error: {0}")]
@@ -14,6 +16,9 @@ pub enum AppError {
 
     #[error("{0}")]
     User(#[from] UserError),
+
+    #[error("{0}")]
+    Friend(#[from] FriendError),
 
     #[error("Bcrypt error: {0}")]
     Bcrypt(#[from] bcrypt::BcryptError),  
@@ -36,6 +41,7 @@ impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         match self {
             AppError::User(user_err) => user_err.into_response(),
+            AppError::Friend(friend_err) => friend_err.into_response(),
             AppError::Database(e) => {
                 tracing::error!(?e, "database error");
                 internal_error()
