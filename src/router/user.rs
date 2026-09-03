@@ -1,8 +1,11 @@
-use axum::{Router, middleware, routing::{get, patch, post}};
-use crate::{handler::user};
-use std::sync::Arc;
+use crate::handler::user;
 use crate::middleware::auth;
 use crate::state::AppState;
+use axum::{
+    Router, middleware,
+    routing::{get, patch, post},
+};
+use std::sync::Arc;
 pub fn public_routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/register", post(user::register))

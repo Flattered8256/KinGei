@@ -1,9 +1,9 @@
-use jsonwebtoken::{EncodingKey, Header, TokenData, encode, decode, DecodingKey, Validation};
-use serde::{Deserialize, Serialize};
-use uuid::Uuid;
-use std::env;
 use crate::error::AppError;
 use crate::error::user::UserError;
+use jsonwebtoken::{DecodingKey, EncodingKey, Header, TokenData, Validation, decode, encode};
+use serde::{Deserialize, Serialize};
+use std::env;
+use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
@@ -20,8 +20,8 @@ pub struct Claims {
     pub token_type: TokenType,
 }
 
-const ACCESS_TOKEN_DURATION_MINUTES: i64 = 15;          // Access Token 15 分钟
-const REFRESH_TOKEN_DURATION_DAYS: i64 = 7;        // Refresh Token 7 天
+const ACCESS_TOKEN_DURATION_MINUTES: i64 = 15; // Access Token 15 分钟
+const REFRESH_TOKEN_DURATION_DAYS: i64 = 7; // Refresh Token 7 天
 
 fn get_secret() -> String {
     env::var("JWT_SECRET").expect("JWT_SECRET must be set")
@@ -40,7 +40,11 @@ fn create_token_internal(user_id: Uuid, token_type: TokenType) -> Result<String,
         exp: exp.timestamp(),
         token_type,
     };
-    Ok(encode(&Header::default(), &claims, &EncodingKey::from_secret(secret.as_bytes()))?)
+    Ok(encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(secret.as_bytes()),
+    )?)
 }
 
 pub fn create_access_token(user_id: Uuid) -> Result<String, AppError> {
@@ -57,7 +61,8 @@ fn verify_token_generic(token: &str) -> Result<Claims, AppError> {
         token,
         &DecodingKey::from_secret(secret.as_bytes()),
         &Validation::default(),
-    ).map_err(|_| AppError::User(UserError::InvalidToken))?;
+    )
+    .map_err(|_| AppError::User(UserError::InvalidToken))?;
     Ok(data.claims)
 }
 

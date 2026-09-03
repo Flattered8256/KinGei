@@ -1,6 +1,6 @@
 use axum::{
-    extract::{Path, State},
     Extension, Json,
+    extract::{Path, State},
     http::StatusCode,
 };
 use std::sync::Arc;

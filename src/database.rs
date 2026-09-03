@@ -1,4 +1,4 @@
-use sqlx::{SqlitePool,sqlite::SqlitePoolOptions};
+use sqlx::{SqlitePool, sqlite::SqlitePoolOptions};
 
 pub async fn create_pool(database_url: &str) -> SqlitePool {
     SqlitePoolOptions::new()

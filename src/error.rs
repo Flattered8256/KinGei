@@ -1,16 +1,18 @@
 // error.rs
-pub mod user;
-pub mod friend;
 pub mod chat;
+pub mod friend;
+pub mod message;
+pub mod user;
 
+use crate::error::chat::ChatError;
+use crate::error::friend::FriendError;
+use crate::error::message::MessageError;
+use crate::error::user::UserError;
+use axum::Json;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use axum::Json;
 use serde::Serialize;
-use sqlx;                                              
-use crate::error::user::UserError;
-use crate::error::friend::FriendError;
-use crate::error::chat::ChatError;
+use sqlx;
 #[derive(Debug, thiserror::Error)]
 pub enum AppError {
     #[error("Database error: {0}")]
@@ -25,8 +27,11 @@ pub enum AppError {
     #[error("{0}")]
     Chat(#[from] ChatError),
 
+    #[error("{0}")]
+    Message(#[from] MessageError),
+
     #[error("Bcrypt error: {0}")]
-    Bcrypt(#[from] bcrypt::BcryptError),  
+    Bcrypt(#[from] bcrypt::BcryptError),
 
     #[error("JWT error: {0}")]
     JWT(#[from] jsonwebtoken::errors::Error),
@@ -34,7 +39,11 @@ pub enum AppError {
 
 fn internal_error() -> Response {
     let code = "InternalServerError".to_string();
-    (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { code })).into_response()
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(ErrorResponse { code }),
+    )
+        .into_response()
 }
 
 #[derive(Debug, Serialize)]
@@ -48,6 +57,7 @@ impl IntoResponse for AppError {
             AppError::User(user_err) => user_err.into_response(),
             AppError::Friend(friend_err) => friend_err.into_response(),
             AppError::Chat(chat_err) => chat_err.into_response(),
+            AppError::Message(message_err) => message_err.into_response(),
             AppError::Database(e) => {
                 tracing::error!(?e, "database error");
                 internal_error()

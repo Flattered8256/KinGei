@@ -1,4 +1,7 @@
-use axum::{Router, middleware, routing::{get, patch, post, delete}};
+use axum::{
+    Router, middleware,
+    routing::{delete, get, patch, post},
+};
 use std::sync::Arc;
 
 use crate::handler::friend;

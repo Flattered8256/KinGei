@@ -1,7 +1,7 @@
 use crate::model::friend::{Friend, FriendRequest, Status};
+use chrono::Utc;
 use sqlx::SqlitePool;
 use uuid::Uuid;
-use chrono::Utc;
 
 pub struct FriendRepository {
     pool: SqlitePool,
@@ -12,10 +12,7 @@ impl FriendRepository {
         Self { pool }
     }
 
-    pub async fn create(
-        &self,
-        friend: Friend,
-    ) -> Result<Vec<Friend>, sqlx::Error> {
+    pub async fn create(&self, friend: Friend) -> Result<Vec<Friend>, sqlx::Error> {
         let mut tx = self.pool.begin().await?;
         let created_at = friend.created_at;
 
@@ -67,11 +64,7 @@ impl FriendRepository {
         .await
     }
 
-    pub async fn delete(
-        &self,
-        user_id: Uuid,
-        friend_id: Uuid,
-    ) -> Result<u64, sqlx::Error> {
+    pub async fn delete(&self, user_id: Uuid, friend_id: Uuid) -> Result<u64, sqlx::Error> {
         let result = sqlx::query(
             r#"
             DELETE FROM friend
@@ -89,10 +82,7 @@ impl FriendRepository {
         Ok(result.rows_affected())
     }
 
-    pub async fn list(
-        &self,
-        user_id: Uuid,
-    ) -> Result<Vec<Friend>, sqlx::Error> {
+    pub async fn list(&self, user_id: Uuid) -> Result<Vec<Friend>, sqlx::Error> {
         sqlx::query_as::<_, Friend>(
             r#"
             SELECT id, user_id, friend_id, created_at
@@ -138,10 +128,7 @@ impl FriendRequestRepository {
         .await
     }
 
-    pub async fn find_by_id(
-        &self,
-        id: i64,
-    ) -> Result<Option<FriendRequest>, sqlx::Error> {
+    pub async fn find_by_id(&self, id: i64) -> Result<Option<FriendRequest>, sqlx::Error> {
         sqlx::query_as::<_, FriendRequest>(
             r#"
             SELECT id, sender_id, receiver_id, status, created_at, updated_at
@@ -208,10 +195,7 @@ impl FriendRequestRepository {
         .await
     }
 
-    pub async fn list_sent(
-        &self,
-        sender_id: Uuid,
-    ) -> Result<Vec<FriendRequest>, sqlx::Error> {
+    pub async fn list_sent(&self, sender_id: Uuid) -> Result<Vec<FriendRequest>, sqlx::Error> {
         sqlx::query_as::<_, FriendRequest>(
             r#"
             SELECT id, sender_id, receiver_id, status, created_at, updated_at
@@ -298,10 +282,7 @@ impl FriendRequestRepository {
         Ok((request, vec![a, b]))
     }
 
-    pub async fn delete(
-        &self,
-        id: i64,
-    ) -> Result<Option<FriendRequest>, sqlx::Error> {
+    pub async fn delete(&self, id: i64) -> Result<Option<FriendRequest>, sqlx::Error> {
         sqlx::query_as::<_, FriendRequest>(
             r#"
             DELETE FROM friend_request

@@ -1,5 +1,5 @@
-use sqlx::{SqlitePool,QueryBuilder};
 use crate::model::user::User;
+use sqlx::{QueryBuilder, SqlitePool};
 use uuid::Uuid;
 
 #[derive(Debug)]
@@ -15,21 +15,16 @@ pub struct UserRepository {
 
 impl UserRepository {
     pub fn new(pool: SqlitePool) -> Self {
-        Self {
-            pool
-        }
+        Self { pool }
     }
 
-    pub async fn create(
-        &self,
-        user: User
-    ) -> Result<User, sqlx::Error> {
-        sqlx::query_as::<_,User>(
+    pub async fn create(&self, user: User) -> Result<User, sqlx::Error> {
+        sqlx::query_as::<_, User>(
             r#"
             INSERT INTO user(id, username, email, created_at, password_hash) 
             VALUES (?,?,?,?,?)
             RETURNING id, username, email, created_at, password_hash
-            "#
+            "#,
         )
         .bind(&user.id)
         .bind(&user.username)
@@ -40,70 +35,55 @@ impl UserRepository {
         .await
     }
 
-    pub async fn delete(
-        &self,
-        id: Uuid
-    ) -> Result<Option<User>,sqlx::Error> {
-        sqlx::query_as::<_,User>(
+    pub async fn delete(&self, id: Uuid) -> Result<Option<User>, sqlx::Error> {
+        sqlx::query_as::<_, User>(
             r#"
             DELETE FROM user
             WHERE id = ?
             RETURNING id, username, email, created_at, password_hash
-            "#
+            "#,
         )
         .bind(&id)
         .fetch_optional(&self.pool)
         .await
     }
-    pub async fn list(
-        &self,
-    ) -> Result<Vec<User>,sqlx::Error> {
-        sqlx::query_as::<_,User>(
+    pub async fn list(&self) -> Result<Vec<User>, sqlx::Error> {
+        sqlx::query_as::<_, User>(
             r#"
             SELECT id, username, email, created_at, password_hash
             FROM user
-            "#
+            "#,
         )
         .fetch_all(&self.pool)
         .await
     }
-    pub async fn find_by_email(
-        &self,
-        email: &str
-    ) -> Result<Option<User>, sqlx::Error> {
-        sqlx::query_as::<_,User>(
+    pub async fn find_by_email(&self, email: &str) -> Result<Option<User>, sqlx::Error> {
+        sqlx::query_as::<_, User>(
             r#"
             SELECT id, username, email, created_at, password_hash
             FROM user
             WHERE email = ?
-            "#
+            "#,
         )
         .bind(email)
         .fetch_optional(&self.pool)
         .await
     }
 
-    pub async fn find_by_id(
-        &self,
-        id: Uuid
-    )-> Result<Option<User>,sqlx::Error> {
-        sqlx::query_as::<_,User> (
+    pub async fn find_by_id(&self, id: Uuid) -> Result<Option<User>, sqlx::Error> {
+        sqlx::query_as::<_, User>(
             r#"
             SELECT id, username, email, created_at, password_hash
             FROM user
             WHERE id = ?
-            "#
+            "#,
         )
         .bind(&id)
         .fetch_optional(&self.pool)
         .await
     }
 
-    pub async fn update(
-        &self,
-        id: Uuid,
-        user: UpdateUser
-    ) -> Result<Option<User>, sqlx::Error> {
+    pub async fn update(&self, id: Uuid, user: UpdateUser) -> Result<Option<User>, sqlx::Error> {
         let mut builder = QueryBuilder::new("UPDATE user SET ");
 
         let mut has_set = false;
@@ -122,7 +102,7 @@ impl UserRepository {
             builder.push_bind(email);
             has_set = true;
         }
-        
+
         if let Some(password_hash) = &user.password_hash {
             if has_set {
                 builder.push(",");
@@ -131,7 +111,7 @@ impl UserRepository {
             builder.push_bind(password_hash);
             has_set = true;
         }
-        
+
         if !has_set {
             return Ok(None);
         }
@@ -140,8 +120,9 @@ impl UserRepository {
         builder.push_bind(id);
         builder.push(" RETURNING id, username, email, created_at, password_hash");
 
-        builder.build_query_as::<User>()
+        builder
+            .build_query_as::<User>()
             .fetch_optional(&self.pool)
             .await
-        }   
+    }
 }

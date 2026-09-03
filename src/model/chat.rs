@@ -25,4 +25,5 @@ pub struct ChatMember {
     pub chat_id: i64,
     pub user_id: Uuid,
     pub created_at: DateTime<Utc>,
+    pub last_read_message_id: Option<i64>,
 }

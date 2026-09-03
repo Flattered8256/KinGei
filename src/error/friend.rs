@@ -1,6 +1,6 @@
+use axum::Json;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use axum::Json;
 use serde::Serialize;
 
 #[derive(Debug, thiserror::Error)]
@@ -44,6 +44,12 @@ impl IntoResponse for FriendError {
             FriendError::NotFriends => (StatusCode::NOT_FOUND, self.to_string()),
         };
 
-        (status, Json(FriendErrorResponse { code: error_response })).into_response()
+        (
+            status,
+            Json(FriendErrorResponse {
+                code: error_response,
+            }),
+        )
+            .into_response()
     }
 }

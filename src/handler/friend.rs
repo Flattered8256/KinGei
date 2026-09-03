@@ -1,9 +1,13 @@
-use axum::{extract::{State, Path}, Json, Extension, http::StatusCode};
+use axum::{
+    Extension, Json,
+    extract::{Path, State},
+    http::StatusCode,
+};
 use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::error::AppError;
-use crate::serializer::friend::{SendFriendRequest, FriendRequestResponse, FriendResponse};
+use crate::serializer::friend::{FriendRequestResponse, FriendResponse, SendFriendRequest};
 use crate::state::AppState;
 
 pub async fn send_request(
@@ -71,6 +75,9 @@ pub async fn delete_friend(
     Extension(user_id): Extension<Uuid>,
     Path(friend_id): Path<Uuid>,
 ) -> Result<StatusCode, AppError> {
-    state.friend_service.delete_friend(user_id, friend_id).await?;
+    state
+        .friend_service
+        .delete_friend(user_id, friend_id)
+        .await?;
     Ok(StatusCode::NO_CONTENT)
 }

@@ -1,46 +1,45 @@
-use chrono::{DateTime,Utc};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use serde::{Serialize,Deserialize};
 
 use crate::model::user::User;
 
-#[derive(Debug,Serialize)]
-pub struct UserResponse{
+#[derive(Debug, Serialize)]
+pub struct UserResponse {
     pub id: Uuid,
     pub username: String,
     pub email: String,
     pub created_at: DateTime<Utc>,
 }
- #[derive(Debug, Serialize)]
-pub struct LoginResponse{
+#[derive(Debug, Serialize)]
+pub struct LoginResponse {
     pub access_token: String,
     pub refresh_token: String,
     pub token_type: String,
     pub user: UserResponse,
 }
 
-#[derive(Debug,Deserialize)]
-pub struct CreateUserRequest{
+#[derive(Debug, Deserialize)]
+pub struct CreateUserRequest {
     pub username: String,
     pub email: String,
     pub password: String,
 }
 
-#[derive(Debug,Deserialize)]
-pub struct LoginRequest{
+#[derive(Debug, Deserialize)]
+pub struct LoginRequest {
     pub email: String,
     pub password: String,
 }
 
-#[derive(Debug,Deserialize)]
-pub struct UpdateUserRequest{
+#[derive(Debug, Deserialize)]
+pub struct UpdateUserRequest {
     pub username: Option<String>,
     pub email: Option<String>,
-    
 }
 
-#[derive(Debug,Deserialize)]
-pub struct ChangePasswordRequest{
+#[derive(Debug, Deserialize)]
+pub struct ChangePasswordRequest {
     pub old_password: String,
     pub new_password: String,
 }
@@ -58,7 +57,7 @@ pub struct RefreshTokenResponse {
 }
 
 impl From<User> for UserResponse {
-    fn from(user:User) -> Self{
+    fn from(user: User) -> Self {
         Self {
             id: user.id,
             username: user.username,

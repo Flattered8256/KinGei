@@ -62,11 +62,7 @@ impl ChatRepository {
         .await
     }
 
-    pub async fn create_direct(
-        &self,
-        user_id: Uuid,
-        friend_id: Uuid,
-    ) -> Result<Chat, sqlx::Error> {
+    pub async fn create_direct(&self, user_id: Uuid, friend_id: Uuid) -> Result<Chat, sqlx::Error> {
         let mut tx = self.pool.begin().await?;
         let now = Utc::now();
         let chat_type = ChatType::Direct;
@@ -113,11 +109,7 @@ impl ChatRepository {
         Ok(chat)
     }
 
-    pub async fn create_group(
-        &self,
-        owner_id: Uuid,
-        name: &str,
-    ) -> Result<Chat, sqlx::Error> {
+    pub async fn create_group(&self, owner_id: Uuid, name: &str) -> Result<Chat, sqlx::Error> {
         let mut tx = self.pool.begin().await?;
         let now = Utc::now();
         let chat_type = ChatType::Group;
@@ -137,10 +129,10 @@ impl ChatRepository {
         .await?;
 
         sqlx::query(
-        r#"
+            r#"
         INSERT INTO chat_member(chat_id, user_id, created_at)
         VALUES (?, ?, ?)
-        "#
+        "#,
         )
         .bind(&chat.id)
         .bind(&owner_id)
@@ -185,7 +177,7 @@ impl ChatRepository {
     pub async fn list_members(&self, chat_id: i64) -> Result<Vec<ChatMember>, sqlx::Error> {
         sqlx::query_as::<_, ChatMember>(
             r#"
-            SELECT id, chat_id, user_id, created_at
+            SELECT id, chat_id, user_id, created_at, last_read_message_id
             FROM chat_member
             WHERE chat_id = ?
             ORDER BY created_at ASC, id ASC
@@ -203,7 +195,7 @@ impl ChatRepository {
     ) -> Result<Option<ChatMember>, sqlx::Error> {
         sqlx::query_as::<_, ChatMember>(
             r#"
-            SELECT id, chat_id, user_id, created_at
+            SELECT id, chat_id, user_id, created_at, last_read_message_id
             FROM chat_member
             WHERE chat_id = ? AND user_id = ?
             "#,
@@ -214,17 +206,13 @@ impl ChatRepository {
         .await
     }
 
-    pub async fn add_member(
-        &self,
-        chat_id: i64,
-        user_id: Uuid,
-    ) -> Result<ChatMember, sqlx::Error> {
+    pub async fn add_member(&self, chat_id: i64, user_id: Uuid) -> Result<ChatMember, sqlx::Error> {
         let now = Utc::now();
         sqlx::query_as::<_, ChatMember>(
             r#"
             INSERT INTO chat_member(chat_id, user_id, created_at)
             VALUES (?, ?, ?)
-            RETURNING id, chat_id, user_id, created_at
+            RETURNING id, chat_id, user_id, created_at, last_read_message_id
             "#,
         )
         .bind(&chat_id)
@@ -243,7 +231,7 @@ impl ChatRepository {
             r#"
             DELETE FROM chat_member
             WHERE chat_id = ? AND user_id = ?
-            RETURNING id, chat_id, user_id, created_at
+            RETURNING id, chat_id, user_id, created_at, last_read_message_id
             "#,
         )
         .bind(&chat_id)
@@ -252,9 +240,18 @@ impl ChatRepository {
         .await
     }
 
-
     pub async fn delete_chat(&self, id: i64) -> Result<(), sqlx::Error> {
         let mut tx = self.pool.begin().await?;
+
+        sqlx::query(
+            r#"
+            DELETE FROM message
+            WHERE chat_id = ?
+            "#,
+        )
+        .bind(&id)
+        .execute(&mut *tx)
+        .await?;
 
         sqlx::query(
             r#"

@@ -1,8 +1,8 @@
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::error::friend::FriendError;
 use crate::error::AppError;
+use crate::error::friend::FriendError;
 use crate::model::friend::Status;
 use crate::repository::friend::{FriendRepository, FriendRequestRepository};
 use crate::repository::user::UserRepository;
@@ -43,7 +43,12 @@ impl FriendService {
             .await?
             .ok_or(AppError::Friend(FriendError::UserNotFound))?;
 
-        if self.friend_repo.find(sender_id, receiver_id).await?.is_some() {
+        if self
+            .friend_repo
+            .find(sender_id, receiver_id)
+            .await?
+            .is_some()
+        {
             return Err(AppError::Friend(FriendError::AlreadyFriends));
         }
 
@@ -61,7 +66,11 @@ impl FriendService {
             return Err(AppError::Friend(FriendError::RequestAlreadyPending));
         }
 
-        if let Some(existing) = self.request_repo.find_by_pair(sender_id, receiver_id).await? {
+        if let Some(existing) = self
+            .request_repo
+            .find_by_pair(sender_id, receiver_id)
+            .await?
+        {
             let updated = self
                 .request_repo
                 .update_status(existing.id, Status::Pending)
@@ -79,15 +88,18 @@ impl FriendService {
         receiver_id: Uuid,
     ) -> Result<Vec<FriendRequestResponse>, AppError> {
         let requests = self.request_repo.list_received(receiver_id).await?;
-        Ok(requests.into_iter().map(FriendRequestResponse::from).collect())
+        Ok(requests
+            .into_iter()
+            .map(FriendRequestResponse::from)
+            .collect())
     }
 
-    pub async fn list_sent(
-        &self,
-        sender_id: Uuid,
-    ) -> Result<Vec<FriendRequestResponse>, AppError> {
+    pub async fn list_sent(&self, sender_id: Uuid) -> Result<Vec<FriendRequestResponse>, AppError> {
         let requests = self.request_repo.list_sent(sender_id).await?;
-        Ok(requests.into_iter().map(FriendRequestResponse::from).collect())
+        Ok(requests
+            .into_iter()
+            .map(FriendRequestResponse::from)
+            .collect())
     }
 
     pub async fn accept(
@@ -173,10 +185,7 @@ impl FriendService {
         Ok(FriendRequestResponse::from(deleted))
     }
 
-    pub async fn list_friends(
-        &self,
-        user_id: Uuid,
-    ) -> Result<Vec<FriendResponse>, AppError> {
+    pub async fn list_friends(&self, user_id: Uuid) -> Result<Vec<FriendResponse>, AppError> {
         let friends = self.friend_repo.list(user_id).await?;
         let mut responses = Vec::with_capacity(friends.len());
 
@@ -195,11 +204,7 @@ impl FriendService {
         Ok(responses)
     }
 
-    pub async fn delete_friend(
-        &self,
-        user_id: Uuid,
-        friend_id: Uuid,
-    ) -> Result<(), AppError> {
+    pub async fn delete_friend(&self, user_id: Uuid, friend_id: Uuid) -> Result<(), AppError> {
         if self.friend_repo.find(user_id, friend_id).await?.is_none() {
             return Err(AppError::Friend(FriendError::NotFriends));
         }

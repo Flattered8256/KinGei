@@ -1,11 +1,12 @@
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::error::chat::ChatError;
 use crate::error::AppError;
+use crate::error::chat::ChatError;
 use crate::model::chat::{Chat, ChatType};
 use crate::repository::chat::ChatRepository;
 use crate::repository::friend::FriendRepository;
+use crate::repository::message::MessageRepository;
 use crate::repository::user::UserRepository;
 use crate::serializer::chat::{
     ChatMemberResponse, ChatResponse, CreateDirectRequest, CreateGroupRequest, InviteMemberRequest,
@@ -16,6 +17,7 @@ pub struct ChatService {
     chat_repo: Arc<ChatRepository>,
     friend_repo: Arc<FriendRepository>,
     user_repo: Arc<UserRepository>,
+    message_repo: Arc<MessageRepository>,
 }
 
 impl ChatService {
@@ -23,11 +25,13 @@ impl ChatService {
         chat_repo: Arc<ChatRepository>,
         friend_repo: Arc<FriendRepository>,
         user_repo: Arc<UserRepository>,
+        message_repo: Arc<MessageRepository>,
     ) -> Self {
         Self {
             chat_repo,
             friend_repo,
             user_repo,
+            message_repo,
         }
     }
 
@@ -52,11 +56,11 @@ impl ChatService {
         }
 
         if let Some(existing) = self.chat_repo.find_direct(user_id, friend_id).await? {
-            return self.to_response(existing).await;
+            return self.to_response(user_id, existing).await;
         }
 
         let created = self.chat_repo.create_direct(user_id, friend_id).await?;
-        self.to_response(created).await
+        self.to_response(user_id, created).await
     }
 
     pub async fn create_group(
@@ -69,26 +73,22 @@ impl ChatService {
             return Err(AppError::Chat(ChatError::EmptyName));
         }
 
-
-        let created = self
-            .chat_repo
-            .create_group(user_id, name)
-            .await?;
-        self.to_response(created).await
+        let created = self.chat_repo.create_group(user_id, name).await?;
+        self.to_response(user_id, created).await
     }
 
     pub async fn list(&self, user_id: Uuid) -> Result<Vec<ChatResponse>, AppError> {
         let chats = self.chat_repo.list_by_user(user_id).await?;
         let mut responses = Vec::with_capacity(chats.len());
         for chat in chats {
-            responses.push(self.to_response(chat).await?);
+            responses.push(self.to_response(user_id, chat).await?);
         }
         Ok(responses)
     }
 
     pub async fn get(&self, user_id: Uuid, chat_id: i64) -> Result<ChatResponse, AppError> {
         let chat = self.require_member(user_id, chat_id).await?;
-        self.to_response(chat).await
+        self.to_response(user_id, chat).await
     }
 
     pub async fn update(
@@ -115,7 +115,7 @@ impl ChatService {
             .await?
             .ok_or(AppError::Chat(ChatError::ChatNotFound))?;
 
-        self.to_response(updated).await
+        self.to_response(user_id, updated).await
     }
 
     pub async fn invite(
@@ -136,7 +136,12 @@ impl ChatService {
             .await?
             .ok_or(AppError::Chat(ChatError::UserNotFound))?;
 
-        if self.friend_repo.find(user_id, request.user_id).await?.is_none() {
+        if self
+            .friend_repo
+            .find(user_id, request.user_id)
+            .await?
+            .is_none()
+        {
             return Err(AppError::Chat(ChatError::NotFriends));
         }
 
@@ -155,7 +160,7 @@ impl ChatService {
             .find_by_id(chat.id)
             .await?
             .ok_or(AppError::Chat(ChatError::ChatNotFound))?;
-        self.to_response(chat).await
+        self.to_response(user_id, chat).await
     }
 
     pub async fn remove_member(
@@ -175,8 +180,8 @@ impl ChatService {
                 .ok_or(AppError::Chat(ChatError::NotMember))?;
 
             if is_owner {
-                    self.chat_repo.delete_chat(chat.id).await?;                
-                }
+                self.chat_repo.delete_chat(chat.id).await?;
+            }
 
             return Ok(());
         }
@@ -200,7 +205,12 @@ impl ChatService {
             .await?
             .ok_or(AppError::Chat(ChatError::ChatNotFound))?;
 
-        if self.chat_repo.find_member(chat.id, user_id).await?.is_none() {
+        if self
+            .chat_repo
+            .find_member(chat.id, user_id)
+            .await?
+            .is_none()
+        {
             return Err(AppError::Chat(ChatError::NotMember));
         }
 
@@ -214,19 +224,29 @@ impl ChatService {
         Ok(())
     }
 
-    async fn to_response(&self, chat: Chat) -> Result<ChatResponse, AppError> {
+    async fn to_response(&self, user_id: Uuid, chat: Chat) -> Result<ChatResponse, AppError> {
         let members = self.chat_repo.list_members(chat.id).await?;
         let mut member = Vec::with_capacity(members.len());
+        let mut last_read_message_id = None;
 
         for item in members {
+            if item.user_id == user_id {
+                last_read_message_id = item.last_read_message_id;
+            }
             let Some(user) = self.user_repo.find_by_id(item.user_id).await? else {
                 continue;
             };
             member.push(ChatMemberResponse {
                 user: user.into(),
+                last_read_message_id: item.last_read_message_id,
             });
         }
 
-        Ok(ChatResponse::from(chat, member))
+        let unread_count = self
+            .message_repo
+            .unread_count(chat.id, user_id, last_read_message_id)
+            .await?;
+
+        Ok(ChatResponse::from(chat, member, unread_count))
     }
 }

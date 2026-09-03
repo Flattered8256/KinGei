@@ -1,8 +1,8 @@
+use crate::model::chat::{Chat, ChatType};
+use crate::serializer::user::UserResponse;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use crate::serializer::user::UserResponse;
-use crate::model::chat::{ChatType,Chat};
 
 #[derive(Debug, Deserialize)]
 pub struct CreateDirectRequest {
@@ -27,6 +27,7 @@ pub struct InviteMemberRequest {
 #[derive(Debug, Serialize)]
 pub struct ChatMemberResponse {
     pub user: UserResponse,
+    pub last_read_message_id: Option<i64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -38,13 +39,11 @@ pub struct ChatResponse {
     pub owner_id: Option<Uuid>,
     pub member: Vec<ChatMemberResponse>,
     pub created_at: DateTime<Utc>,
+    pub unread_count: i64,
 }
 
 impl ChatResponse {
-    pub fn from(
-        chat: Chat,
-        member: Vec<ChatMemberResponse>,
-    ) -> Self {
+    pub fn from(chat: Chat, member: Vec<ChatMemberResponse>, unread_count: i64) -> Self {
         Self {
             id: chat.id,
             chat_type: chat.chat_type,
@@ -52,6 +51,7 @@ impl ChatResponse {
             owner_id: chat.owner_id,
             member,
             created_at: chat.created_at,
+            unread_count,
         }
     }
 }
