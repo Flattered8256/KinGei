@@ -9,7 +9,7 @@ pub struct SendFriendRequest {
     pub receiver_id: Uuid,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct FriendRequestResponse {
     pub id: i64,
     pub sender_id: Uuid,

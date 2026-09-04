@@ -10,6 +10,8 @@ sqlx = { version = "0.9",features = ["runtime-tokio", "sqlite", "derive","chrono
 uuid = { version = "1", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
+async-stream = "0.3"
+futures = "0.3"
 dotenvy = "0.15.7"
 thiserror = "2"
 tracing = "0.1"

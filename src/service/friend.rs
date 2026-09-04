@@ -3,6 +3,7 @@ use uuid::Uuid;
 
 use crate::error::AppError;
 use crate::error::friend::FriendError;
+use crate::event::{ClientEvent, EventHub};
 use crate::model::friend::Status;
 use crate::repository::friend::{FriendRepository, FriendRequestRepository};
 use crate::repository::user::UserRepository;
@@ -12,6 +13,7 @@ pub struct FriendService {
     friend_repo: Arc<FriendRepository>,
     request_repo: Arc<FriendRequestRepository>,
     user_repo: Arc<UserRepository>,
+    event_hub: EventHub,
 }
 
 impl FriendService {
@@ -19,11 +21,13 @@ impl FriendService {
         friend_repo: Arc<FriendRepository>,
         request_repo: Arc<FriendRequestRepository>,
         user_repo: Arc<UserRepository>,
+        event_hub: EventHub,
     ) -> Self {
         Self {
             friend_repo,
             request_repo,
             user_repo,
+            event_hub,
         }
     }
 
@@ -76,11 +80,21 @@ impl FriendService {
                 .update_status(existing.id, Status::Pending)
                 .await?
                 .ok_or(AppError::Friend(FriendError::RequestNotFound))?;
-            return Ok(FriendRequestResponse::from(updated));
+            let response = FriendRequestResponse::from(updated);
+            self.emit(
+                receiver_id,
+                ClientEvent::FriendRequestCreated(response.clone()),
+            );
+            return Ok(response);
         }
 
         let created = self.request_repo.create(sender_id, receiver_id).await?;
-        Ok(FriendRequestResponse::from(created))
+        let response = FriendRequestResponse::from(created);
+        self.emit(
+            receiver_id,
+            ClientEvent::FriendRequestCreated(response.clone()),
+        );
+        Ok(response)
     }
 
     pub async fn list_received(
@@ -126,7 +140,12 @@ impl FriendService {
             .accept_and_create_friend(request.id, request.sender_id, request.receiver_id)
             .await?;
 
-        Ok(FriendRequestResponse::from(accepted))
+        let response = FriendRequestResponse::from(accepted);
+        self.emit(
+            request.sender_id,
+            ClientEvent::FriendRequestAccepted(response.clone()),
+        );
+        Ok(response)
     }
 
     pub async fn reject(
@@ -154,7 +173,12 @@ impl FriendService {
             .await?
             .ok_or(AppError::Friend(FriendError::RequestNotFound))?;
 
-        Ok(FriendRequestResponse::from(rejected))
+        let response = FriendRequestResponse::from(rejected);
+        self.emit(
+            request.sender_id,
+            ClientEvent::FriendRequestRejected(response.clone()),
+        );
+        Ok(response)
     }
 
     pub async fn cancel_request(
@@ -182,7 +206,12 @@ impl FriendService {
             .await?
             .ok_or(AppError::Friend(FriendError::RequestNotFound))?;
 
-        Ok(FriendRequestResponse::from(deleted))
+        let response = FriendRequestResponse::from(deleted);
+        self.emit(
+            request.receiver_id,
+            ClientEvent::FriendRequestCancelled(response.clone()),
+        );
+        Ok(response)
     }
 
     pub async fn list_friends(&self, user_id: Uuid) -> Result<Vec<FriendResponse>, AppError> {
@@ -210,6 +239,11 @@ impl FriendService {
         }
 
         self.friend_repo.delete(user_id, friend_id).await?;
+        self.emit(friend_id, ClientEvent::friend_deleted(user_id));
         Ok(())
+    }
+
+    fn emit(&self, user_id: Uuid, event: ClientEvent) {
+        self.event_hub.publish(user_id, Arc::new(event));
     }
 }

@@ -1,3 +1,4 @@
+use crate::event::EventHub;
 use crate::repository::chat::ChatRepository;
 use crate::repository::friend::{FriendRepository, FriendRequestRepository};
 use crate::repository::message::MessageRepository;
@@ -14,6 +15,7 @@ pub struct AppState {
     pub friend_service: FriendService,
     pub chat_service: ChatService,
     pub message_service: MessageService,
+    pub event_hub: EventHub,
 }
 
 impl AppState {
@@ -23,20 +25,29 @@ impl AppState {
         let friend_request_repo = Arc::new(FriendRequestRepository::new(pool.clone()));
         let chat_repo = Arc::new(ChatRepository::new(pool.clone()));
         let message_repo = Arc::new(MessageRepository::new(pool));
+        let event_hub = EventHub::new();
         Self {
             user_service: UserService::new(user_repo.clone()),
             friend_service: FriendService::new(
                 friend_repo.clone(),
                 friend_request_repo,
                 user_repo.clone(),
+                event_hub.clone(),
             ),
             chat_service: ChatService::new(
                 chat_repo.clone(),
                 friend_repo.clone(),
                 user_repo,
                 message_repo.clone(),
+                event_hub.clone(),
             ),
-            message_service: MessageService::new(message_repo, chat_repo, friend_repo),
+            message_service: MessageService::new(
+                message_repo,
+                chat_repo,
+                friend_repo,
+                event_hub.clone(),
+            ),
+            event_hub,
         }
     }
 }

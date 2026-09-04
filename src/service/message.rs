@@ -4,6 +4,7 @@ use uuid::Uuid;
 
 use crate::error::AppError;
 use crate::error::message::MessageError;
+use crate::event::{ClientEvent, EventHub};
 use crate::model::chat::{Chat, ChatType};
 use crate::repository::chat::ChatRepository;
 use crate::repository::friend::FriendRepository;
@@ -20,6 +21,7 @@ pub struct MessageService {
     message_repo: Arc<MessageRepository>,
     chat_repo: Arc<ChatRepository>,
     friend_repo: Arc<FriendRepository>,
+    event_hub: EventHub,
 }
 
 impl MessageService {
@@ -27,11 +29,13 @@ impl MessageService {
         message_repo: Arc<MessageRepository>,
         chat_repo: Arc<ChatRepository>,
         friend_repo: Arc<FriendRepository>,
+        event_hub: EventHub,
     ) -> Self {
         Self {
             message_repo,
             chat_repo,
             friend_repo,
+            event_hub,
         }
     }
 
@@ -50,7 +54,10 @@ impl MessageService {
         self.require_direct_friends(user_id, &chat).await?;
 
         let created = self.message_repo.create(chat.id, user_id, content).await?;
-        Ok(MessageResponse::from(created))
+        let response = MessageResponse::from(created);
+        self.publish_message_created(chat.id, response.clone())
+            .await;
+        Ok(response)
     }
 
     pub async fn list(
@@ -93,6 +100,9 @@ impl MessageService {
             .message_repo
             .unread_count(chat.id, user_id, Some(last_read_message_id))
             .await?;
+
+        self.publish_message_read(chat.id, user_id, last_read_message_id)
+            .await;
 
         Ok(ReadCursorResponse {
             last_read_message_id,
@@ -139,5 +149,37 @@ impl MessageService {
         }
 
         Ok(())
+    }
+
+    async fn publish_message_created(&self, chat_id: i64, response: MessageResponse) {
+        match self.chat_repo.list_members(chat_id).await {
+            Ok(members) => {
+                self.event_hub.publish_many(
+                    members.into_iter().map(|member| member.user_id),
+                    Arc::new(ClientEvent::MessageCreated(response)),
+                );
+            }
+            Err(e) => tracing::error!(?e, chat_id, "failed to list members for message event"),
+        }
+    }
+
+    async fn publish_message_read(&self, chat_id: i64, user_id: Uuid, last_read_message_id: i64) {
+        match self.chat_repo.list_members(chat_id).await {
+            Ok(members) => {
+                let event = Arc::new(ClientEvent::message_read(
+                    chat_id,
+                    user_id,
+                    last_read_message_id,
+                ));
+                self.event_hub.publish_many(
+                    members
+                        .into_iter()
+                        .filter(|member| member.user_id != user_id)
+                        .map(|member| member.user_id),
+                    event,
+                );
+            }
+            Err(e) => tracing::error!(?e, chat_id, "failed to list members for read event"),
+        }
     }
 }

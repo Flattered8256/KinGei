@@ -3,6 +3,7 @@ use uuid::Uuid;
 
 use crate::error::AppError;
 use crate::error::chat::ChatError;
+use crate::event::{ClientEvent, EventHub};
 use crate::model::chat::{Chat, ChatType};
 use crate::repository::chat::ChatRepository;
 use crate::repository::friend::FriendRepository;
@@ -18,6 +19,7 @@ pub struct ChatService {
     friend_repo: Arc<FriendRepository>,
     user_repo: Arc<UserRepository>,
     message_repo: Arc<MessageRepository>,
+    event_hub: EventHub,
 }
 
 impl ChatService {
@@ -26,12 +28,14 @@ impl ChatService {
         friend_repo: Arc<FriendRepository>,
         user_repo: Arc<UserRepository>,
         message_repo: Arc<MessageRepository>,
+        event_hub: EventHub,
     ) -> Self {
         Self {
             chat_repo,
             friend_repo,
             user_repo,
             message_repo,
+            event_hub,
         }
     }
 
@@ -60,6 +64,8 @@ impl ChatService {
         }
 
         let created = self.chat_repo.create_direct(user_id, friend_id).await?;
+        self.publish_chat_to_members(&created, ClientEvent::ChatCreated)
+            .await;
         self.to_response(user_id, created).await
     }
 
@@ -74,6 +80,8 @@ impl ChatService {
         }
 
         let created = self.chat_repo.create_group(user_id, name).await?;
+        self.publish_chat_to_members(&created, ClientEvent::ChatCreated)
+            .await;
         self.to_response(user_id, created).await
     }
 
@@ -115,6 +123,8 @@ impl ChatService {
             .await?
             .ok_or(AppError::Chat(ChatError::ChatNotFound))?;
 
+        self.publish_chat_to_members(&updated, ClientEvent::ChatUpdated)
+            .await;
         self.to_response(user_id, updated).await
     }
 
@@ -160,6 +170,8 @@ impl ChatService {
             .find_by_id(chat.id)
             .await?
             .ok_or(AppError::Chat(ChatError::ChatNotFound))?;
+        self.publish_chat_to_members(&chat, ClientEvent::ChatMemberAdded)
+            .await;
         self.to_response(user_id, chat).await
     }
 
@@ -172,6 +184,9 @@ impl ChatService {
         let chat = self.require_member(user_id, chat_id).await?;
         self.require_group(&chat)?;
 
+        let members = self.chat_repo.list_members(chat.id).await?;
+        let member_ids: Vec<Uuid> = members.iter().map(|member| member.user_id).collect();
+
         if target_id == user_id {
             let is_owner = chat.owner_id == Some(user_id);
             self.chat_repo
@@ -181,6 +196,13 @@ impl ChatService {
 
             if is_owner {
                 self.chat_repo.delete_chat(chat.id).await?;
+                self.event_hub
+                    .publish_many(member_ids, Arc::new(ClientEvent::chat_deleted(chat.id)));
+            } else {
+                self.event_hub.publish_many(
+                    member_ids,
+                    Arc::new(ClientEvent::chat_member_removed(chat.id, target_id)),
+                );
             }
 
             return Ok(());
@@ -194,6 +216,11 @@ impl ChatService {
             .delete_member(chat.id, target_id)
             .await?
             .ok_or(AppError::Chat(ChatError::NotMember))?;
+
+        self.event_hub.publish_many(
+            member_ids,
+            Arc::new(ClientEvent::chat_member_removed(chat.id, target_id)),
+        );
 
         Ok(())
     }
@@ -248,5 +275,36 @@ impl ChatService {
             .await?;
 
         Ok(ChatResponse::from(chat, member, unread_count))
+    }
+
+    async fn publish_chat_to_members(&self, chat: &Chat, wrap: fn(ChatResponse) -> ClientEvent) {
+        let members = match self.chat_repo.list_members(chat.id).await {
+            Ok(members) => members,
+            Err(e) => {
+                tracing::error!(
+                    ?e,
+                    chat_id = chat.id,
+                    "failed to list members for chat event"
+                );
+                return;
+            }
+        };
+
+        for member in members {
+            match self.to_response(member.user_id, chat.clone()).await {
+                Ok(response) => {
+                    self.event_hub
+                        .publish(member.user_id, Arc::new(wrap(response)));
+                }
+                Err(e) => {
+                    tracing::error!(
+                        ?e,
+                        chat_id = chat.id,
+                        user_id = %member.user_id,
+                        "failed to build chat event"
+                    );
+                }
+            }
+        }
     }
 }

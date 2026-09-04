@@ -24,13 +24,13 @@ pub struct InviteMemberRequest {
     pub user_id: Uuid,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ChatMemberResponse {
     pub user: UserResponse,
     pub last_read_message_id: Option<i64>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ChatResponse {
     pub id: i64,
     #[serde(rename = "type")]

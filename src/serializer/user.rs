@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::model::user::User;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct UserResponse {
     pub id: Uuid,
     pub username: String,

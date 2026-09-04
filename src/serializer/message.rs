@@ -20,7 +20,7 @@ pub struct UpdateReadCursorRequest {
     pub last_read_message_id: i64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MessageResponse {
     pub id: i64,
     pub chat_id: i64,

@@ -1,5 +1,6 @@
 mod database;
 mod error;
+mod event;
 mod handler;
 mod middleware;
 mod model;

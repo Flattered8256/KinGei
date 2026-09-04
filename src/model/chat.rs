@@ -10,7 +10,7 @@ pub enum ChatType {
     Group,
 }
 
-#[derive(Debug, FromRow)]
+#[derive(Debug, Clone, FromRow)]
 pub struct Chat {
     pub id: i64,
     pub chat_type: ChatType,
