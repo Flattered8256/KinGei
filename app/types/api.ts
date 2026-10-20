@@ -2,30 +2,33 @@ export type ChatType = 'Direct' | 'Group'
 
 export type FriendRequestStatus = 'Accept' | 'Pending' | 'Reject'
 
-export type ApiErrorCode =
-  | 'UserAlreadyExists'
-  | 'NotFound'
-  | 'InvalidCredentials'
-  | 'PasswordMismatch'
-  | 'InvalidToken'
-  | 'CannotAddSelf'
-  | 'UserNotFound'
-  | 'AlreadyFriends'
-  | 'RequestAlreadyPending'
-  | 'RequestNotFound'
-  | 'NotRequestReceiver'
-  | 'NotRequestSender'
-  | 'RequestNotPending'
-  | 'NotFriends'
-  | 'ChatNotFound'
-  | 'NotMember'
-  | 'NotOwner'
-  | 'CannotModifyDirect'
-  | 'AlreadyMember'
-  | 'EmptyName'
-  | 'EmptyContent'
-  | 'MessageNotFound'
-  | 'InternalServerError'
+export const API_ERROR_CODES = [
+  'UserAlreadyExists',
+  'NotFound',
+  'InvalidCredentials',
+  'PasswordMismatch',
+  'InvalidToken',
+  'CannotAddSelf',
+  'UserNotFound',
+  'AlreadyFriends',
+  'RequestAlreadyPending',
+  'RequestNotFound',
+  'NotRequestReceiver',
+  'NotRequestSender',
+  'RequestNotPending',
+  'NotFriends',
+  'ChatNotFound',
+  'NotMember',
+  'NotOwner',
+  'CannotModifyDirect',
+  'AlreadyMember',
+  'EmptyName',
+  'EmptyContent',
+  'MessageNotFound',
+  'InternalServerError',
+] as const
+
+export type ApiErrorCode = (typeof API_ERROR_CODES)[number]
 
 export interface User {
   id: string

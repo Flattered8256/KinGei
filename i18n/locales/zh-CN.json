@@ -1,0 +1,38 @@
+{
+  "error": {
+    "UserAlreadyExists": "该邮箱已被注册",
+    "NotFound": "用户不存在",
+    "InvalidCredentials": "邮箱或密码错误",
+    "PasswordMismatch": "原密码不正确",
+    "InvalidToken": "登录已过期，请重新登录",
+    "CannotAddSelf": "不能添加自己",
+    "UserNotFound": "用户不存在",
+    "AlreadyFriends": "已经是好友",
+    "RequestAlreadyPending": "好友申请已发送",
+    "RequestNotFound": "好友申请不存在",
+    "NotRequestReceiver": "无权处理该申请",
+    "NotRequestSender": "无权取消该申请",
+    "RequestNotPending": "该申请已处理",
+    "NotFriends": "还不是好友",
+    "ChatNotFound": "会话不存在",
+    "NotMember": "不是该会话成员",
+    "NotOwner": "只有群主可以操作",
+    "CannotModifyDirect": "私聊不能修改",
+    "AlreadyMember": "已经是群成员",
+    "EmptyName": "名称不能为空",
+    "EmptyContent": "消息不能为空",
+    "MessageNotFound": "消息不存在",
+    "InternalServerError": "服务异常，请稍后重试"
+  },
+  "enum": {
+    "chatType": {
+      "Direct": "私聊",
+      "Group": "群聊"
+    },
+    "friendStatus": {
+      "Pending": "待处理",
+      "Accept": "已接受",
+      "Reject": "已拒绝"
+    }
+  }
+}

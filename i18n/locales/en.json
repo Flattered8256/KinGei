@@ -1,0 +1,38 @@
+{
+  "error": {
+    "UserAlreadyExists": "This email is already registered",
+    "NotFound": "User not found",
+    "InvalidCredentials": "Incorrect email or password",
+    "PasswordMismatch": "Current password is incorrect",
+    "InvalidToken": "Session expired, please sign in again",
+    "CannotAddSelf": "You cannot add yourself",
+    "UserNotFound": "User not found",
+    "AlreadyFriends": "You are already friends",
+    "RequestAlreadyPending": "Friend request already sent",
+    "RequestNotFound": "Friend request not found",
+    "NotRequestReceiver": "You cannot respond to this request",
+    "NotRequestSender": "You cannot cancel this request",
+    "RequestNotPending": "This request has already been handled",
+    "NotFriends": "You are not friends",
+    "ChatNotFound": "Chat not found",
+    "NotMember": "You are not a member of this chat",
+    "NotOwner": "Only the group owner can do this",
+    "CannotModifyDirect": "Direct chats cannot be modified",
+    "AlreadyMember": "Already a member of this chat",
+    "EmptyName": "Name cannot be empty",
+    "EmptyContent": "Message cannot be empty",
+    "MessageNotFound": "Message not found",
+    "InternalServerError": "Something went wrong, please try again"
+  },
+  "enum": {
+    "chatType": {
+      "Direct": "Direct",
+      "Group": "Group"
+    },
+    "friendStatus": {
+      "Pending": "Pending",
+      "Accept": "Accepted",
+      "Reject": "Rejected"
+    }
+  }
+}
