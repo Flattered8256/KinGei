@@ -317,14 +317,6 @@ onMounted(scrollToLatest)
 .list {
   flex: 1;
   min-height: 0;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.list::-webkit-scrollbar {
-  display: none;
-  width: 0;
-  height: 0;
 }
 
 .to-bottom {
