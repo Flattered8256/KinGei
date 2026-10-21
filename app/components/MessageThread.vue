@@ -12,9 +12,13 @@ const { t, locale } = useI18n()
 const { user } = useAuth()
 const users = useUserDirectory()
 const messages = useMessages()
+const NEAR_BOTTOM = 80
+const FLUSH_BOTTOM = 1
+
 const listRef = ref<VListHandle | null>(null)
 const stickToBottom = ref(true)
 const pendingBottom = ref(false)
+const flushBottom = ref(true)
 const shift = ref(false)
 const ready = ref(false)
 
@@ -65,7 +69,12 @@ function scrollToLatest() {
 function jumpToBottom() {
   stickToBottom.value = true
   pendingBottom.value = true
+  flushBottom.value = true
   scrollToLatest()
+}
+
+function distanceFromBottom(offset: number, handle: VListHandle) {
+  return handle.scrollSize - offset - handle.viewportSize
 }
 
 function onScroll(offset: number) {
@@ -73,26 +82,29 @@ function onScroll(offset: number) {
   if (!handle) {
     return
   }
-  const atBottom = handle.scrollSize - offset - handle.viewportSize < 80
+  const distance = distanceFromBottom(offset, handle)
+  flushBottom.value = distance <= FLUSH_BOTTOM
+  const nearBottom = distance < NEAR_BOTTOM
   if (pendingBottom.value) {
-    if (atBottom) {
+    if (nearBottom) {
       pendingBottom.value = false
       stickToBottom.value = true
     }
   }
   else {
-    stickToBottom.value = atBottom
+    stickToBottom.value = nearBottom
   }
   if (!ready.value || messages.loadingMore.value || !messages.hasMore.value) {
     return
   }
-  if (offset < 80) {
+  if (offset < NEAR_BOTTOM) {
     void messages.loadOlder()
   }
 }
 
 function onResize() {
-  if (stickToBottom.value || pendingBottom.value) {
+  // First upward scroll measures new rows; pin only if still flush, not merely near.
+  if (pendingBottom.value || flushBottom.value) {
     scrollToLatest()
   }
 }
@@ -147,6 +159,7 @@ watch(
   () => {
     stickToBottom.value = true
     pendingBottom.value = true
+    flushBottom.value = true
     shift.value = false
     ready.value = false
     prevIds.first = null
