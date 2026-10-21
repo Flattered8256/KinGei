@@ -22,6 +22,9 @@ export function useChats() {
   const error = useState<string | null>('chats.error', () => null)
 
   const myId = computed(() => user.value?.id ?? null)
+  const unreadTotal = computed(() =>
+    chats.value.reduce((sum, chat) => sum + chat.unread_count, 0),
+  )
 
   function sortChats(list: Chat[]) {
     return [...list].sort((a, b) => {
@@ -203,6 +206,7 @@ export function useChats() {
   return {
     chats,
     previews,
+    unreadTotal,
     loading,
     error,
     refresh,

@@ -1,10 +1,22 @@
 <script setup lang="ts">
 const { user } = useAuth()
 const route = useRoute()
+const chats = useChats()
+const friends = useFriends()
 
 const items = computed(() => [
-  { name: 'chat' as const, to: '/chat', active: route.path.startsWith('/chat') },
-  { name: 'friends' as const, to: '/friends', active: route.path.startsWith('/friends') },
+  {
+    name: 'chat' as const,
+    to: '/chat',
+    active: route.path.startsWith('/chat'),
+    badge: chats.unreadTotal.value,
+  },
+  {
+    name: 'friends' as const,
+    to: '/friends',
+    active: route.path.startsWith('/friends'),
+    badge: friends.incomingCount.value,
+  },
 ])
 
 const settingsActive = computed(() => route.path.startsWith('/settings'))
@@ -31,7 +43,9 @@ const settingsActive = computed(() => route.path.startsWith('/settings'))
         :class="{ active: item.active }"
         :title="$t(`nav.${item.name}`)"
       >
-        <AppIcon :name="item.name" />
+        <UnreadBadge :value="item.badge">
+          <AppIcon :name="item.name" />
+        </UnreadBadge>
       </NuxtLink>
     </nav>
     <NuxtLink

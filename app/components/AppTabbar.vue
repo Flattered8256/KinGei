@@ -1,12 +1,14 @@
 <script setup lang="ts">
 const route = useRoute()
+const chats = useChats()
+const friends = useFriends()
 
-const items = [
-  { name: 'home' as const, to: '/home', match: '/home' },
-  { name: 'chat' as const, to: '/chat', match: '/chat' },
-  { name: 'friends' as const, to: '/friends', match: '/friends' },
-  { name: 'settings' as const, to: '/settings', match: '/settings' },
-]
+const items = computed(() => [
+  { name: 'home' as const, to: '/home', match: '/home', badge: 0 },
+  { name: 'chat' as const, to: '/chat', match: '/chat', badge: chats.unreadTotal.value },
+  { name: 'friends' as const, to: '/friends', match: '/friends', badge: friends.incomingCount.value },
+  { name: 'settings' as const, to: '/settings', match: '/settings', badge: 0 },
+])
 
 function active(match: string) {
   return route.path === match || route.path.startsWith(`${match}/`)
@@ -22,7 +24,17 @@ function active(match: string) {
       class="tab"
       :class="{ active: active(item.match) }"
     >
-      <AppIcon :name="item.name" :size="22" />
+      <UnreadBadge
+        v-if="item.name === 'chat' || item.name === 'friends'"
+        :value="item.badge"
+      >
+        <AppIcon :name="item.name" :size="22" />
+      </UnreadBadge>
+      <AppIcon
+        v-else
+        :name="item.name"
+        :size="22"
+      />
       <span>{{ $t(`nav.${item.name}`) }}</span>
     </NuxtLink>
   </nav>

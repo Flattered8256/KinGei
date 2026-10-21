@@ -22,6 +22,7 @@ export function useFriends() {
   const error = useState<string | null>('friends.error', () => null)
 
   const myId = computed(() => user.value?.id ?? null)
+  const incomingCount = computed(() => incoming.value.length)
 
   function pendingOnly(list: FriendRequest[]) {
     return list.filter(item => item.status === 'Pending')
@@ -129,6 +130,7 @@ export function useFriends() {
   return {
     friends,
     incoming,
+    incomingCount,
     outgoing,
     loading,
     error,

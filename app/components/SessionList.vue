@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { ElBadge } from 'element-plus'
-import 'element-plus/es/components/badge/style/css'
 import { formatChatTime, initials } from '~/utils/display'
 
 const { t, locale } = useI18n()
@@ -185,11 +183,9 @@ function onClickOutsideMenu() {
           </div>
           <div class="row">
             <span class="preview truncate">{{ previewText(chat.id) }}</span>
-            <el-badge
+            <UnreadBadge
               v-if="chat.unread_count > 0"
               :value="chat.unread_count"
-              color="var(--color-unread)"
-              class="unread"
             />
           </div>
         </div>
@@ -305,13 +301,8 @@ function onClickOutsideMenu() {
   font-size: 12px;
 }
 
-.time,
-.unread {
+.time {
   flex-shrink: 0;
-}
-
-.unread :deep(.el-badge__content) {
-  border: 0;
 }
 
 .pad {
