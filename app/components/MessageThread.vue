@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { VList } from 'virtua/vue'
+import type { VListHandle } from 'virtua/vue'
 import type { Chat, Message } from '~/types/api'
 import { formatChatTime } from '~/utils/display'
 
@@ -10,10 +12,17 @@ const { t, locale } = useI18n()
 const { user } = useAuth()
 const users = useUserDirectory()
 const messages = useMessages()
-const scroller = ref<HTMLElement | null>(null)
+const listRef = ref<VListHandle | null>(null)
 const stickToBottom = ref(true)
+const shift = ref(false)
+const ready = ref(false)
 
 const myId = computed(() => user.value?.id ?? '')
+
+const prevIds = {
+  first: null as number | null,
+  last: null as number | null,
+}
 
 function sender(message: Message) {
   const member = props.chat.member.find(item => item.user.id === message.sender_id)?.user
@@ -40,65 +49,100 @@ function timeOf(message: Message) {
   return formatChatTime(message.created_at, locale.value, t('app.yesterday'))
 }
 
-function onScroll() {
-  const el = scroller.value
-  if (!el) {
-    return
-  }
-  stickToBottom.value = el.scrollHeight - el.scrollTop - el.clientHeight < 80
-  if (el.scrollTop < 40) {
-    const previousHeight = el.scrollHeight
-    void messages.loadOlder().then(() => {
-      nextTick(() => {
-        if (scroller.value) {
-          scroller.value.scrollTop = scroller.value.scrollHeight - previousHeight
-        }
-      })
-    })
-  }
-}
-
-function scrollToBottom() {
+function scrollToLatest() {
   nextTick(() => {
-    const el = scroller.value
-    if (el) {
-      el.scrollTop = el.scrollHeight
+    const last = messages.items.value.length - 1
+    if (last < 0) {
+      return
     }
+    listRef.value?.scrollToIndex(last, { align: 'end' })
+    ready.value = true
   })
 }
 
+function onScroll(offset: number) {
+  const handle = listRef.value
+  if (!handle) {
+    return
+  }
+  stickToBottom.value = handle.scrollSize - offset - handle.viewportSize < 80
+  if (!ready.value || messages.loadingMore.value || !messages.hasMore.value) {
+    return
+  }
+  if (offset < 80) {
+    void messages.loadOlder()
+  }
+}
+
+function onResize() {
+  if (stickToBottom.value) {
+    scrollToLatest()
+  }
+}
+
+function loadOlder() {
+  void messages.loadOlder()
+}
+
 watch(
-  () => messages.items.value.length,
-  (len, prev) => {
-    if (stickToBottom.value || (prev ?? 0) === 0) {
-      scrollToBottom()
+  () => messages.items.value,
+  (items) => {
+    const firstId = items[0]?.id ?? null
+    const lastId = items.at(-1)?.id ?? null
+    shift.value = prevIds.first != null && firstId !== prevIds.first && lastId === prevIds.last
+    prevIds.first = firstId
+    prevIds.last = lastId
+  },
+  { flush: 'sync', immediate: true },
+)
+
+watch(
+  () => {
+    const items = messages.items.value
+    return {
+      length: items.length,
+      firstId: items[0]?.id ?? null,
+      lastId: items.at(-1)?.id ?? null,
     }
   },
+  (curr, prev) => {
+    const prepended = !!prev
+      && curr.firstId !== prev.firstId
+      && curr.lastId === prev.lastId
+      && curr.length > prev.length
+    if (prepended) {
+      return
+    }
+    if (stickToBottom.value || !prev || prev.length === 0) {
+      scrollToLatest()
+    }
+  },
+  { flush: 'post' },
 )
 
 watch(
   () => props.chat.id,
   () => {
     stickToBottom.value = true
-    scrollToBottom()
+    shift.value = false
+    ready.value = false
+    prevIds.first = null
+    prevIds.last = null
+    scrollToLatest()
   },
 )
 
-onMounted(scrollToBottom)
+onMounted(scrollToLatest)
 </script>
 
 <template>
-  <div
-    ref="scroller"
-    class="thread"
-    @scroll="onScroll"
-  >
+  <div class="thread">
     <button
       v-if="messages.hasMore.value && messages.items.value.length"
       type="button"
       class="more"
       :disabled="messages.loadingMore.value"
-      @click="messages.loadOlder()"
+      @click="loadOlder"
     >
       {{ $t('chat.loadMore') }}
     </button>
@@ -114,89 +158,136 @@ onMounted(scrollToBottom)
     >
       {{ $t('chat.noMessages') }}
     </p>
-    <div
-      v-for="message in messages.items.value"
-      :key="message.id"
-      class="row"
-      :class="{ own: isOwn(message) }"
+    <VList
+      v-else
+      ref="listRef"
+      class="list"
+      :data="messages.items.value"
+      :shift="shift"
+      @scroll="onScroll"
+      @resize="onResize"
     >
-      <Avatar
-        v-if="!isOwn(message)"
-        :name="sender(message)?.username"
-        :seed="message.sender_id"
-        :size="36"
-      />
-      <div class="bubble-wrap">
-        <div class="meta">
-          <span
-            v-if="!isOwn(message)"
-            class="name"
-          >{{ sender(message)?.username ?? $t('app.unknownUser') }}</span>
-          <span class="time">{{ timeOf(message) }}</span>
-        </div>
-        <div class="bubble">
-          {{ message.content }}
-        </div>
+      <template #default="{ item, index }">
         <div
-          v-if="readers(message).length"
-          class="reads"
+          :key="item.id"
+          class="row"
+          :class="{
+            own: isOwn(item),
+            lead: index === 0,
+            tail: index === messages.items.value.length - 1,
+            'has-more': index === 0 && messages.hasMore.value,
+          }"
         >
           <Avatar
-            v-for="member in readers(message)"
-            :key="member.user.id"
-            :name="member.user.username"
-            :seed="member.user.id"
-            :size="16"
+            v-if="!isOwn(item)"
+            :name="sender(item)?.username"
+            :seed="item.sender_id"
+            :size="36"
+          />
+          <div class="bubble-wrap">
+            <div class="meta">
+              <span
+                v-if="!isOwn(item)"
+                class="name"
+              >{{ sender(item)?.username ?? $t('app.unknownUser') }}</span>
+              <span class="time">{{ timeOf(item) }}</span>
+            </div>
+            <div class="bubble">
+              {{ item.content }}
+            </div>
+            <div
+              v-if="readers(item).length"
+              class="reads"
+            >
+              <Avatar
+                v-for="member in readers(item)"
+                :key="member.user.id"
+                :name="member.user.username"
+                :seed="member.user.id"
+                :size="16"
+              />
+            </div>
+          </div>
+          <Avatar
+            v-if="isOwn(item)"
+            :name="user?.username"
+            :seed="user?.id"
+            :size="36"
           />
         </div>
-      </div>
-      <Avatar
-        v-if="isOwn(message)"
-        :name="user?.username"
-        :seed="user?.id"
-        :size="36"
-      />
-    </div>
+      </template>
+    </VList>
   </div>
 </template>
 
 <style scoped>
 .thread {
-  flex: 1;
+  position: relative;
+  flex: 1 1 0;
   min-height: 0;
-  overflow: auto;
-  padding: 16px 20px 8px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
 }
 
 .center {
+  margin: auto;
   text-align: center;
   padding: 24px;
 }
 
 .more {
-  align-self: center;
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  z-index: 1;
+  transform: translateX(-50%);
   color: var(--color-primary);
   font-size: 13px;
   padding: 4px 8px;
+  background: var(--bg-panel);
+  border-radius: var(--radius-sm);
+}
+
+.list {
+  flex: 1;
+  min-height: 0;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.list::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .row {
   display: flex;
   gap: 10px;
   align-items: flex-start;
-  max-width: 72%;
+  justify-content: flex-start;
+  padding: 7px 20px;
+}
+
+.row.lead {
+  padding-top: 16px;
+}
+
+.row.has-more {
+  padding-top: 40px;
+}
+
+.row.tail {
+  padding-bottom: 16px;
 }
 
 .row.own {
-  align-self: flex-end;
-  flex-direction: row;
+  justify-content: flex-end;
 }
 
 .bubble-wrap {
   min-width: 0;
+  max-width: 72%;
 }
 
 .row.own .bubble-wrap {
