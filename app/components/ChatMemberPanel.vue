@@ -239,6 +239,8 @@ async function leave() {
   flex-direction: column;
   width: var(--member-width);
   min-width: var(--member-width);
+  min-height: 0;
+  height: 100%;
   border-left: 1px solid var(--color-border);
   padding: 12px;
   gap: 10px;
@@ -294,14 +296,5 @@ li {
   flex-direction: column;
   gap: 8px;
   margin-top: auto;
-}
-
-@media (max-width: 899px) {
-  .panel {
-    width: 100%;
-    min-width: 0;
-    border-left: 0;
-    border-top: 1px solid var(--color-border);
-  }
 }
 </style>

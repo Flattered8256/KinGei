@@ -67,7 +67,9 @@ const isGroup = computed(() => chat.value?.type === 'Group')
         v-if="isGroup"
         type="button"
         class="icon-btn"
+        :class="{ active: showMembers }"
         :title="$t('chat.members')"
+        :aria-expanded="showMembers"
         @click="showMembers = !showMembers"
       >
         <AppIcon name="friends" />
@@ -79,9 +81,21 @@ const isGroup = computed(() => chat.value?.type === 'Group')
         <MessageComposer />
       </div>
       <ChatMemberPanel
-        v-if="isGroup && (!isMobile || showMembers)"
+        v-if="isGroup && showMembers && !isMobile"
         :chat="chat"
       />
+      <div
+        v-if="isGroup && showMembers && isMobile"
+        class="drawer-backdrop"
+        @click="showMembers = false"
+      >
+        <div
+          class="drawer"
+          @click.stop
+        >
+          <ChatMemberPanel :chat="chat" />
+        </div>
+      </div>
     </div>
   </div>
   <div
@@ -116,6 +130,7 @@ const isGroup = computed(() => chat.value?.type === 'Group')
 }
 
 .main {
+  position: relative;
   flex: 1;
   min-height: 0;
   display: flex;
@@ -129,9 +144,26 @@ const isGroup = computed(() => chat.value?.type === 'Group')
   flex-direction: column;
 }
 
-@media (max-width: 899px) {
-  .main {
-    flex-direction: column;
-  }
+.drawer-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  justify-content: flex-end;
+  background: rgba(15, 23, 42, 0.35);
+}
+
+.drawer {
+  width: min(280px, 85%);
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  background: var(--bg-panel);
+  box-shadow: var(--shadow-modal);
+}
+
+.drawer :deep(.panel) {
+  width: 100%;
+  min-width: 0;
 }
 </style>
