@@ -6,6 +6,7 @@ const route = useRoute()
 const { t } = useI18n()
 const { open } = useAppActions()
 const friends = useFriends()
+const chats = useChats()
 const users = useUserDirectory()
 
 const toast = useToast()
@@ -15,6 +16,17 @@ async function run(action: () => Promise<void>, ok: string) {
   try {
     await action()
     toast.success(t(ok))
+  }
+  catch (err) {
+    toast.error(err)
+  }
+}
+
+async function acceptRequest(request: FriendRequest) {
+  try {
+    await friends.accept(request.id)
+    toast.success(t('toast.accepted'))
+    await chats.openDirect(request.sender_id)
   }
   catch (err) {
     toast.error(err)
@@ -89,7 +101,7 @@ function isFriendActive(id: string) {
               <button
                 type="button"
                 class="link"
-                @click="run(() => friends.accept(request.id), 'toast.accepted')"
+                @click="acceptRequest(request)"
               >
                 {{ $t('friends.accept') }}
               </button>

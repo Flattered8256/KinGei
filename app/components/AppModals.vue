@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Friend, User } from '~/types/api'
+import type { User } from '~/types/api'
 
 const { t } = useI18n()
 const toast = useToast()
@@ -11,9 +11,6 @@ const { user, updatePassword } = useAuth()
 const groupName = ref('')
 const groupPending = ref(false)
 
-const selectedFriend = ref('')
-const directPending = ref(false)
-
 const email = ref('')
 const found = ref<User | null>(null)
 const friendPending = ref(false)
@@ -22,11 +19,8 @@ const oldPassword = ref('')
 const newPassword = ref('')
 const passwordPending = ref(false)
 
-const availableFriends = computed(() => friends.friends.value)
-
 watch(modal, () => {
   groupName.value = ''
-  selectedFriend.value = availableFriends.value[0]?.friend_id ?? ''
   email.value = ''
   found.value = null
   oldPassword.value = ''
@@ -50,25 +44,6 @@ async function createGroup() {
   }
   finally {
     groupPending.value = false
-  }
-}
-
-async function startDirect() {
-  if (!selectedFriend.value) {
-    toast.error(t('chat.pickFriend'))
-    return
-  }
-  directPending.value = true
-  try {
-    const chat = await chats.openDirect(selectedFriend.value)
-    close()
-    await navigateTo(`/chat/${chat.id}`)
-  }
-  catch (err) {
-    toast.error(err)
-  }
-  finally {
-    directPending.value = false
   }
 }
 
@@ -134,9 +109,6 @@ async function changePassword() {
   }
 }
 
-function friendLabel(friend: Friend) {
-  return `${friend.username} · ${friend.email}`
-}
 </script>
 
 <template>
@@ -169,55 +141,6 @@ function friendLabel(friend: Friend) {
           class="btn btn-primary"
           type="submit"
           :disabled="groupPending"
-        >
-          {{ $t('app.confirm') }}
-        </button>
-      </div>
-    </form>
-  </KgModal>
-
-  <KgModal
-    :open="modal === 'direct'"
-    :title="$t('chat.startDirect')"
-    @close="close"
-  >
-    <form
-      class="stack"
-      @submit.prevent="startDirect"
-    >
-      <label class="field">
-        <span class="field-label">{{ $t('chat.pickFriend') }}</span>
-        <select
-          v-model="selectedFriend"
-          class="input"
-        >
-          <option
-            v-for="friend in availableFriends"
-            :key="friend.friend_id"
-            :value="friend.friend_id"
-          >
-            {{ friendLabel(friend) }}
-          </option>
-        </select>
-      </label>
-      <p
-        v-if="!availableFriends.length"
-        class="muted"
-      >
-        {{ $t('friends.empty') }}
-      </p>
-      <div class="modal-actions">
-        <button
-          class="btn btn-secondary"
-          type="button"
-          @click="close"
-        >
-          {{ $t('app.cancel') }}
-        </button>
-        <button
-          class="btn btn-primary"
-          type="submit"
-          :disabled="directPending || !availableFriends.length"
         >
           {{ $t('app.confirm') }}
         </button>

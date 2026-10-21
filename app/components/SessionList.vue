@@ -64,9 +64,9 @@ function toggleSearch() {
   }
 }
 
-function pickAction(kind: 'group' | 'direct' | 'friend') {
+function pickGroup() {
   showMenu.value = false
-  open(kind)
+  open('group')
 }
 
 onClickOutsideMenu()
@@ -121,21 +121,9 @@ function onClickOutsideMenu() {
           >
             <button
               type="button"
-              @click="pickAction('group')"
+              @click="pickGroup"
             >
               {{ $t('chat.createGroup') }}
-            </button>
-            <button
-              type="button"
-              @click="pickAction('direct')"
-            >
-              {{ $t('chat.startDirect') }}
-            </button>
-            <button
-              type="button"
-              @click="pickAction('friend')"
-            >
-              {{ $t('friends.add') }}
             </button>
           </div>
         </div>

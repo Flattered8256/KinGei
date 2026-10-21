@@ -1,4 +1,4 @@
-export type AppModal = 'group' | 'direct' | 'friend' | 'password' | null
+export type AppModal = 'group' | 'friend' | 'password' | null
 
 export function useAppActions() {
   const modal = useState<AppModal>('ui.modal', () => null)
