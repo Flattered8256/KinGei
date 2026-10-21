@@ -14,10 +14,12 @@ const users = useUserDirectory()
 const messages = useMessages()
 const listRef = ref<VListHandle | null>(null)
 const stickToBottom = ref(true)
+const pendingBottom = ref(false)
 const shift = ref(false)
 const ready = ref(false)
 
 const myId = computed(() => user.value?.id ?? '')
+const showJump = computed(() => !stickToBottom.value && messages.items.value.length > 0)
 
 const prevIds = {
   first: null as number | null,
@@ -60,12 +62,27 @@ function scrollToLatest() {
   })
 }
 
+function jumpToBottom() {
+  stickToBottom.value = true
+  pendingBottom.value = true
+  scrollToLatest()
+}
+
 function onScroll(offset: number) {
   const handle = listRef.value
   if (!handle) {
     return
   }
-  stickToBottom.value = handle.scrollSize - offset - handle.viewportSize < 80
+  const atBottom = handle.scrollSize - offset - handle.viewportSize < 80
+  if (pendingBottom.value) {
+    if (atBottom) {
+      pendingBottom.value = false
+      stickToBottom.value = true
+    }
+  }
+  else {
+    stickToBottom.value = atBottom
+  }
   if (!ready.value || messages.loadingMore.value || !messages.hasMore.value) {
     return
   }
@@ -75,7 +92,7 @@ function onScroll(offset: number) {
 }
 
 function onResize() {
-  if (stickToBottom.value) {
+  if (stickToBottom.value || pendingBottom.value) {
     scrollToLatest()
   }
 }
@@ -89,7 +106,16 @@ watch(
   (items) => {
     const firstId = items[0]?.id ?? null
     const lastId = items.at(-1)?.id ?? null
-    shift.value = prevIds.first != null && firstId !== prevIds.first && lastId === prevIds.last
+    const prepended = prevIds.first != null && firstId !== prevIds.first && lastId === prevIds.last
+    const appended = prevIds.last != null && lastId !== prevIds.last && firstId === prevIds.first
+    shift.value = prepended
+    if (appended) {
+      const last = items.at(-1)
+      if (stickToBottom.value || last?.sender_id === myId.value) {
+        stickToBottom.value = true
+        pendingBottom.value = true
+      }
+    }
     prevIds.first = firstId
     prevIds.last = lastId
   },
@@ -113,7 +139,7 @@ watch(
     if (prepended) {
       return
     }
-    if (stickToBottom.value || !prev || prev.length === 0) {
+    if (pendingBottom.value || stickToBottom.value || !prev || prev.length === 0) {
       scrollToLatest()
     }
   },
@@ -124,11 +150,21 @@ watch(
   () => props.chat.id,
   () => {
     stickToBottom.value = true
+    pendingBottom.value = true
     shift.value = false
     ready.value = false
     prevIds.first = null
     prevIds.last = null
     scrollToLatest()
+  },
+)
+
+watch(
+  () => messages.sending.value,
+  (sending) => {
+    if (sending) {
+      jumpToBottom()
+    }
   },
 )
 
@@ -217,6 +253,16 @@ onMounted(scrollToLatest)
         </div>
       </template>
     </VList>
+    <button
+      v-if="showJump"
+      type="button"
+      class="to-bottom"
+      :aria-label="$t('chat.scrollToBottom')"
+      :title="$t('chat.scrollToBottom')"
+      @click="jumpToBottom"
+    >
+      <AppIcon name="down" :size="20" />
+    </button>
   </div>
 </template>
 
@@ -259,6 +305,27 @@ onMounted(scrollToLatest)
   display: none;
   width: 0;
   height: 0;
+}
+
+.to-bottom {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--bg-panel);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-card);
+}
+
+.to-bottom:hover {
+  background: var(--bg-hover);
 }
 
 .row {

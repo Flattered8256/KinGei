@@ -97,6 +97,7 @@
     "kick": "移出",
     "kickConfirm": "确定将该成员移出群聊？",
     "loadMore": "加载更早消息",
+    "scrollToBottom": "回到底部",
     "untitledGroup": "未命名群聊"
   },
   "friends": {
