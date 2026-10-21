@@ -8,16 +8,16 @@ const { open } = useAppActions()
 const friends = useFriends()
 const users = useUserDirectory()
 
+const toast = useToast()
 const query = ref('')
-const actionError = ref('')
 
-async function run(action: () => Promise<void>) {
-  actionError.value = ''
+async function run(action: () => Promise<void>, ok: string) {
   try {
     await action()
+    toast.success(t(ok))
   }
   catch (err) {
-    actionError.value = useApiI18n().fromError(err)
+    toast.error(err)
   }
 }
 
@@ -65,12 +65,6 @@ function isFriendActive(id: string) {
         :placeholder="$t('friends.searchPlaceholder')"
       >
     </div>
-    <p
-      v-if="friends.error.value || actionError"
-      class="form-error pad"
-    >
-      {{ actionError || friends.error.value }}
-    </p>
     <div class="scroll">
       <template v-if="friends.incoming.value.length">
         <p class="list-section-label">
@@ -95,14 +89,14 @@ function isFriendActive(id: string) {
               <button
                 type="button"
                 class="link"
-                @click="run(() => friends.accept(request.id))"
+                @click="run(() => friends.accept(request.id), 'toast.accepted')"
               >
                 {{ $t('friends.accept') }}
               </button>
               <button
                 type="button"
                 class="link danger"
-                @click="run(() => friends.reject(request.id))"
+                @click="run(() => friends.reject(request.id), 'toast.rejected')"
               >
                 {{ $t('friends.reject') }}
               </button>
@@ -132,7 +126,7 @@ function isFriendActive(id: string) {
             <button
               type="button"
               class="link"
-              @click="run(() => friends.cancel(request.id))"
+              @click="run(() => friends.cancel(request.id), 'toast.cancelled')"
             >
               {{ $t('friends.cancelRequest') }}
             </button>

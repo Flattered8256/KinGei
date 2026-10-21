@@ -10,19 +10,17 @@ const { t, locale } = useI18n()
 const { isMobile } = useIsMobile()
 const chats = useChats()
 const friends = useFriends()
-const apiI18n = useApiI18n()
+const toast = useToast()
 const pending = ref(false)
-const error = ref('')
 
 async function message() {
   pending.value = true
-  error.value = ''
   try {
     const chat = await chats.openDirect(props.friend.friend_id)
     await navigateTo(`/chat/${chat.id}`)
   }
   catch (err) {
-    error.value = apiI18n.fromError(err)
+    toast.error(err)
     pending.value = false
   }
 }
@@ -32,13 +30,13 @@ async function remove() {
     return
   }
   pending.value = true
-  error.value = ''
   try {
     await friends.remove(props.friend.friend_id)
+    toast.success(t('toast.removed'))
     await navigateTo('/friends')
   }
   catch (err) {
-    error.value = apiI18n.fromError(err)
+    toast.error(err)
     pending.value = false
   }
 }
@@ -86,12 +84,6 @@ async function remove() {
           </button>
         </div>
       </div>
-      <p
-        v-if="error"
-        class="form-error"
-      >
-        {{ error }}
-      </p>
       <dl>
         <div>
           <dt>{{ $t('friends.email') }}</dt>

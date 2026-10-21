@@ -1,9 +1,8 @@
 <script setup lang="ts">
 const messages = useMessages()
-const apiI18n = useApiI18n()
+const toast = useToast()
 const draft = ref('')
 const area = ref<HTMLTextAreaElement | null>(null)
-const error = ref('')
 
 function fit() {
   const el = area.value
@@ -20,13 +19,12 @@ async function submit() {
     return
   }
   draft.value = ''
-  error.value = ''
   try {
     await messages.send(text)
   }
   catch (err) {
     draft.value = text
-    error.value = apiI18n.fromError(err)
+    toast.error(err)
   }
   await nextTick()
   fit()
@@ -61,12 +59,6 @@ onMounted(fit)
         :placeholder="$t('chat.inputPlaceholder')"
         @keydown="onKeydown"
       />
-      <p
-        v-if="error"
-        class="form-error"
-      >
-        {{ error }}
-      </p>
     </div>
     <button
       class="send"

@@ -9,13 +9,12 @@ const { t } = useI18n()
 const { user } = useAuth()
 const chats = useChats()
 const friends = useFriends()
-const apiI18n = useApiI18n()
+const toast = useToast()
 
 const inviteOpen = ref(false)
 const renameOpen = ref(false)
 const inviteId = ref('')
 const newName = ref('')
-const error = ref('')
 const pending = ref(false)
 
 const myId = computed(() => user.value?.id ?? '')
@@ -43,7 +42,6 @@ watch(
   () => props.chat.id,
   () => {
     newName.value = props.chat.name ?? ''
-    error.value = ''
     inviteOpen.value = false
     renameOpen.value = false
   },
@@ -55,13 +53,13 @@ async function invite() {
     return
   }
   pending.value = true
-  error.value = ''
   try {
     await chats.invite(props.chat.id, inviteId.value)
+    toast.success(t('toast.invited'))
     inviteOpen.value = false
   }
   catch (err) {
-    error.value = apiI18n.fromError(err)
+    toast.error(err)
   }
   finally {
     pending.value = false
@@ -70,13 +68,13 @@ async function invite() {
 
 async function rename() {
   pending.value = true
-  error.value = ''
   try {
     await chats.rename(props.chat.id, newName.value.trim())
+    toast.success(t('toast.renamed'))
     renameOpen.value = false
   }
   catch (err) {
-    error.value = apiI18n.fromError(err)
+    toast.error(err)
   }
   finally {
     pending.value = false
@@ -88,12 +86,12 @@ async function kick(userId: string) {
     return
   }
   pending.value = true
-  error.value = ''
   try {
     await chats.removeMember(props.chat.id, userId)
+    toast.success(t('toast.kicked'))
   }
   catch (err) {
-    error.value = apiI18n.fromError(err)
+    toast.error(err)
   }
   finally {
     pending.value = false
@@ -107,10 +105,11 @@ async function leave() {
   pending.value = true
   try {
     await chats.removeMember(props.chat.id, myId.value)
+    toast.success(t('toast.left'))
     await navigateTo('/chat')
   }
   catch (err) {
-    error.value = apiI18n.fromError(err)
+    toast.error(err)
     pending.value = false
   }
 }
@@ -176,12 +175,6 @@ async function leave() {
         {{ $t('app.save') }}
       </button>
     </div>
-    <p
-      v-if="error"
-      class="form-error"
-    >
-      {{ error }}
-    </p>
     <ul>
       <li
         v-for="member in members"

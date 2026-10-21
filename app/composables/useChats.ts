@@ -80,6 +80,7 @@ export function useChats() {
     }
     catch (err) {
       error.value = useApiI18n().fromError(err)
+      useToast().error(err)
     }
     finally {
       loading.value = false

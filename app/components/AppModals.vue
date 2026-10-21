@@ -2,59 +2,51 @@
 import type { Friend, User } from '~/types/api'
 
 const { t } = useI18n()
-const apiI18n = useApiI18n()
+const toast = useToast()
 const { modal, close } = useAppActions()
 const chats = useChats()
 const friends = useFriends()
 const { user, updatePassword } = useAuth()
 
 const groupName = ref('')
-const groupError = ref('')
 const groupPending = ref(false)
 
 const selectedFriend = ref('')
-const directError = ref('')
 const directPending = ref(false)
 
 const email = ref('')
 const found = ref<User | null>(null)
-const friendError = ref('')
 const friendPending = ref(false)
 
 const oldPassword = ref('')
 const newPassword = ref('')
-const passwordError = ref('')
 const passwordPending = ref(false)
 
 const availableFriends = computed(() => friends.friends.value)
 
 watch(modal, () => {
   groupName.value = ''
-  groupError.value = ''
   selectedFriend.value = availableFriends.value[0]?.friend_id ?? ''
-  directError.value = ''
   email.value = ''
   found.value = null
-  friendError.value = ''
   oldPassword.value = ''
   newPassword.value = ''
-  passwordError.value = ''
 })
 
 async function createGroup() {
-  groupError.value = ''
   if (!groupName.value.trim()) {
-    groupError.value = t('error.EmptyName')
+    toast.error(t('error.EmptyName'))
     return
   }
   groupPending.value = true
   try {
     const chat = await chats.openGroup(groupName.value.trim())
+    toast.success(t('toast.groupCreated'))
     close()
     await navigateTo(`/chat/${chat.id}`)
   }
   catch (err) {
-    groupError.value = apiI18n.fromError(err)
+    toast.error(err)
   }
   finally {
     groupPending.value = false
@@ -62,9 +54,8 @@ async function createGroup() {
 }
 
 async function startDirect() {
-  directError.value = ''
   if (!selectedFriend.value) {
-    directError.value = t('chat.pickFriend')
+    toast.error(t('chat.pickFriend'))
     return
   }
   directPending.value = true
@@ -74,7 +65,7 @@ async function startDirect() {
     await navigateTo(`/chat/${chat.id}`)
   }
   catch (err) {
-    directError.value = apiI18n.fromError(err)
+    toast.error(err)
   }
   finally {
     directPending.value = false
@@ -82,10 +73,9 @@ async function startDirect() {
 }
 
 async function findFriend() {
-  friendError.value = ''
   found.value = null
   if (!email.value.trim()) {
-    friendError.value = t('auth.required')
+    toast.error(t('auth.required'))
     return
   }
   friendPending.value = true
@@ -93,11 +83,11 @@ async function findFriend() {
     found.value = await friends.lookup(email.value.trim())
     if (found.value.id === user.value?.id) {
       found.value = null
-      friendError.value = t('error.CannotAddSelf')
+      toast.error(t('error.CannotAddSelf'))
     }
   }
   catch (err) {
-    friendError.value = apiI18n.fromError(err)
+    toast.error(err)
   }
   finally {
     friendPending.value = false
@@ -109,13 +99,13 @@ async function sendRequest() {
     return
   }
   friendPending.value = true
-  friendError.value = ''
   try {
     await friends.request(found.value.id)
+    toast.success(t('toast.requestSent'))
     close()
   }
   catch (err) {
-    friendError.value = apiI18n.fromError(err)
+    toast.error(err)
   }
   finally {
     friendPending.value = false
@@ -123,9 +113,8 @@ async function sendRequest() {
 }
 
 async function changePassword() {
-  passwordError.value = ''
   if (!oldPassword.value || !newPassword.value) {
-    passwordError.value = t('auth.required')
+    toast.error(t('auth.required'))
     return
   }
   passwordPending.value = true
@@ -134,10 +123,11 @@ async function changePassword() {
       old_password: oldPassword.value,
       new_password: newPassword.value,
     })
+    toast.success(t('toast.passwordChanged'))
     close()
   }
   catch (err) {
-    passwordError.value = apiI18n.fromError(err)
+    toast.error(err)
   }
   finally {
     passwordPending.value = false
@@ -167,12 +157,6 @@ function friendLabel(friend: Friend) {
           :placeholder="$t('chat.groupNamePlaceholder')"
         >
       </label>
-      <p
-        v-if="groupError"
-        class="form-error"
-      >
-        {{ groupError }}
-      </p>
       <div class="modal-actions">
         <button
           class="btn btn-secondary"
@@ -221,12 +205,6 @@ function friendLabel(friend: Friend) {
         class="muted"
       >
         {{ $t('friends.empty') }}
-      </p>
-      <p
-        v-if="directError"
-        class="form-error"
-      >
-        {{ directError }}
       </p>
       <div class="modal-actions">
         <button
@@ -281,12 +259,6 @@ function friendLabel(friend: Friend) {
           </p>
         </div>
       </div>
-      <p
-        v-if="friendError"
-        class="form-error"
-      >
-        {{ friendError }}
-      </p>
       <div class="modal-actions">
         <button
           class="btn btn-secondary"
@@ -333,12 +305,6 @@ function friendLabel(friend: Friend) {
           autocomplete="new-password"
         >
       </label>
-      <p
-        v-if="passwordError"
-        class="form-error"
-      >
-        {{ passwordError }}
-      </p>
       <div class="modal-actions">
         <button
           class="btn btn-secondary"

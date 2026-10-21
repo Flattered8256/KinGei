@@ -8,13 +8,11 @@ const { t } = useI18n()
 const { user, updateProfile } = useAuth()
 const { isMobile } = useIsMobile()
 const { open } = useAppActions()
-const apiI18n = useApiI18n()
+const toast = useToast()
 
 const username = ref(user.value?.username ?? '')
 const email = ref(user.value?.email ?? '')
 const pending = ref(false)
-const error = ref('')
-const saved = ref(false)
 
 watch(user, (next) => {
   username.value = next?.username ?? ''
@@ -22,10 +20,8 @@ watch(user, (next) => {
 })
 
 async function save() {
-  error.value = ''
-  saved.value = false
   if (!username.value.trim() || !email.value.trim()) {
-    error.value = t('auth.required')
+    toast.error(t('auth.required'))
     return
   }
   pending.value = true
@@ -34,10 +30,10 @@ async function save() {
       username: username.value.trim(),
       email: email.value.trim(),
     })
-    saved.value = true
+    toast.success(t('settings.saved'))
   }
   catch (err) {
-    error.value = apiI18n.fromError(err)
+    toast.error(err)
   }
   finally {
     pending.value = false
@@ -95,18 +91,6 @@ async function save() {
           autocomplete="email"
         >
       </label>
-      <p
-        v-if="error"
-        class="form-error"
-      >
-        {{ error }}
-      </p>
-      <p
-        v-if="saved"
-        class="muted"
-      >
-        {{ $t('settings.saved') }}
-      </p>
       <div class="actions">
         <button
           class="btn btn-primary"

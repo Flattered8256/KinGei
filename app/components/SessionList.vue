@@ -151,12 +151,6 @@ function onClickOutsideMenu() {
         :placeholder="$t('chat.searchPlaceholder')"
       >
     </div>
-    <p
-      v-if="chats.error.value"
-      class="form-error pad"
-    >
-      {{ chats.error.value }}
-    </p>
     <div class="list">
       <p
         v-if="!filtered.length && !chats.loading.value"

@@ -51,6 +51,19 @@
     "yesterday": "Yesterday",
     "unknownUser": "Unknown user"
   },
+  "toast": {
+    "requestSent": "Request sent",
+    "accepted": "Request accepted",
+    "rejected": "Request declined",
+    "cancelled": "Request cancelled",
+    "removed": "Friend removed",
+    "groupCreated": "Group created",
+    "invited": "Member invited",
+    "renamed": "Name updated",
+    "kicked": "Member removed",
+    "left": "You left the group",
+    "passwordChanged": "Password updated"
+  },
   "nav": {
     "home": "Home",
     "chat": "Chats",

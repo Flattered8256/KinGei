@@ -51,6 +51,19 @@
     "yesterday": "昨天",
     "unknownUser": "未知用户"
   },
+  "toast": {
+    "requestSent": "申请已发送",
+    "accepted": "已接受",
+    "rejected": "已拒绝",
+    "cancelled": "已撤回",
+    "removed": "已删除好友",
+    "groupCreated": "群聊已创建",
+    "invited": "已邀请",
+    "renamed": "名称已修改",
+    "kicked": "已移出成员",
+    "left": "已退出群聊",
+    "passwordChanged": "密码已修改"
+  },
   "nav": {
     "home": "首页",
     "chat": "聊天",

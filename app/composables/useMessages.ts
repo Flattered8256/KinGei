@@ -53,6 +53,7 @@ export function useMessages() {
     }
     catch (err) {
       error.value = useApiI18n().fromError(err)
+      useToast().error(err)
     }
     finally {
       loading.value = false
@@ -73,6 +74,7 @@ export function useMessages() {
     }
     catch (err) {
       error.value = useApiI18n().fromError(err)
+      useToast().error(err)
     }
     finally {
       loadingMore.value = false

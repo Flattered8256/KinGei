@@ -6,23 +6,21 @@ definePageMeta({
 
 const { t, locale, setLocale } = useI18n()
 const { register, login } = useAuth()
-const apiI18n = useApiI18n()
+const toast = useToast()
 
 const username = ref('')
 const email = ref('')
 const password = ref('')
 const confirm = ref('')
 const pending = ref(false)
-const error = ref('')
 
 async function submit() {
-  error.value = ''
   if (!username.value.trim() || !email.value.trim() || !password.value || !confirm.value) {
-    error.value = t('auth.required')
+    toast.error(t('auth.required'))
     return
   }
   if (password.value !== confirm.value) {
-    error.value = t('auth.passwordMismatch')
+    toast.error(t('auth.passwordMismatch'))
     return
   }
   pending.value = true
@@ -36,7 +34,7 @@ async function submit() {
     await navigateTo('/chat')
   }
   catch (err) {
-    error.value = apiI18n.fromError(err)
+    toast.error(err)
   }
   finally {
     pending.value = false
@@ -101,12 +99,6 @@ function toggleLocale() {
           :placeholder="$t('auth.confirmPlaceholder')"
         >
       </label>
-      <p
-        v-if="error"
-        class="form-error"
-      >
-        {{ error }}
-      </p>
       <button
         class="btn btn-primary btn-block"
         type="submit"
