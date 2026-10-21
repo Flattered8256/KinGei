@@ -105,6 +105,7 @@
     "members": "Members",
     "owner": "Owner",
     "invite": "Invite",
+    "inviteEmpty": "No friends to invite",
     "rename": "Rename",
     "leave": "Leave group",
     "leaveConfirm": "Leave this group?",

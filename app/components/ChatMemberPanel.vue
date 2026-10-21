@@ -13,7 +13,6 @@ const toast = useToast()
 
 const inviteOpen = ref(false)
 const renameOpen = ref(false)
-const inviteId = ref('')
 const newName = ref('')
 const pending = ref(false)
 
@@ -48,13 +47,14 @@ watch(
   { immediate: true },
 )
 
-async function invite() {
-  if (!inviteId.value) {
+async function invite(userId: string) {
+  if (!userId) {
     return
   }
+
   pending.value = true
   try {
-    await chats.invite(props.chat.id, inviteId.value)
+    await chats.invite(props.chat.id, userId)
     toast.success(t('toast.invited'))
     inviteOpen.value = false
   }
@@ -127,36 +127,18 @@ async function leave() {
         type="button"
         class="icon-btn"
         :title="$t('chat.invite')"
-        @click="inviteOpen = !inviteOpen"
+        @click="inviteOpen = true"
       >
         <AppIcon name="plus" :size="18" />
       </button>
     </header>
-    <div
-      v-if="inviteOpen"
-      class="box"
-    >
-      <select
-        v-model="inviteId"
-        class="input"
-      >
-        <option
-          v-for="friend in inviteCandidates"
-          :key="friend.friend_id"
-          :value="friend.friend_id"
-        >
-          {{ friend.username }}
-        </option>
-      </select>
-      <button
-        class="btn btn-primary btn-block"
-        type="button"
-        :disabled="pending || !inviteId"
-        @click="invite"
-      >
-        {{ $t('chat.invite') }}
-      </button>
-    </div>
+    <InviteFriendModal
+      :open="inviteOpen"
+      :friends="inviteCandidates"
+      :pending="pending"
+      @close="inviteOpen = false"
+      @invite="invite"
+    />
     <div
       v-if="renameOpen"
       class="box"

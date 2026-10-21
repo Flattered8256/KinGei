@@ -105,6 +105,7 @@
     "members": "成员",
     "owner": "群主",
     "invite": "邀请",
+    "inviteEmpty": "没有可邀请的好友",
     "rename": "修改名称",
     "leave": "退出群聊",
     "leaveConfirm": "确定退出该群聊？",
