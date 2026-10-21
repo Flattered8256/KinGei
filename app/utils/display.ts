@@ -48,17 +48,41 @@ export function chatTitle(
   return otherMember(chat, userId)?.username ?? untitledGroup
 }
 
-export function formatChatTime(iso: string, locale: string, yesterday: string): string {
+export function parseDate(iso: string): Date | null {
   const date = new Date(iso)
-  if (Number.isNaN(date.getTime())) {
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+export function dayKey(iso: string): string {
+  const date = parseDate(iso)
+  if (!date) {
+    return ''
+  }
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`
+}
+
+function calendarDayDiff(date: Date, now = new Date()): number {
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const startOfThatDay = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  return Math.round((startOfToday.getTime() - startOfThatDay.getTime()) / 86400000)
+}
+
+export function formatClockTime(iso: string, locale: string): string {
+  const date = parseDate(iso)
+  if (!date) {
+    return ''
+  }
+  return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12: false })
+}
+
+export function formatChatTime(iso: string, locale: string, yesterday: string): string {
+  const date = parseDate(iso)
+  if (!date) {
     return ''
   }
 
-  const now = new Date()
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const startOfThatDay = new Date(date.getFullYear(), date.getMonth(), date.getDate())
-  const diffDays = Math.round((startOfToday.getTime() - startOfThatDay.getTime()) / 86400000)
-  const time = date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12: false })
+  const diffDays = calendarDayDiff(date)
+  const time = formatClockTime(iso, locale)
 
   if (diffDays === 0) {
     return time
@@ -70,6 +94,35 @@ export function formatChatTime(iso: string, locale: string, yesterday: string): 
     return date.toLocaleDateString(locale, { weekday: 'short' })
   }
   return date.toLocaleDateString(locale, { month: '2-digit', day: '2-digit' })
+}
+
+export function formatDateDivider(
+  iso: string,
+  locale: string,
+  today: string,
+  yesterday: string,
+): string {
+  const date = parseDate(iso)
+  if (!date) {
+    return ''
+  }
+
+  const now = new Date()
+  const diffDays = calendarDayDiff(date, now)
+
+  if (diffDays === 0) {
+    return today
+  }
+  if (diffDays === 1) {
+    return yesterday
+  }
+  if (diffDays > 1 && diffDays < 7) {
+    return date.toLocaleDateString(locale, { weekday: 'long' })
+  }
+  if (date.getFullYear() === now.getFullYear()) {
+    return date.toLocaleDateString(locale, { month: 'long', day: 'numeric' })
+  }
+  return date.toLocaleDateString(locale, { year: 'numeric', month: 'long', day: 'numeric' })
 }
 
 export function formatDate(iso: string, locale: string): string {

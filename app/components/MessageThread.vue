@@ -2,7 +2,7 @@
 import { VList } from 'virtua/vue'
 import type { VListHandle } from 'virtua/vue'
 import type { Chat, Message } from '~/types/api'
-import { formatChatTime } from '~/utils/display'
+import { dayKey, formatClockTime, formatDateDivider } from '~/utils/display'
 
 const props = defineProps<{
   chat: Chat
@@ -52,7 +52,29 @@ function readers(message: Message) {
 }
 
 function timeOf(message: Message) {
-  return formatChatTime(message.created_at, locale.value, t('app.yesterday'))
+  return formatClockTime(message.created_at, locale.value)
+}
+
+function showDay(index: number) {
+  const items = messages.items.value
+  const current = items[index]
+  const previous = items[index - 1]
+  if (!current) {
+    return false
+  }
+  if (!previous) {
+    return true
+  }
+  return dayKey(current.created_at) !== dayKey(previous.created_at)
+}
+
+function dayOf(message: Message) {
+  return formatDateDivider(
+    message.created_at,
+    locale.value,
+    t('app.today'),
+    t('app.yesterday'),
+  )
 }
 
 function scrollToLatest() {
@@ -208,47 +230,59 @@ onMounted(scrollToLatest)
           :key="item.id"
           class="row"
           :class="{
-            own: isOwn(item),
             lead: index === 0,
             tail: index === messages.items.value.length - 1,
           }"
         >
-          <Avatar
-            v-if="!isOwn(item)"
-            :name="sender(item)?.username"
-            :seed="item.sender_id"
-            :size="36"
-          />
-          <div class="bubble-wrap">
-            <div class="meta">
-              <span
-                class="name truncate"
-                :title="sender(item)?.username ?? $t('app.unknownUser')"
-              >{{ sender(item)?.username ?? $t('app.unknownUser') }}</span>
-              <span class="time">{{ timeOf(item) }}</span>
-            </div>
-            <div class="bubble">
-              {{ item.content }}
-            </div>
-            <div
-              v-if="readers(item).length"
-              class="reads"
-            >
-              <Avatar
-                v-for="member in readers(item)"
-                :key="member.user.id"
-                :name="member.user.username"
-                :seed="member.user.id"
-                :size="16"
-              />
-            </div>
+          <div
+            v-if="showDay(index)"
+            class="day"
+          >
+            <span class="day-line" />
+            <span class="day-label">{{ dayOf(item) }}</span>
+            <span class="day-line" />
           </div>
-          <Avatar
-            v-if="isOwn(item)"
-            :name="user?.username"
-            :seed="user?.id"
-            :size="36"
-          />
+          <div
+            class="message-line"
+            :class="{ own: isOwn(item) }"
+          >
+            <Avatar
+              v-if="!isOwn(item)"
+              :name="sender(item)?.username"
+              :seed="item.sender_id"
+              :size="36"
+            />
+            <div class="bubble-wrap">
+              <div class="meta">
+                <span
+                  class="name truncate"
+                  :title="sender(item)?.username ?? $t('app.unknownUser')"
+                >{{ sender(item)?.username ?? $t('app.unknownUser') }}</span>
+                <span class="time">{{ timeOf(item) }}</span>
+              </div>
+              <div class="bubble">
+                {{ item.content }}
+              </div>
+              <div
+                v-if="readers(item).length"
+                class="reads"
+              >
+                <Avatar
+                  v-for="member in readers(item)"
+                  :key="member.user.id"
+                  :name="member.user.username"
+                  :seed="member.user.id"
+                  :size="16"
+                />
+              </div>
+            </div>
+            <Avatar
+              v-if="isOwn(item)"
+              :name="user?.username"
+              :seed="user?.id"
+              :size="36"
+            />
+          </div>
         </div>
       </template>
     </VList>
@@ -316,9 +350,7 @@ onMounted(scrollToLatest)
 
 .row {
   display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  justify-content: flex-start;
+  flex-direction: column;
   padding: 7px 20px;
 }
 
@@ -330,7 +362,38 @@ onMounted(scrollToLatest)
   padding-bottom: 16px;
 }
 
-.row.own {
+.day {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 0 12px;
+}
+
+.day-line {
+  display: block;
+  flex: 1 1 0;
+  max-width: 64px;
+  height: 1px;
+  background: var(--color-border);
+}
+
+.day-label {
+  flex-shrink: 0;
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.message-line {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+.message-line.own {
   justify-content: flex-end;
 }
 
@@ -342,7 +405,7 @@ onMounted(scrollToLatest)
   max-width: 72%;
 }
 
-.row.own .bubble-wrap {
+.message-line.own .bubble-wrap {
   align-items: flex-end;
 }
 
@@ -356,7 +419,7 @@ onMounted(scrollToLatest)
   margin-bottom: 4px;
 }
 
-.row.own .meta {
+.message-line.own .meta {
   flex-direction: row-reverse;
 }
 
@@ -382,7 +445,7 @@ onMounted(scrollToLatest)
   word-break: break-word;
 }
 
-.row.own .bubble {
+.message-line.own .bubble {
   background: var(--color-bubble-own);
 }
 
