@@ -257,6 +257,9 @@ function onClickOutsideMenu() {
 }
 
 .list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   flex: 1;
   overflow: auto;
   padding: 4px 8px 12px;
