@@ -59,51 +59,50 @@ async function remove() {
       </NuxtLink>
       <strong>{{ $t('friends.title') }}</strong>
     </header>
-    <div class="hero">
-      <Avatar
-        :name="friend.username"
-        :seed="friend.friend_id"
-        :size="88"
-      />
-      <h1>{{ friend.username }}</h1>
-      <p class="muted">
-        {{ friend.email }}
+    <div class="stack">
+      <div class="hero">
+        <Avatar
+          :name="friend.username"
+          :seed="friend.friend_id"
+          :size="88"
+        />
+        <h1>{{ friend.username }}</h1>
+        <div class="actions">
+          <button
+            class="btn btn-primary"
+            type="button"
+            :disabled="pending"
+            @click="message"
+          >
+            {{ $t('friends.message') }}
+          </button>
+          <button
+            class="btn btn-secondary"
+            type="button"
+            :disabled="pending"
+            @click="remove"
+          >
+            {{ $t('friends.remove') }}
+          </button>
+        </div>
+      </div>
+      <p
+        v-if="error"
+        class="form-error"
+      >
+        {{ error }}
       </p>
-      <div class="actions">
-        <button
-          class="btn btn-primary"
-          type="button"
-          :disabled="pending"
-          @click="message"
-        >
-          {{ $t('friends.message') }}
-        </button>
-        <button
-          class="btn btn-secondary"
-          type="button"
-          :disabled="pending"
-          @click="remove"
-        >
-          {{ $t('friends.remove') }}
-        </button>
-      </div>
+      <dl>
+        <div>
+          <dt>{{ $t('friends.email') }}</dt>
+          <dd>{{ friend.email }}</dd>
+        </div>
+        <div>
+          <dt>{{ $t('friends.since') }}</dt>
+          <dd>{{ formatDate(friend.created_at, locale) }}</dd>
+        </div>
+      </dl>
     </div>
-    <p
-      v-if="error"
-      class="form-error"
-    >
-      {{ error }}
-    </p>
-    <dl>
-      <div>
-        <dt>{{ $t('friends.email') }}</dt>
-        <dd>{{ friend.email }}</dd>
-      </div>
-      <div>
-        <dt>{{ $t('friends.since') }}</dt>
-        <dd>{{ formatDate(friend.created_at, locale) }}</dd>
-      </div>
-    </dl>
   </section>
 </template>
 
@@ -111,7 +110,15 @@ async function remove() {
 .profile {
   flex: 1;
   min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   overflow: auto;
+}
+
+.stack {
+  margin: auto;
+  width: 100%;
 }
 
 .top {
@@ -128,7 +135,7 @@ async function remove() {
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  padding: 40px 24px 16px;
+  padding: 24px;
   text-align: center;
 }
 
