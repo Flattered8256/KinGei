@@ -222,8 +222,8 @@ onMounted(scrollToLatest)
           <div class="bubble-wrap">
             <div class="meta">
               <span
-                v-if="!isOwn(item)"
-                class="name"
+                class="name truncate"
+                :title="sender(item)?.username ?? $t('app.unknownUser')"
               >{{ sender(item)?.username ?? $t('app.unknownUser') }}</span>
               <span class="time">{{ timeOf(item) }}</span>
             </div>
@@ -335,13 +335,14 @@ onMounted(scrollToLatest)
 }
 
 .bubble-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   min-width: 0;
   max-width: 72%;
 }
 
 .row.own .bubble-wrap {
-  display: flex;
-  flex-direction: column;
   align-items: flex-end;
 }
 
@@ -349,6 +350,9 @@ onMounted(scrollToLatest)
   display: flex;
   gap: 8px;
   align-items: baseline;
+  width: fit-content;
+  max-width: 100%;
+  min-width: 0;
   margin-bottom: 4px;
 }
 
@@ -363,11 +367,14 @@ onMounted(scrollToLatest)
 }
 
 .time {
+  flex-shrink: 0;
   color: var(--color-muted);
   font-size: 12px;
 }
 
 .bubble {
+  width: fit-content;
+  max-width: 100%;
   padding: 8px 12px;
   border-radius: 12px;
   background: var(--color-bubble-other);
