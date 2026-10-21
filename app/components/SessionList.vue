@@ -178,11 +178,11 @@ function onClickOutsideMenu() {
         />
         <div class="meta">
           <div class="row">
-            <strong>{{ chats.titleOf(chat) }}</strong>
+            <strong class="truncate">{{ chats.titleOf(chat) }}</strong>
             <span class="time">{{ previewTime(chat.id, chat.created_at) }}</span>
           </div>
           <div class="row">
-            <span class="preview">{{ previewText(chat.id) }}</span>
+            <span class="preview truncate">{{ previewText(chat.id) }}</span>
             <span
               v-if="chat.unread_count > 0"
               class="badge"
@@ -287,16 +287,20 @@ function onClickOutsideMenu() {
   gap: 8px;
 }
 
+.row strong,
+.preview {
+  flex: 1;
+}
+
 .preview,
 .time {
   color: var(--color-muted);
   font-size: 12px;
 }
 
-.preview {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.time,
+.badge {
+  flex-shrink: 0;
 }
 
 .pad {

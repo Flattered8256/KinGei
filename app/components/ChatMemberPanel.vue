@@ -193,7 +193,10 @@ async function leave() {
           :size="36"
         />
         <div class="who">
-          <strong>{{ member.user.username }}</strong>
+          <strong
+            class="truncate"
+            :title="member.user.username"
+          >{{ member.user.username }}</strong>
           <span
             v-if="member.user.id === chat.owner_id"
             class="role"
@@ -275,6 +278,7 @@ li {
 }
 
 .tiny {
+  flex-shrink: 0;
   color: var(--color-danger);
   font-size: 12px;
 }

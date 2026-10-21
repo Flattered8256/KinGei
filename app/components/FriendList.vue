@@ -87,7 +87,10 @@ function isFriendActive(id: string) {
             :size="40"
           />
           <div class="meta">
-            <strong>{{ requestName(request, 'sender') }}</strong>
+            <strong
+              class="truncate"
+              :title="requestName(request, 'sender')"
+            >{{ requestName(request, 'sender') }}</strong>
             <div class="row-actions">
               <button
                 type="button"
@@ -122,7 +125,10 @@ function isFriendActive(id: string) {
             :size="40"
           />
           <div class="meta">
-            <strong>{{ requestName(request, 'receiver') }}</strong>
+            <strong
+              class="truncate"
+              :title="requestName(request, 'receiver')"
+            >{{ requestName(request, 'receiver') }}</strong>
             <button
               type="button"
               class="link"
@@ -155,8 +161,14 @@ function isFriendActive(id: string) {
           :size="40"
         />
         <div class="meta">
-          <strong>{{ friend.username }}</strong>
-          <span class="muted">{{ friend.email }}</span>
+          <strong
+            class="truncate"
+            :title="friend.username"
+          >{{ friend.username }}</strong>
+          <span
+            class="muted truncate"
+            :title="friend.email"
+          >{{ friend.email }}</span>
         </div>
       </NuxtLink>
     </div>
