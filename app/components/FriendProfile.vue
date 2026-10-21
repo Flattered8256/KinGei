@@ -1,0 +1,165 @@
+<script setup lang="ts">
+import type { Friend } from '~/types/api'
+import { formatDate } from '~/utils/display'
+
+const props = defineProps<{
+  friend: Friend
+}>()
+
+const { t, locale } = useI18n()
+const { isMobile } = useIsMobile()
+const chats = useChats()
+const friends = useFriends()
+const apiI18n = useApiI18n()
+const pending = ref(false)
+const error = ref('')
+
+async function message() {
+  pending.value = true
+  error.value = ''
+  try {
+    const chat = await chats.openDirect(props.friend.friend_id)
+    await navigateTo(`/chat/${chat.id}`)
+  }
+  catch (err) {
+    error.value = apiI18n.fromError(err)
+    pending.value = false
+  }
+}
+
+async function remove() {
+  if (!confirm(t('friends.removeConfirm'))) {
+    return
+  }
+  pending.value = true
+  error.value = ''
+  try {
+    await friends.remove(props.friend.friend_id)
+    await navigateTo('/friends')
+  }
+  catch (err) {
+    error.value = apiI18n.fromError(err)
+    pending.value = false
+  }
+}
+</script>
+
+<template>
+  <section class="profile">
+    <header
+      v-if="isMobile"
+      class="top"
+    >
+      <NuxtLink
+        to="/friends"
+        class="icon-btn"
+        :aria-label="$t('app.back')"
+      >
+        <AppIcon name="back" />
+      </NuxtLink>
+      <strong>{{ $t('friends.title') }}</strong>
+    </header>
+    <div class="hero">
+      <Avatar
+        :name="friend.username"
+        :seed="friend.friend_id"
+        :size="88"
+      />
+      <h1>{{ friend.username }}</h1>
+      <p class="muted">
+        {{ friend.email }}
+      </p>
+      <div class="actions">
+        <button
+          class="btn btn-primary"
+          type="button"
+          :disabled="pending"
+          @click="message"
+        >
+          {{ $t('friends.message') }}
+        </button>
+        <button
+          class="btn btn-secondary"
+          type="button"
+          :disabled="pending"
+          @click="remove"
+        >
+          {{ $t('friends.remove') }}
+        </button>
+      </div>
+    </div>
+    <p
+      v-if="error"
+      class="form-error"
+    >
+      {{ error }}
+    </p>
+    <dl>
+      <div>
+        <dt>{{ $t('friends.email') }}</dt>
+        <dd>{{ friend.email }}</dd>
+      </div>
+      <div>
+        <dt>{{ $t('friends.since') }}</dt>
+        <dd>{{ formatDate(friend.created_at, locale) }}</dd>
+      </div>
+    </dl>
+  </section>
+</template>
+
+<style scoped>
+.profile {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 52px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 40px 24px 16px;
+  text-align: center;
+}
+
+.hero h1 {
+  font-size: 22px;
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+dl {
+  width: min(520px, 100%);
+  margin: 24px auto;
+  padding: 0 24px;
+}
+
+dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+}
+
+dt {
+  color: var(--color-muted);
+}
+
+dd {
+  margin: 0;
+}
+</style>
