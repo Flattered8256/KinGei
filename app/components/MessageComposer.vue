@@ -5,6 +5,15 @@ const draft = ref('')
 const area = ref<HTMLTextAreaElement | null>(null)
 const error = ref('')
 
+function fit() {
+  const el = area.value
+  if (!el) {
+    return
+  }
+  el.style.height = '0px'
+  el.style.height = `${el.scrollHeight}px`
+}
+
 async function submit() {
   const text = draft.value
   if (!text.trim() || messages.sending.value) {
@@ -19,7 +28,9 @@ async function submit() {
     draft.value = text
     error.value = apiI18n.fromError(err)
   }
-  nextTick(() => area.value?.focus())
+  await nextTick()
+  fit()
+  area.value?.focus()
 }
 
 function onKeydown(event: KeyboardEvent) {
@@ -28,6 +39,12 @@ function onKeydown(event: KeyboardEvent) {
     void submit()
   }
 }
+
+watch(draft, () => {
+  nextTick(fit)
+})
+
+onMounted(fit)
 </script>
 
 <template>
@@ -77,6 +94,7 @@ function onKeydown(event: KeyboardEvent) {
 }
 
 .box {
+  display: block;
   width: 100%;
   min-height: 44px;
   max-height: 120px;
@@ -85,6 +103,7 @@ function onKeydown(event: KeyboardEvent) {
   border-radius: 22px;
   background: var(--bg-input);
   resize: none;
+  overflow-y: auto;
 }
 
 .box:focus {
