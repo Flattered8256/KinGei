@@ -263,21 +263,6 @@ select.input {
   color: #fff;
 }
 
-.badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  border-radius: 999px;
-  background: var(--color-unread);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 600;
-  line-height: 1;
-}
-
 .panel-card {
   display: flex;
   height: 100%;
