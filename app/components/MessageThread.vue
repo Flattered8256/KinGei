@@ -97,10 +97,6 @@ function onResize() {
   }
 }
 
-function loadOlder() {
-  void messages.loadOlder()
-}
-
 watch(
   () => messages.items.value,
   (items) => {
@@ -173,15 +169,6 @@ onMounted(scrollToLatest)
 
 <template>
   <div class="thread">
-    <button
-      v-if="messages.hasMore.value && messages.items.value.length"
-      type="button"
-      class="more"
-      :disabled="messages.loadingMore.value"
-      @click="loadOlder"
-    >
-      {{ $t('chat.loadMore') }}
-    </button>
     <p
       v-if="messages.loading.value"
       class="muted center"
@@ -211,7 +198,6 @@ onMounted(scrollToLatest)
             own: isOwn(item),
             lead: index === 0,
             tail: index === messages.items.value.length - 1,
-            'has-more': index === 0 && messages.hasMore.value,
           }"
         >
           <Avatar
@@ -281,19 +267,6 @@ onMounted(scrollToLatest)
   padding: 24px;
 }
 
-.more {
-  position: absolute;
-  top: 8px;
-  left: 50%;
-  z-index: 1;
-  transform: translateX(-50%);
-  color: var(--color-primary);
-  font-size: 13px;
-  padding: 4px 8px;
-  background: var(--bg-panel);
-  border-radius: var(--radius-sm);
-}
-
 .list {
   flex: 1;
   min-height: 0;
@@ -338,10 +311,6 @@ onMounted(scrollToLatest)
 
 .row.lead {
   padding-top: 16px;
-}
-
-.row.has-more {
-  padding-top: 40px;
 }
 
 .row.tail {
