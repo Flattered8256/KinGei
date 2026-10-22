@@ -4,7 +4,7 @@ use uuid::Uuid;
 use crate::error::AppError;
 use crate::error::friend::FriendError;
 use crate::event::{ClientEvent, EventHub};
-use crate::model::friend::Status;
+use crate::model::friend::{FriendRequest, Status};
 use crate::repository::friend::{FriendRepository, FriendRequestRepository};
 use crate::repository::user::UserRepository;
 use crate::serializer::friend::{FriendRequestResponse, FriendResponse, SendFriendRequest};
@@ -80,7 +80,7 @@ impl FriendService {
                 .update_status(existing.id, Status::Pending)
                 .await?
                 .ok_or(AppError::Friend(FriendError::RequestNotFound))?;
-            let response = FriendRequestResponse::from(updated);
+            let response = self.to_response(updated).await?;
             self.emit(
                 receiver_id,
                 ClientEvent::FriendRequestCreated(response.clone()),
@@ -89,7 +89,7 @@ impl FriendService {
         }
 
         let created = self.request_repo.create(sender_id, receiver_id).await?;
-        let response = FriendRequestResponse::from(created);
+        let response = self.to_response(created).await?;
         self.emit(
             receiver_id,
             ClientEvent::FriendRequestCreated(response.clone()),
@@ -102,18 +102,12 @@ impl FriendService {
         receiver_id: Uuid,
     ) -> Result<Vec<FriendRequestResponse>, AppError> {
         let requests = self.request_repo.list_received(receiver_id).await?;
-        Ok(requests
-            .into_iter()
-            .map(FriendRequestResponse::from)
-            .collect())
+        self.to_response_list(requests).await
     }
 
     pub async fn list_sent(&self, sender_id: Uuid) -> Result<Vec<FriendRequestResponse>, AppError> {
         let requests = self.request_repo.list_sent(sender_id).await?;
-        Ok(requests
-            .into_iter()
-            .map(FriendRequestResponse::from)
-            .collect())
+        self.to_response_list(requests).await
     }
 
     pub async fn accept(
@@ -140,7 +134,7 @@ impl FriendService {
             .accept_and_create_friend(request.id, request.sender_id, request.receiver_id)
             .await?;
 
-        let response = FriendRequestResponse::from(accepted);
+        let response = self.to_response(accepted).await?;
         self.emit(
             request.sender_id,
             ClientEvent::FriendRequestAccepted(response.clone()),
@@ -173,7 +167,7 @@ impl FriendService {
             .await?
             .ok_or(AppError::Friend(FriendError::RequestNotFound))?;
 
-        let response = FriendRequestResponse::from(rejected);
+        let response = self.to_response(rejected).await?;
         self.emit(
             request.sender_id,
             ClientEvent::FriendRequestRejected(response.clone()),
@@ -206,7 +200,7 @@ impl FriendService {
             .await?
             .ok_or(AppError::Friend(FriendError::RequestNotFound))?;
 
-        let response = FriendRequestResponse::from(deleted);
+        let response = self.to_response(deleted).await?;
         self.emit(
             request.receiver_id,
             ClientEvent::FriendRequestCancelled(response.clone()),
@@ -245,5 +239,38 @@ impl FriendService {
 
     fn emit(&self, user_id: Uuid, event: ClientEvent) {
         self.event_hub.publish(user_id, Arc::new(event));
+    }
+
+    async fn to_response(&self, request: FriendRequest) -> Result<FriendRequestResponse, AppError> {
+        let sender = self
+            .user_repo
+            .find_by_id(request.sender_id)
+            .await?
+            .ok_or(AppError::Friend(FriendError::UserNotFound))?;
+        let receiver = self
+            .user_repo
+            .find_by_id(request.receiver_id)
+            .await?
+            .ok_or(AppError::Friend(FriendError::UserNotFound))?;
+        Ok(FriendRequestResponse::from(
+            request,
+            sender.into(),
+            receiver.into(),
+        ))
+    }
+
+    async fn to_response_list(
+        &self,
+        requests: Vec<FriendRequest>,
+    ) -> Result<Vec<FriendRequestResponse>, AppError> {
+        let mut responses = Vec::with_capacity(requests.len());
+        for request in requests {
+            match self.to_response(request).await {
+                Ok(response) => responses.push(response),
+                Err(AppError::Friend(FriendError::UserNotFound)) => continue,
+                Err(err) => return Err(err),
+            }
+        }
+        Ok(responses)
     }
 }
