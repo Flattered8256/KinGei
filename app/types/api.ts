@@ -88,8 +88,8 @@ export interface SendFriendRequest {
 
 export interface FriendRequest {
   id: number
-  sender_id: string
-  receiver_id: string
+  sender: User
+  receiver: User
   status: FriendRequestStatus
   created_at: string
   updated_at: string

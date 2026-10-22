@@ -1,13 +1,11 @@
 <script setup lang="ts">
-import type { Friend, FriendRequest } from '~/types/api'
-import { shortId } from '~/utils/display'
+import type { FriendRequest } from '~/types/api'
 
 const route = useRoute()
 const { t } = useI18n()
 const { open } = useAppActions()
 const friends = useFriends()
 const chats = useChats()
-const users = useUserDirectory()
 
 const toast = useToast()
 const query = ref('')
@@ -26,7 +24,7 @@ async function acceptRequest(request: FriendRequest) {
   try {
     await friends.accept(request.id)
     toast.success(t('toast.accepted'))
-    await chats.openDirect(request.sender_id)
+    await chats.openDirect(request.sender.id)
   }
   catch (err) {
     toast.error(err)
@@ -42,15 +40,6 @@ const filteredFriends = computed(() => {
     item.username.toLowerCase().includes(q) || item.email.toLowerCase().includes(q),
   )
 })
-
-function requestName(request: FriendRequest, side: 'sender' | 'receiver') {
-  const id = side === 'sender' ? request.sender_id : request.receiver_id
-  return users.label(id, `${t('app.unknownUser')} ${shortId(id)}`)
-}
-
-function requestSeed(request: FriendRequest, side: 'sender' | 'receiver') {
-  return side === 'sender' ? request.sender_id : request.receiver_id
-}
 
 function isFriendActive(id: string) {
   return String(route.params.id) === id
@@ -88,15 +77,15 @@ function isFriendActive(id: string) {
           class="item"
         >
           <Avatar
-            :name="requestName(request, 'sender')"
-            :seed="requestSeed(request, 'sender')"
+            :name="request.sender.username"
+            :seed="request.sender.id"
             :size="40"
           />
           <div class="meta">
             <strong
               class="truncate"
-              :title="requestName(request, 'sender')"
-            >{{ requestName(request, 'sender') }}</strong>
+              :title="request.sender.username"
+            >{{ request.sender.username }}</strong>
             <div class="row-actions">
               <button
                 type="button"
@@ -126,15 +115,15 @@ function isFriendActive(id: string) {
           class="item"
         >
           <Avatar
-            :name="requestName(request, 'receiver')"
-            :seed="requestSeed(request, 'receiver')"
+            :name="request.receiver.username"
+            :seed="request.receiver.id"
             :size="40"
           />
           <div class="meta">
             <strong
               class="truncate"
-              :title="requestName(request, 'receiver')"
-            >{{ requestName(request, 'receiver') }}</strong>
+              :title="request.receiver.username"
+            >{{ request.receiver.username }}</strong>
             <button
               type="button"
               class="link"

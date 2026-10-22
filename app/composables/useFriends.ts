@@ -40,6 +40,12 @@ export function useFriends() {
       for (const friend of friendList) {
         users.rememberFriend(friend)
       }
+      for (const request of received) {
+        users.rememberRequest(request)
+      }
+      for (const request of sent) {
+        users.rememberRequest(request)
+      }
       friends.value = friendList
       incoming.value = pendingOnly(received)
       outgoing.value = pendingOnly(sent)
@@ -61,6 +67,7 @@ export function useFriends() {
 
   async function request(receiverId: string) {
     const created = await sendFriendRequest({ receiver_id: receiverId })
+    users.rememberRequest(created)
     if (!outgoing.value.some(item => item.id === created.id)) {
       outgoing.value = [created, ...outgoing.value]
     }
@@ -95,20 +102,23 @@ export function useFriends() {
   function ingest(event: ClientEvent) {
     switch (event.event) {
       case 'friend.request.created':
-        if (event.data.receiver_id === myId.value) {
+        users.rememberRequest(event.data)
+        if (event.data.receiver.id === myId.value) {
           incoming.value = [event.data, ...incoming.value.filter(item => item.id !== event.data.id)]
         }
-        else if (event.data.sender_id === myId.value) {
+        else if (event.data.sender.id === myId.value) {
           outgoing.value = [event.data, ...outgoing.value.filter(item => item.id !== event.data.id)]
         }
         break
       case 'friend.request.accepted':
+        users.rememberRequest(event.data)
         incoming.value = incoming.value.filter(item => item.id !== event.data.id)
         outgoing.value = outgoing.value.filter(item => item.id !== event.data.id)
         void refresh()
         break
       case 'friend.request.rejected':
       case 'friend.request.cancelled':
+        users.rememberRequest(event.data)
         incoming.value = incoming.value.filter(item => item.id !== event.data.id)
         outgoing.value = outgoing.value.filter(item => item.id !== event.data.id)
         break

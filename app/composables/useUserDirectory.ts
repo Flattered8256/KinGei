@@ -1,4 +1,4 @@
-import type { Chat, Friend, User } from '~/types/api'
+import type { Chat, Friend, FriendRequest, User } from '~/types/api'
 
 export function useUserDirectory() {
   const byId = useState<Record<string, User>>('users.byId', () => ({}))
@@ -29,6 +29,10 @@ export function useUserDirectory() {
     })
   }
 
+  function rememberRequest(request: FriendRequest) {
+    rememberMany([request.sender, request.receiver])
+  }
+
   function get(id: string): User | undefined {
     return byId.value[id]
   }
@@ -47,6 +51,7 @@ export function useUserDirectory() {
     rememberMany,
     rememberChat,
     rememberFriend,
+    rememberRequest,
     get,
     label,
     reset,
