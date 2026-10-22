@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const messages = useMessages()
+const { isMobile } = useIsMobile()
 const toast = useToast()
 const draft = ref('')
 const area = ref<HTMLTextAreaElement | null>(null)
@@ -28,7 +29,9 @@ async function submit() {
   }
   await nextTick()
   fit()
-  area.value?.focus()
+  if (!isMobile.value) {
+    area.value?.focus()
+  }
 }
 
 function onKeydown(event: KeyboardEvent) {
