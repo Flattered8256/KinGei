@@ -75,7 +75,10 @@ export function useMessages() {
     }
   }
 
-  function close() {
+  function close(chatId?: number) {
+    if (chatId != null && !isCurrent(chatId)) {
+      return
+    }
     currentId.value = null
     resetThread()
     loading.value = false

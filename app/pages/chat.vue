@@ -2,11 +2,26 @@
 definePageMeta({
   layout: 'app',
   middleware: 'auth',
+  key: 'chat',
 })
 
 const route = useRoute()
 const { isMobile } = useIsMobile()
+const messages = useMessages()
 const showList = computed(() => !isMobile.value || !route.params.id)
+
+watch(
+  () => route.params.id,
+  (id, prev) => {
+    if (prev && !id) {
+      messages.close(Number(prev))
+    }
+  },
+)
+
+onBeforeUnmount(() => {
+  messages.close()
+})
 </script>
 
 <template>
