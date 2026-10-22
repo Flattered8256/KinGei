@@ -23,13 +23,23 @@ export function useMessages() {
     error.value = null
   }
 
+  function isCurrent(chatId: number) {
+    return currentId.value === chatId
+  }
+
   async function markRead(chatId: number, messageId?: number) {
+    if (!isCurrent(chatId)) {
+      return
+    }
     const last = messageId ?? items.value[items.value.length - 1]?.id
     if (!last) {
       return
     }
     try {
       await updateReadCursor(chatId, { last_read_message_id: last })
+      if (!isCurrent(chatId)) {
+        return
+      }
       chats.markReadLocal(chatId)
     }
     catch {
@@ -38,7 +48,7 @@ export function useMessages() {
   }
 
   async function open(chatId: number) {
-    if (currentId.value === chatId && items.value.length > 0) {
+    if (isCurrent(chatId) && items.value.length > 0) {
       await markRead(chatId)
       return
     }
@@ -47,6 +57,9 @@ export function useMessages() {
     resetThread()
     try {
       const page = await listMessages(chatId, { limit: PAGE_SIZE })
+      if (!isCurrent(chatId)) {
+        return
+      }
       items.value = page
       hasMore.value = page.length >= PAGE_SIZE
       await markRead(chatId)
@@ -56,8 +69,18 @@ export function useMessages() {
       useToast().error(err)
     }
     finally {
-      loading.value = false
+      if (isCurrent(chatId)) {
+        loading.value = false
+      }
     }
+  }
+
+  function close() {
+    currentId.value = null
+    resetThread()
+    loading.value = false
+    loadingMore.value = false
+    sending.value = false
   }
 
   async function loadOlder() {
@@ -69,6 +92,9 @@ export function useMessages() {
     loadingMore.value = true
     try {
       const page = await listMessages(chatId, { before: first.id, limit: PAGE_SIZE })
+      if (!isCurrent(chatId)) {
+        return
+      }
       hasMore.value = page.length >= PAGE_SIZE
       items.value = [...page, ...items.value]
     }
@@ -77,7 +103,9 @@ export function useMessages() {
       useToast().error(err)
     }
     finally {
-      loadingMore.value = false
+      if (isCurrent(chatId)) {
+        loadingMore.value = false
+      }
     }
   }
 
@@ -90,13 +118,15 @@ export function useMessages() {
     sending.value = true
     try {
       const created = await sendMessage(chatId, { content: text })
-      if (!items.value.some(item => item.id === created.id)) {
+      if (isCurrent(chatId) && !items.value.some(item => item.id === created.id)) {
         items.value = [...items.value, created]
       }
       await markRead(chatId, created.id)
     }
     finally {
-      sending.value = false
+      if (isCurrent(chatId)) {
+        sending.value = false
+      }
     }
   }
 
@@ -109,13 +139,14 @@ export function useMessages() {
   }
 
   function ingest(event: ClientEvent) {
-    if (event.event === 'message.created' && event.data.chat_id === currentId.value) {
-      if (!items.value.some(item => item.id === event.data.id)) {
-        items.value = [...items.value, event.data]
-      }
-      if (event.data.sender_id !== myId.value) {
-        void markRead(event.data.chat_id, event.data.id)
-      }
+    if (event.event !== 'message.created' || !isCurrent(event.data.chat_id)) {
+      return
+    }
+    if (!items.value.some(item => item.id === event.data.id)) {
+      items.value = [...items.value, event.data]
+    }
+    if (event.data.sender_id !== myId.value) {
+      void markRead(event.data.chat_id, event.data.id)
     }
   }
 
@@ -138,6 +169,7 @@ export function useMessages() {
     sending,
     error,
     open,
+    close,
     loadOlder,
     send,
     refreshCurrent,

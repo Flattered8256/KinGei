@@ -174,9 +174,17 @@ export function useChats() {
         if (!chat) {
           break
         }
+        const preview = previews.value[chat.id]
+        const hasNewerIncoming = Boolean(
+          preview
+          && preview.sender_id !== myId.value
+          && preview.id > event.data.last_read_message_id,
+        )
         replaceChat({
           ...chat,
-          unread_count: event.data.user_id === myId.value ? 0 : chat.unread_count,
+          unread_count: event.data.user_id === myId.value && !hasNewerIncoming
+            ? 0
+            : chat.unread_count,
           member: chat.member.map(member =>
             member.user.id === event.data.user_id
               ? { ...member, last_read_message_id: event.data.last_read_message_id }

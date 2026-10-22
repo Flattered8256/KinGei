@@ -38,6 +38,10 @@ watch(
   { immediate: true },
 )
 
+onBeforeUnmount(() => {
+  messages.close()
+})
+
 const title = computed(() => (chat.value ? chats.titleOf(chat.value) : ''))
 const isGroup = computed(() => chat.value?.type === 'Group')
 </script>
