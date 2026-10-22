@@ -18,3 +18,5 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 bcrypt = "0.16"
 jsonwebtoken = "9"
+aws-config = { version = "1.13.0", features = ["behavior-version-latest"] }
+aws-sdk-s3 = "1.154.0"

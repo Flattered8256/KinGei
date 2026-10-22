@@ -1,5 +1,6 @@
 pub mod chat;
 pub mod event;
+pub mod file;
 pub mod friend;
 pub mod message;
 pub mod user;
@@ -21,5 +22,6 @@ pub fn create_router(state: Arc<AppState>) -> Router {
             chat::protected_routes().merge(message::protected_routes()),
         )
         .nest("/event", event::protected_routes())
+        .nest("/file", file::protected_routes())
         .with_state(state)
 }

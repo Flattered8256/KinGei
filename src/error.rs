@@ -1,13 +1,16 @@
 // error.rs
 pub mod chat;
+pub mod file;
 pub mod friend;
 pub mod message;
 pub mod user;
 
 use crate::error::chat::ChatError;
+use crate::error::file::FileError;
 use crate::error::friend::FriendError;
 use crate::error::message::MessageError;
 use crate::error::user::UserError;
+use crate::storage::StorageError;
 use axum::Json;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
@@ -28,6 +31,12 @@ pub enum AppError {
 
     #[error("{0}")]
     Message(#[from] MessageError),
+
+    #[error("{0}")]
+    File(#[from] FileError),
+
+    #[error("Storage error: {0}")]
+    Storage(#[from] StorageError),
 
     #[error("Bcrypt error: {0}")]
     Bcrypt(#[from] bcrypt::BcryptError),
@@ -57,6 +66,11 @@ impl IntoResponse for AppError {
             AppError::Friend(friend_err) => friend_err.into_response(),
             AppError::Chat(chat_err) => chat_err.into_response(),
             AppError::Message(message_err) => message_err.into_response(),
+            AppError::File(file_err) => file_err.into_response(),
+            AppError::Storage(e) => {
+                tracing::error!(?e, "storage error");
+                internal_error()
+            }
             AppError::Database(e) => {
                 tracing::error!(?e, "database error");
                 internal_error()

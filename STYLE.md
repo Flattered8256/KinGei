@@ -39,6 +39,7 @@ src/
   error/<domain>.rs    领域错误与 HTTP 映射
   middleware/          中间件（鉴权等）
   utils/               与 HTTP 无关的工具（JWT 等）
+  storage.rs           Garage S3 客户端（path-style、预签名）
 migrations/            sqlx 迁移脚本
 ```
 
@@ -51,7 +52,7 @@ pub mod friend;
 pub mod chat;
 ```
 
-不要写成 `src/service/mod.rs`。领域顺序固定为 `user`、`friend`、`chat`，新增领域按依赖关系追加在后面。
+不要写成 `src/service/mod.rs`。领域顺序固定为 `user`、`friend`、`chat`、`message`、`file`，新增领域按依赖关系追加在后面。
 
 ---
 
@@ -254,7 +255,7 @@ HTTP 状态码习惯：
 
 ### 4.2 数据库
 
-- 表名 **单数**：`user`、`friend`、`chat`、`chat_member`、`friend_request`。
+- 表名 **单数**：`user`、`friend`、`chat`、`chat_member`、`friend_request`、`file`。
 - 列名 snake_case，与 model 字段相同。
 - 用户主键：`TEXT` 存 UUID。
 - 其余资源主键：`INTEGER PRIMARY KEY AUTOINCREMENT`，Rust 侧 `i64`。
@@ -265,7 +266,7 @@ HTTP 状态码习惯：
 
 ### 4.3 HTTP
 - restful风格：成功直接返回资源，失败则放回code字段，错误代码用简短的英文。
-- 顶层前缀：`/user`、`/friend`、`/chat`。
+- 顶层前缀：`/user`、`/friend`、`/chat`、`/event`、`/file`。
 - 路径用名词，动作用 HTTP 方法，不用 `doAccept` 这种动词当资源。
 - 子资源可以出现动作后缀：`/request/{id}/accept`、`/request/{id}/reject`。
 - 路径参数：`{id}`、`{email}`、`{friend_id}`、`{user_id}`，与 handler 的 `Path` 同名。
@@ -332,7 +333,10 @@ WHERE user_id = ? AND friend_id = ?
 
 ## 7. 鉴权与配置
 
-- 环境变量：`DATABASE_URL`、`PORT`、`JWT_SECRET`、`RUST_LOG`。`.env` 不入库。
+- 环境变量：`DATABASE_URL`、`PORT`、`JWT_SECRET`、`RUST_LOG`、`GARAGE_ENDPOINT`、`GARAGE_ACCESS_KEY`、`GARAGE_SECRET_KEY`、`GARAGE_BUCKET`、`GARAGE_REGION`（缺省 `us-east-1`）。`.env` 不入库。
+- Garage 为本机 path-style S3（本地 `http://127.0.0.1:3900`）。`Storage::connect` 启动时 `ListBuckets`，没有目标 bucket 则 `CreateBucket`；连不上则中止启动。
+- `POST /file`（JWT）申请 PutObject 预签名 URL：请求 `name`、`content_type`（可空，默认 `application/octet-stream`）、`size`；响应 `id`、`name`、`content_type`、`size`、`upload_url`、`expires_at`。object key 为 `{owner_id}/{uuid}`，不进 JSON。预签名 15 分钟，绑定 `Content-Type` 和 `Content-Length`。申请时插入 `file.status = Pending`。
+- `POST /file/{id}/complete`（JWT）确认上传：owner 才能操作。对 Garage 做 HeadObject，对象不存在 → `400 UploadIncomplete`；`Content-Length` 与申请时 `size` 不一致 → `400 SizeMismatch`；通过后把 `status` 写成 `Ready`。已是 `Ready` 则直接返回。响应 `id`、`owner_id`、`name`、`content_type`、`size`、`status`、`created_at`。缺失行 `404 FileNotFound`，非 owner `403 NotOwner`。
 - Access Token 15 分钟，Refresh Token 7 天。改时长只改 `src/utils/auth.rs` 里的常量。
 - 受保护路由从 `Authorization: Bearer <token>` 取 access token，把 `claims.sub` 插入 `Extension<Uuid>`。
 - 缺少/非法 header 视为 `UserError::InvalidCredentials`（401）。

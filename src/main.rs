@@ -8,8 +8,10 @@ mod repository;
 mod router;
 mod serializer;
 mod service;
+mod storage;
 mod utils;
 use crate::state::AppState;
+use crate::storage::Storage;
 use dotenvy::dotenv;
 use std::env;
 use std::sync::Arc;
@@ -28,7 +30,8 @@ async fn main() {
         .await
         .expect("数据库迁移失败");
 
-    let app_state = Arc::new(AppState::new(pool));
+    let storage = Storage::connect().await;
+    let app_state = Arc::new(AppState::new(pool, storage));
 
     let app = router::create_router(app_state).into_make_service();
 
