@@ -2,6 +2,8 @@
 import { ElBadge } from 'element-plus'
 import 'element-plus/es/components/badge/style/css'
 
+const slots = useSlots()
+
 defineProps<{
   value: number
 }>()
@@ -14,6 +16,7 @@ defineProps<{
     :max="99"
     color="var(--color-unread)"
     class="unread"
+    :class="{ standalone: !slots.default }"
   >
     <slot />
   </el-badge>
@@ -27,5 +30,10 @@ defineProps<{
 
 .unread :deep(.el-badge__content) {
   border: 0;
+}
+
+.unread.standalone :deep(.el-badge__content.is-fixed) {
+  position: static;
+  transform: none;
 }
 </style>

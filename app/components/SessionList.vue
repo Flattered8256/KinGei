@@ -159,12 +159,12 @@ function onClickOutsideMenu() {
           :size="40"
         />
         <div class="meta">
-          <div class="row">
+          <div class="body">
             <strong class="truncate">{{ chats.titleOf(chat) }}</strong>
-            <span class="time">{{ previewTime(chat.id, chat.created_at) }}</span>
-          </div>
-          <div class="row">
             <span class="preview truncate">{{ previewText(chat.id) }}</span>
+          </div>
+          <div class="trail">
+            <span class="time">{{ previewTime(chat.id, chat.created_at) }}</span>
             <UnreadBadge
               v-if="chat.unread_count > 0"
               :value="chat.unread_count"
@@ -263,28 +263,31 @@ function onClickOutsideMenu() {
 .meta {
   flex: 1;
   min-width: 0;
-}
-
-.row {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  align-items: flex-start;
   gap: 8px;
 }
 
-.row strong,
-.preview {
+.body {
   flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.trail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 4px;
 }
 
 .preview,
 .time {
   color: var(--color-muted);
   font-size: 12px;
-}
-
-.time {
-  flex-shrink: 0;
 }
 
 .pad {
