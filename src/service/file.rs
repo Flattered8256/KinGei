@@ -118,20 +118,12 @@ impl FileService {
         Ok(FileResponse::from(updated))
     }
 
-    pub async fn download(
-        &self,
-        user_id: Uuid,
-        id: i64,
-    ) -> Result<PresignDownloadResponse, AppError> {
+    pub async fn download(&self, id: i64) -> Result<PresignDownloadResponse, AppError> {
         let file = self
             .repo
             .find_by_id(id)
             .await?
             .ok_or(AppError::File(FileError::FileNotFound))?;
-
-        if file.owner_id != user_id {
-            return Err(AppError::File(FileError::NotOwner));
-        }
 
         if file.status != FileStatus::Ready {
             return Err(AppError::File(FileError::FileNotReady));
@@ -151,4 +143,30 @@ impl FileService {
             expires_at: Utc::now() + Duration::seconds(PRESIGN_TTL.as_secs() as i64),
         })
     }
+}
+
+const IMAGE_CONTENT_TYPES: &[&str] = &["image/jpeg", "image/png", "image/webp", "image/gif"];
+
+pub async fn require_image(
+    repo: &FileRepository,
+    user_id: Uuid,
+    file_id: i64,
+) -> Result<(), AppError> {
+    let file = repo
+        .find_by_id(file_id)
+        .await?
+        .ok_or(AppError::File(FileError::FileNotFound))?;
+    if file.owner_id != user_id {
+        return Err(AppError::File(FileError::NotOwner));
+    }
+    if file.status != FileStatus::Ready {
+        return Err(AppError::File(FileError::FileNotReady));
+    }
+    if !IMAGE_CONTENT_TYPES
+        .iter()
+        .any(|allowed| file.content_type.eq_ignore_ascii_case(allowed))
+    {
+        return Err(AppError::File(FileError::InvalidImage));
+    }
+    Ok(())
 }

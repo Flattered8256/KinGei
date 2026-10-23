@@ -32,9 +32,8 @@ pub async fn complete(
 
 pub async fn download(
     State(state): State<Arc<AppState>>,
-    Extension(user_id): Extension<Uuid>,
     Path(id): Path<i64>,
 ) -> Result<Json<PresignDownloadResponse>, AppError> {
-    let result = state.file_service.download(user_id, id).await?;
+    let result = state.file_service.download(id).await?;
     Ok(Json(result))
 }

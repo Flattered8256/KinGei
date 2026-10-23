@@ -10,6 +10,7 @@ pub struct UserResponse {
     pub username: String,
     pub email: String,
     pub created_at: DateTime<Utc>,
+    pub avatar: Option<i64>,
 }
 #[derive(Debug, Serialize)]
 pub struct LoginResponse {
@@ -36,6 +37,7 @@ pub struct LoginRequest {
 pub struct UpdateUserRequest {
     pub username: Option<String>,
     pub email: Option<String>,
+    pub avatar: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -63,6 +65,7 @@ impl From<User> for UserResponse {
             username: user.username,
             email: user.email,
             created_at: user.created_at,
+            avatar: user.avatar,
         }
     }
 }

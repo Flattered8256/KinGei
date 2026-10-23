@@ -221,6 +221,7 @@ impl FriendService {
                 username: user.username,
                 email: user.email,
                 created_at: friend.created_at,
+                avatar: user.avatar,
             });
         }
 

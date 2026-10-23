@@ -7,6 +7,7 @@ pub struct UpdateUser {
     pub username: Option<String>,
     pub email: Option<String>,
     pub password_hash: Option<String>,
+    pub avatar: Option<i64>,
 }
 
 pub struct UserRepository {
@@ -21,9 +22,9 @@ impl UserRepository {
     pub async fn create(&self, user: User) -> Result<User, sqlx::Error> {
         sqlx::query_as::<_, User>(
             r#"
-            INSERT INTO user(id, username, email, created_at, password_hash) 
+            INSERT INTO user(id, username, email, created_at, password_hash)
             VALUES (?,?,?,?,?)
-            RETURNING id, username, email, created_at, password_hash
+            RETURNING id, username, email, created_at, password_hash, avatar
             "#,
         )
         .bind(&user.id)
@@ -40,7 +41,7 @@ impl UserRepository {
             r#"
             DELETE FROM user
             WHERE id = ?
-            RETURNING id, username, email, created_at, password_hash
+            RETURNING id, username, email, created_at, password_hash, avatar
             "#,
         )
         .bind(&id)
@@ -50,7 +51,7 @@ impl UserRepository {
     pub async fn list(&self) -> Result<Vec<User>, sqlx::Error> {
         sqlx::query_as::<_, User>(
             r#"
-            SELECT id, username, email, created_at, password_hash
+            SELECT id, username, email, created_at, password_hash, avatar
             FROM user
             "#,
         )
@@ -60,7 +61,7 @@ impl UserRepository {
     pub async fn find_by_email(&self, email: &str) -> Result<Option<User>, sqlx::Error> {
         sqlx::query_as::<_, User>(
             r#"
-            SELECT id, username, email, created_at, password_hash
+            SELECT id, username, email, created_at, password_hash, avatar
             FROM user
             WHERE email = ?
             "#,
@@ -73,7 +74,7 @@ impl UserRepository {
     pub async fn find_by_id(&self, id: Uuid) -> Result<Option<User>, sqlx::Error> {
         sqlx::query_as::<_, User>(
             r#"
-            SELECT id, username, email, created_at, password_hash
+            SELECT id, username, email, created_at, password_hash, avatar
             FROM user
             WHERE id = ?
             "#,
@@ -112,13 +113,22 @@ impl UserRepository {
             has_set = true;
         }
 
+        if let Some(avatar) = user.avatar {
+            if has_set {
+                builder.push(",");
+            }
+            builder.push("avatar = ");
+            builder.push_bind(avatar);
+            has_set = true;
+        }
+
         if !has_set {
             return Ok(None);
         }
 
         builder.push(" WHERE id = ");
         builder.push_bind(id);
-        builder.push(" RETURNING id, username, email, created_at, password_hash");
+        builder.push(" RETURNING id, username, email, created_at, password_hash, avatar");
 
         builder
             .build_query_as::<User>()

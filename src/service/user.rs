@@ -1,23 +1,28 @@
-use chrono::Utc;
 use std::sync::Arc;
+
+use chrono::Utc;
 use uuid::Uuid;
 
 use crate::error::AppError;
 use crate::error::user::UserError;
 use crate::model::user::User;
+use crate::repository::file::FileRepository;
 use crate::repository::user::{UpdateUser, UserRepository};
 use crate::serializer::user::{
     ChangePasswordRequest, CreateUserRequest, LoginRequest, LoginResponse, RefreshTokenRequest,
     RefreshTokenResponse, UpdateUserRequest, UserResponse,
 };
+use crate::service::file::require_image;
 use crate::utils::auth::{create_access_token, create_refresh_token, verify_refresh_token};
+
 pub struct UserService {
     repo: Arc<UserRepository>,
+    file_repo: Arc<FileRepository>,
 }
 
 impl UserService {
-    pub fn new(repo: Arc<UserRepository>) -> Self {
-        Self { repo }
+    pub fn new(repo: Arc<UserRepository>, file_repo: Arc<FileRepository>) -> Self {
+        Self { repo, file_repo }
     }
 
     pub async fn register(&self, request: CreateUserRequest) -> Result<UserResponse, AppError> {
@@ -32,6 +37,7 @@ impl UserService {
             email: request.email,
             created_at: Utc::now(),
             password_hash,
+            avatar: None,
         };
 
         let created = self.repo.create(user).await?;
@@ -79,6 +85,7 @@ impl UserService {
             username: None,
             email: None,
             password_hash: Some(password_hash),
+            avatar: None,
         };
         let updated = self
             .repo
@@ -101,10 +108,15 @@ impl UserService {
             }
         }
 
+        if let Some(file_id) = request.avatar {
+            require_image(&self.file_repo, user_id, file_id).await?;
+        }
+
         let update_data = UpdateUser {
             username: request.username,
             email: request.email,
             password_hash: None,
+            avatar: request.avatar,
         };
         let updated = self
             .repo

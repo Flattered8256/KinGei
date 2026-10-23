@@ -26,6 +26,7 @@ pub struct FriendResponse {
     pub username: String,
     pub email: String,
     pub created_at: DateTime<Utc>,
+    pub avatar: Option<i64>,
 }
 
 impl FriendRequestResponse {

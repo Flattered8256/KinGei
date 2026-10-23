@@ -9,4 +9,5 @@ pub struct User {
     pub email: String,
     pub created_at: DateTime<Utc>,
     pub password_hash: String,
+    pub avatar: Option<i64>,
 }

@@ -21,6 +21,8 @@ pub enum FileError {
     SizeMismatch,
     #[error("FileNotReady")]
     FileNotReady,
+    #[error("InvalidImage")]
+    InvalidImage,
 }
 
 #[derive(Debug, Serialize)]
@@ -39,6 +41,7 @@ impl IntoResponse for FileError {
             FileError::UploadIncomplete => (StatusCode::BAD_REQUEST, self.to_string()),
             FileError::SizeMismatch => (StatusCode::BAD_REQUEST, self.to_string()),
             FileError::FileNotReady => (StatusCode::BAD_REQUEST, self.to_string()),
+            FileError::InvalidImage => (StatusCode::BAD_REQUEST, self.to_string()),
         };
 
         (

@@ -213,7 +213,7 @@ HTTP 状态码习惯：
 
 | 场景 | 状态码 | 示例 code |
 | --- | --- | --- |
-| 参数/规则不合法 | 400 | `CannotAddSelf`、`EmptyName`、`CannotModifyDirect` |
+| 参数/规则不合法 | 400 | `CannotAddSelf`、`EmptyName`、`CannotModifyDirect`、`InvalidImage` |
 | 未登录、密码错、token 无效 | 401 | `InvalidCredentials`、`InvalidToken`、`PasswordMismatch` |
 | 已登录但无权 | 403 | `NotOwner`、`NotMember`、`NotRequestReceiver` |
 | 资源不存在 | 404 | `NotFound`、`ChatNotFound`、`NotFriends` |
@@ -337,7 +337,10 @@ WHERE user_id = ? AND friend_id = ?
 - Garage 为本机 path-style S3（本地 `http://127.0.0.1:3900`）。`Storage::connect` 启动时 `ListBuckets`，没有目标 bucket 则 `CreateBucket`；连不上则中止启动。
 - `POST /file`（JWT）申请 PutObject 预签名 URL：请求 `name`、`content_type`（可空，默认 `application/octet-stream`）、`size`；响应 `id`、`name`、`content_type`、`size`、`upload_url`、`expires_at`。object key 为 `{owner_id}/{uuid}`，不进 JSON。预签名 15 分钟，绑定 `Content-Type` 和 `Content-Length`。申请时插入 `file.status = Pending`。
 - `POST /file/{id}/complete`（JWT）确认上传：owner 才能操作。对 Garage 做 HeadObject，对象不存在 → `400 UploadIncomplete`；`Content-Length` 与申请时 `size` 不一致 → `400 SizeMismatch`；通过后把 `status` 写成 `Ready`。已是 `Ready` 则直接返回。响应 `id`、`owner_id`、`name`、`content_type`、`size`、`status`、`created_at`。缺失行 `404 FileNotFound`，非 owner `403 NotOwner`。
-- `GET /file/{id}/download`（JWT）申请 GetObject 预签名 URL：仅 owner，且 `status = Ready`。响应 `id`、`name`、`content_type`、`size`、`download_url`、`expires_at`。object key 不进 JSON。预签名 15 分钟，path-style，绑定 `response-content-type`（库里的 `content_type`）和 `response-content-disposition: attachment`（ASCII `filename` + RFC 5987 `filename*`，保存名为原 `name`）。不 HeadObject；对象已删则 Garage 对这条 URL 返回 404。仍是 Pending → `400 FileNotReady`；缺失行 `404 FileNotFound`；非 owner `403 NotOwner`。
+- `GET /file/{id}/download`（JWT）申请 GetObject 预签名 URL：任意登录用户，且 `status = Ready`。响应 `id`、`name`、`content_type`、`size`、`download_url`、`expires_at`。object key 不进 JSON。预签名 15 分钟，path-style，绑定 `response-content-type`（库里的 `content_type`）和 `response-content-disposition: attachment`（ASCII `filename` + RFC 5987 `filename*`，保存名为原 `name`）。不 HeadObject；对象已删则 Garage 对这条 URL 返回 404。仍是 Pending → `400 FileNotReady`；缺失行 `404 FileNotFound`。上传与 complete 仍仅 owner。
+- `UserResponse` / `FriendResponse` 的 `avatar` 是 file id 或 `null`，不嵌 File、不含 `download_url`。前端用 id 再调下载。
+- 把文件当图片用（用户/群/服务器头像，以及以后的图片消息）共用 `service::file::require_image`：属于当前用户、Ready、MIME 为 `image/jpeg`、`image/png`、`image/webp`、`image/gif`。失败 → `404 FileNotFound` / `403 NotOwner` / `400 FileNotReady` / `400 InvalidImage`。谁能把这张图挂到哪条记录，仍由各领域判断。
+- `PATCH /user/update` 可改 `username`、`email`、`avatar`。省略 `avatar` 不改头像；给 file id 则先 `require_image` 再写 `user.avatar`。只改 FK，不删 Garage 对象。
 - Access Token 15 分钟，Refresh Token 7 天。改时长只改 `src/utils/auth.rs` 里的常量。
 - 受保护路由从 `Authorization: Bearer <token>` 取 access token，把 `claims.sub` 插入 `Extension<Uuid>`。
 - 缺少/非法 header 视为 `UserError::InvalidCredentials`（401）。

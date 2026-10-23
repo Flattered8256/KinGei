@@ -32,7 +32,7 @@ impl AppState {
         let file_repo = Arc::new(FileRepository::new(pool));
         let event_hub = EventHub::new();
         Self {
-            user_service: UserService::new(user_repo.clone()),
+            user_service: UserService::new(user_repo.clone(), file_repo.clone()),
             friend_service: FriendService::new(
                 friend_repo.clone(),
                 friend_request_repo,
