@@ -92,11 +92,11 @@ export function useFriends() {
 
   async function remove(friendId: string) {
     await deleteFriend(friendId)
-    friends.value = friends.value.filter(item => item.friend_id !== friendId)
+    friends.value = friends.value.filter(item => item.user.id !== friendId)
   }
 
   function friendById(id: string) {
-    return friends.value.find(item => item.friend_id === id) ?? null
+    return friends.value.find(item => item.user.id === id) ?? null
   }
 
   function ingest(event: ClientEvent) {
@@ -123,7 +123,7 @@ export function useFriends() {
         outgoing.value = outgoing.value.filter(item => item.id !== event.data.id)
         break
       case 'friend.deleted':
-        friends.value = friends.value.filter(item => item.friend_id !== event.data.friend_id)
+        friends.value = friends.value.filter(item => item.user.id !== event.data.friend_id)
         break
       default:
         break

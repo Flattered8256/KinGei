@@ -37,7 +37,7 @@ const filteredFriends = computed(() => {
     return friends.friends.value
   }
   return friends.friends.value.filter(item =>
-    item.username.toLowerCase().includes(q) || item.email.toLowerCase().includes(q),
+    item.user.username.toLowerCase().includes(q) || item.user.email.toLowerCase().includes(q),
   )
 })
 
@@ -145,25 +145,25 @@ function isFriendActive(id: string) {
       </p>
       <NuxtLink
         v-for="friend in filteredFriends"
-        :key="friend.friend_id"
-        :to="`/friends/${friend.friend_id}`"
+        :key="friend.user.id"
+        :to="`/friends/${friend.user.id}`"
         class="item"
-        :class="{ active: isFriendActive(friend.friend_id) }"
+        :class="{ active: isFriendActive(friend.user.id) }"
       >
         <Avatar
-          :name="friend.username"
-          :seed="friend.friend_id"
+          :name="friend.user.username"
+          :seed="friend.user.id"
           :size="40"
         />
         <div class="meta">
           <strong
             class="truncate"
-            :title="friend.username"
-          >{{ friend.username }}</strong>
+            :title="friend.user.username"
+          >{{ friend.user.username }}</strong>
           <span
             class="muted truncate"
-            :title="friend.email"
-          >{{ friend.email }}</span>
+            :title="friend.user.email"
+          >{{ friend.user.email }}</span>
         </div>
       </NuxtLink>
     </div>

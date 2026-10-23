@@ -16,7 +16,7 @@ const pending = ref(false)
 async function message() {
   pending.value = true
   try {
-    const chat = await chats.openDirect(props.friend.friend_id)
+    const chat = await chats.openDirect(props.friend.user.id)
     await navigateTo(`/chat/${chat.id}`)
   }
   catch (err) {
@@ -31,7 +31,7 @@ async function remove() {
   }
   pending.value = true
   try {
-    await friends.remove(props.friend.friend_id)
+    await friends.remove(props.friend.user.id)
     toast.success(t('toast.removed'))
     await navigateTo('/friends')
   }
@@ -60,11 +60,11 @@ async function remove() {
     <div class="stack">
       <div class="hero">
         <Avatar
-          :name="friend.username"
-          :seed="friend.friend_id"
+          :name="friend.user.username"
+          :seed="friend.user.id"
           :size="88"
         />
-        <h1>{{ friend.username }}</h1>
+        <h1>{{ friend.user.username }}</h1>
         <div class="actions">
           <button
             class="btn btn-primary"
@@ -87,7 +87,7 @@ async function remove() {
       <dl>
         <div>
           <dt>{{ $t('friends.email') }}</dt>
-          <dd>{{ friend.email }}</dd>
+          <dd>{{ friend.user.email }}</dd>
         </div>
         <div>
           <dt>{{ $t('friends.since') }}</dt>

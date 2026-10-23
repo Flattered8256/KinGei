@@ -35,6 +35,7 @@ export interface User {
   username: string
   email: string
   created_at: string
+  avatar: number | null
 }
 
 export interface CreateUserRequest {
@@ -76,9 +77,7 @@ export interface RefreshTokenResponse {
 }
 
 export interface Friend {
-  friend_id: string
-  username: string
-  email: string
+  user: User
   created_at: string
 }
 

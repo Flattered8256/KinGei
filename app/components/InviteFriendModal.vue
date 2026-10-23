@@ -30,7 +30,7 @@ watch(
   (friends) => {
     if (
       selectedId.value
-      && !friends.some(item => item.friend_id === selectedId.value)
+      && !friends.some(item => item.user.id === selectedId.value)
     ) {
       selectedId.value = null
     }
@@ -43,8 +43,8 @@ const filtered = computed(() => {
     return props.friends
   }
   return props.friends.filter(item =>
-    item.username.toLowerCase().includes(q)
-    || item.email.toLowerCase().includes(q),
+    item.user.username.toLowerCase().includes(q)
+    || item.user.email.toLowerCase().includes(q),
   )
 })
 
@@ -86,31 +86,31 @@ function submit() {
         </p>
         <button
           v-for="friend in filtered"
-          :key="friend.friend_id"
+          :key="friend.user.id"
           type="button"
           class="item"
-          :class="{ selected: isSelected(friend.friend_id) }"
-          :aria-pressed="isSelected(friend.friend_id)"
-          @click="toggle(friend.friend_id)"
+          :class="{ selected: isSelected(friend.user.id) }"
+          :aria-pressed="isSelected(friend.user.id)"
+          @click="toggle(friend.user.id)"
         >
           <Avatar
-            :name="friend.username"
-            :seed="friend.friend_id"
+            :name="friend.user.username"
+            :seed="friend.user.id"
             :size="40"
           />
           <div class="meta">
             <strong
               class="truncate"
-              :title="friend.username"
-            >{{ friend.username }}</strong>
+              :title="friend.user.username"
+            >{{ friend.user.username }}</strong>
             <span
               class="muted truncate"
-              :title="friend.email"
-            >{{ friend.email }}</span>
+              :title="friend.user.email"
+            >{{ friend.user.email }}</span>
           </div>
           <span
             class="mark"
-            :class="{ on: isSelected(friend.friend_id) }"
+            :class="{ on: isSelected(friend.user.id) }"
           />
         </button>
       </div>

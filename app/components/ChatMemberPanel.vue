@@ -34,7 +34,7 @@ const members = computed(() =>
 
 const inviteCandidates = computed(() => {
   const memberIds = new Set(props.chat.member.map(item => item.user.id))
-  return friends.friends.value.filter(friend => !memberIds.has(friend.friend_id))
+  return friends.friends.value.filter(friend => !memberIds.has(friend.user.id))
 })
 
 watch(

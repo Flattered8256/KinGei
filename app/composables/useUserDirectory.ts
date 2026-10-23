@@ -21,12 +21,7 @@ export function useUserDirectory() {
   }
 
   function rememberFriend(friend: Friend) {
-    remember({
-      id: friend.friend_id,
-      username: friend.username,
-      email: friend.email,
-      created_at: friend.created_at,
-    })
+    remember(friend.user)
   }
 
   function rememberRequest(request: FriendRequest) {
