@@ -22,6 +22,13 @@
     "EmptyName": "Name cannot be empty",
     "EmptyContent": "Message cannot be empty",
     "MessageNotFound": "Message not found",
+    "FileNotFound": "File not found",
+    "FileNameTooLong": "File name is too long",
+    "InvalidSize": "Invalid file size",
+    "UploadIncomplete": "Upload is not complete",
+    "SizeMismatch": "File size does not match",
+    "FileNotReady": "File is not ready",
+    "InvalidImage": "Choose a JPEG, PNG, WebP, or GIF image",
     "InternalServerError": "Something went wrong, please try again"
   },
   "enum": {
@@ -134,6 +141,9 @@
     "since": "Friends since",
     "empty": "No friends yet",
     "notFound": "User not found"
+  },
+  "avatar": {
+    "change": "Change"
   },
   "settings": {
     "title": "Settings",

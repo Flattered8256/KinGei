@@ -62,6 +62,7 @@ async function remove() {
         <Avatar
           :name="friend.user.username"
           :seed="friend.user.id"
+          :file-id="friend.user.avatar"
           :size="88"
         />
         <h1>{{ friend.user.username }}</h1>

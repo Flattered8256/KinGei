@@ -96,6 +96,7 @@ function submit() {
           <Avatar
             :name="friend.user.username"
             :seed="friend.user.id"
+            :file-id="friend.user.avatar"
             :size="40"
           />
           <div class="meta">

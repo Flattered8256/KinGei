@@ -250,6 +250,7 @@ onMounted(scrollToLatest)
               v-if="!isOwn(item)"
               :name="sender(item)?.username"
               :seed="item.sender_id"
+              :file-id="sender(item)?.avatar"
               :size="36"
             />
             <div class="bubble-wrap">
@@ -272,6 +273,7 @@ onMounted(scrollToLatest)
                   :key="member.user.id"
                   :name="member.user.username"
                   :seed="member.user.id"
+                  :file-id="member.user.avatar"
                   :size="16"
                 />
               </div>
@@ -280,6 +282,7 @@ onMounted(scrollToLatest)
               v-if="isOwn(item)"
               :name="user?.username"
               :seed="user?.id"
+              :file-id="user?.avatar"
               :size="36"
             />
           </div>

@@ -173,6 +173,7 @@ async function changePassword() {
         <Avatar
           :name="found.username"
           :seed="found.id"
+          :file-id="found.avatar"
           :size="40"
         />
         <div>

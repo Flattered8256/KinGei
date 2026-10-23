@@ -39,6 +39,16 @@ async function save() {
     pending.value = false
   }
 }
+
+async function onAvatar(id: number) {
+  try {
+    await updateProfile({ avatar: id })
+    toast.success(t('settings.saved'))
+  }
+  catch (err) {
+    toast.error(err)
+  }
+}
 </script>
 
 <template>
@@ -61,7 +71,10 @@ async function save() {
       <Avatar
         :name="user.username"
         :seed="user.id"
+        :file-id="user.avatar"
         :size="56"
+        editable
+        @uploaded="onAvatar"
       />
       <div>
         <strong>{{ user.username }}</strong>

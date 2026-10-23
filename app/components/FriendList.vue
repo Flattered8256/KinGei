@@ -79,6 +79,7 @@ function isFriendActive(id: string) {
           <Avatar
             :name="request.sender.username"
             :seed="request.sender.id"
+            :file-id="request.sender.avatar"
             :size="40"
           />
           <div class="meta">
@@ -117,6 +118,7 @@ function isFriendActive(id: string) {
           <Avatar
             :name="request.receiver.username"
             :seed="request.receiver.id"
+            :file-id="request.receiver.avatar"
             :size="40"
           />
           <div class="meta">
@@ -153,6 +155,7 @@ function isFriendActive(id: string) {
         <Avatar
           :name="friend.user.username"
           :seed="friend.user.id"
+          :file-id="friend.user.avatar"
           :size="40"
         />
         <div class="meta">

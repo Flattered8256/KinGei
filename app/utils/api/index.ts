@@ -49,3 +49,12 @@ export {
 
 export { connectEventStream } from './event'
 export type { EventStreamConnection, EventStreamHandlers } from './event'
+
+export {
+  completeFile,
+  createFile,
+  downloadFile,
+  isImageType,
+  putToPresign,
+  uploadImage,
+} from './file'

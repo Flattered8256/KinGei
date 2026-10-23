@@ -22,6 +22,13 @@
     "EmptyName": "名称不能为空",
     "EmptyContent": "消息不能为空",
     "MessageNotFound": "消息不存在",
+    "FileNotFound": "文件不存在",
+    "FileNameTooLong": "文件名过长",
+    "InvalidSize": "文件大小无效",
+    "UploadIncomplete": "文件尚未上传完成",
+    "SizeMismatch": "文件大小与申请时不一致",
+    "FileNotReady": "文件还不能使用",
+    "InvalidImage": "请选择 JPEG、PNG、WebP 或 GIF 图片",
     "InternalServerError": "服务异常，请稍后重试"
   },
   "enum": {
@@ -134,6 +141,9 @@
     "since": "成为好友",
     "empty": "还没有好友",
     "notFound": "未找到该用户"
+  },
+  "avatar": {
+    "change": "更换"
   },
   "settings": {
     "title": "设置",
