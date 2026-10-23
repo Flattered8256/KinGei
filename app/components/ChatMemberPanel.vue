@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Chat } from '~/types/api'
+import { initials } from '~/utils/display'
 
 const props = defineProps<{
   chat: Chat
@@ -19,6 +20,11 @@ const pending = ref(false)
 const myId = computed(() => user.value?.id ?? '')
 const isOwner = computed(() => props.chat.owner_id === myId.value)
 const isGroup = computed(() => props.chat.type === 'Group')
+const title = computed(() => chats.titleOf(props.chat))
+const letter = computed(() => {
+  const value = initials(title.value)
+  return value === '?' ? '#' : value
+})
 
 const members = computed(() =>
   [...props.chat.member].sort((a, b) => {
@@ -81,6 +87,16 @@ async function rename() {
   }
 }
 
+async function onAvatar(id: number) {
+  try {
+    await chats.setAvatar(props.chat.id, id)
+    toast.success(t('settings.saved'))
+  }
+  catch (err) {
+    toast.error(err)
+  }
+}
+
 async function kick(userId: string) {
   if (!confirm(t('chat.kickConfirm'))) {
     return
@@ -120,6 +136,20 @@ async function leave() {
     v-if="isGroup"
     class="panel"
   >
+    <div class="hero">
+      <Avatar
+        :name="letter"
+        :seed="`group-${chat.id}`"
+        :file-id="chat.avatar"
+        :size="56"
+        :editable="isOwner"
+        @uploaded="onAvatar"
+      />
+      <strong
+        class="truncate"
+        :title="title"
+      >{{ title }}</strong>
+    </div>
     <header>
       <strong>{{ $t('chat.members') }} {{ members.length }}</strong>
       <button
@@ -220,6 +250,12 @@ async function leave() {
   border-left: 1px solid var(--color-border);
   padding: 12px;
   gap: 10px;
+}
+
+.hero {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 header {

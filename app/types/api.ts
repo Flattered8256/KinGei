@@ -115,6 +115,7 @@ export interface Chat {
   member: ChatMember[]
   created_at: string
   unread_count: number
+  avatar: number | null
 }
 
 export interface CreateDirectRequest {
@@ -126,7 +127,8 @@ export interface CreateGroupRequest {
 }
 
 export interface UpdateChatRequest {
-  name: string
+  name?: string
+  avatar?: number
 }
 
 export interface InviteMemberRequest {

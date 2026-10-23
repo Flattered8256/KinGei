@@ -114,6 +114,12 @@ export function useChats() {
     return chat
   }
 
+  async function setAvatar(id: number, fileId: number) {
+    const chat = await updateChat(id, { avatar: fileId })
+    replaceChat(chat)
+    return chat
+  }
+
   async function invite(id: number, userId: string) {
     const chat = await inviteChatMember(id, { user_id: userId })
     replaceChat(chat)
@@ -222,6 +228,7 @@ export function useChats() {
     openDirect,
     openGroup,
     rename,
+    setAvatar,
     invite,
     removeMember,
     titleOf,

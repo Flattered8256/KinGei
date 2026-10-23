@@ -42,8 +42,11 @@ function avatarSeed(chatId: number) {
 
 function avatarFileId(chatId: number) {
   const chat = chats.chats.value.find(item => item.id === chatId)
-  if (!chat || chat.type === 'Group') {
+  if (!chat) {
     return null
+  }
+  if (chat.type === 'Group') {
+    return chat.avatar
   }
   return chats.peerOf(chat)?.avatar ?? null
 }

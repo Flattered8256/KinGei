@@ -5,6 +5,7 @@ definePageMeta({
 })
 
 import { getChat } from '~/utils/api/chat'
+import { initials } from '~/utils/display'
 
 const route = useRoute()
 const { isMobile } = useIsMobile()
@@ -40,6 +41,27 @@ watch(
 
 const title = computed(() => (chat.value ? chats.titleOf(chat.value) : ''))
 const isGroup = computed(() => chat.value?.type === 'Group')
+
+const headerAvatar = computed(() => {
+  const current = chat.value
+  if (!current) {
+    return { name: '', seed: '', fileId: null as number | null }
+  }
+  if (current.type === 'Group') {
+    const letter = initials(title.value)
+    return {
+      name: letter === '?' ? '#' : letter,
+      seed: `group-${current.id}`,
+      fileId: current.avatar,
+    }
+  }
+  const peer = chats.peerOf(current)
+  return {
+    name: peer?.username ?? title.value,
+    seed: peer?.id ?? String(current.id),
+    fileId: peer?.avatar ?? null,
+  }
+})
 </script>
 
 <template>
@@ -56,6 +78,12 @@ const isGroup = computed(() => chat.value?.type === 'Group')
       >
         <AppIcon name="back" />
       </NuxtLink>
+      <Avatar
+        :name="headerAvatar.name"
+        :seed="headerAvatar.seed"
+        :file-id="headerAvatar.fileId"
+        :size="32"
+      />
       <div class="who">
         <strong>{{ title }}</strong>
         <span
