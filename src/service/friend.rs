@@ -8,6 +8,7 @@ use crate::model::friend::{FriendRequest, Status};
 use crate::repository::friend::{FriendRepository, FriendRequestRepository};
 use crate::repository::user::UserRepository;
 use crate::serializer::friend::{FriendRequestResponse, FriendResponse, SendFriendRequest};
+use crate::serializer::user::UserResponse;
 
 pub struct FriendService {
     friend_repo: Arc<FriendRepository>,
@@ -217,11 +218,8 @@ impl FriendService {
                 continue;
             };
             responses.push(FriendResponse {
-                friend_id: friend.friend_id,
-                username: user.username,
-                email: user.email,
+                user: UserResponse::from(user),
                 created_at: friend.created_at,
-                avatar: user.avatar,
             });
         }
 

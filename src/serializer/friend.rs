@@ -22,11 +22,8 @@ pub struct FriendRequestResponse {
 
 #[derive(Debug, Serialize)]
 pub struct FriendResponse {
-    pub friend_id: Uuid,
-    pub username: String,
-    pub email: String,
+    pub user: UserResponse,
     pub created_at: DateTime<Utc>,
-    pub avatar: Option<i64>,
 }
 
 impl FriendRequestResponse {
