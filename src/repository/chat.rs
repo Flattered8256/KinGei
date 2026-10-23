@@ -16,7 +16,7 @@ impl ChatRepository {
     pub async fn find_by_id(&self, id: i64) -> Result<Option<Chat>, sqlx::Error> {
         sqlx::query_as::<_, Chat>(
             r#"
-            SELECT id, chat_type, name, owner_id, created_at
+            SELECT id, chat_type, name, owner_id, created_at, avatar
             FROM chat
             WHERE id = ?
             "#,
@@ -33,7 +33,7 @@ impl ChatRepository {
     ) -> Result<Option<Chat>, sqlx::Error> {
         sqlx::query_as::<_, Chat>(
             r#"
-            SELECT c.id, c.chat_type, c.name, c.owner_id, c.created_at
+            SELECT c.id, c.chat_type, c.name, c.owner_id, c.created_at, c.avatar
             FROM chat c
             INNER JOIN chat_member m1 ON m1.chat_id = c.id AND m1.user_id = ?
             INNER JOIN chat_member m2 ON m2.chat_id = c.id AND m2.user_id = ?
@@ -50,7 +50,7 @@ impl ChatRepository {
     pub async fn list_by_user(&self, user_id: Uuid) -> Result<Vec<Chat>, sqlx::Error> {
         sqlx::query_as::<_, Chat>(
             r#"
-            SELECT c.id, c.chat_type, c.name, c.owner_id, c.created_at
+            SELECT c.id, c.chat_type, c.name, c.owner_id, c.created_at, c.avatar
             FROM chat c
             INNER JOIN chat_member m ON m.chat_id = c.id
             WHERE m.user_id = ?
@@ -71,7 +71,7 @@ impl ChatRepository {
             r#"
             INSERT INTO chat(chat_type, name, owner_id, created_at)
             VALUES (?, ?, ?, ?)
-            RETURNING id, chat_type, name, owner_id, created_at
+            RETURNING id, chat_type, name, owner_id, created_at, avatar
             "#,
         )
         .bind(&chat_type)
@@ -118,7 +118,7 @@ impl ChatRepository {
             r#"
             INSERT INTO chat(chat_type, name, owner_id, created_at)
             VALUES (?, ?, ?, ?)
-            RETURNING id, chat_type, name, owner_id, created_at
+            RETURNING id, chat_type, name, owner_id, created_at, avatar
             "#,
         )
         .bind(&chat_type)
@@ -150,10 +150,25 @@ impl ChatRepository {
             UPDATE chat
             SET name = ?
             WHERE id = ?
-            RETURNING id, chat_type, name, owner_id, created_at
+            RETURNING id, chat_type, name, owner_id, created_at, avatar
             "#,
         )
         .bind(&name)
+        .bind(&id)
+        .fetch_optional(&self.pool)
+        .await
+    }
+
+    pub async fn update_avatar(&self, id: i64, avatar: i64) -> Result<Option<Chat>, sqlx::Error> {
+        sqlx::query_as::<_, Chat>(
+            r#"
+            UPDATE chat
+            SET avatar = ?
+            WHERE id = ?
+            RETURNING id, chat_type, name, owner_id, created_at, avatar
+            "#,
+        )
+        .bind(avatar)
         .bind(&id)
         .fetch_optional(&self.pool)
         .await
@@ -165,7 +180,7 @@ impl ChatRepository {
             UPDATE chat
             SET owner_id = ?
             WHERE id = ?
-            RETURNING id, chat_type, name, owner_id, created_at
+            RETURNING id, chat_type, name, owner_id, created_at, avatar
             "#,
         )
         .bind(&owner_id)

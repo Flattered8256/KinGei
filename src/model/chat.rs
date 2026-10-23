@@ -17,6 +17,7 @@ pub struct Chat {
     pub name: Option<String>,
     pub owner_id: Option<Uuid>,
     pub created_at: DateTime<Utc>,
+    pub avatar: Option<i64>,
 }
 
 #[derive(Debug, FromRow)]

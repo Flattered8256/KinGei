@@ -43,6 +43,7 @@ impl AppState {
                 chat_repo.clone(),
                 friend_repo.clone(),
                 user_repo,
+                file_repo.clone(),
                 message_repo.clone(),
                 event_hub.clone(),
             ),

@@ -16,7 +16,8 @@ pub struct CreateGroupRequest {
 
 #[derive(Debug, Deserialize)]
 pub struct UpdateChatRequest {
-    pub name: String,
+    pub name: Option<String>,
+    pub avatar: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -40,6 +41,7 @@ pub struct ChatResponse {
     pub member: Vec<ChatMemberResponse>,
     pub created_at: DateTime<Utc>,
     pub unread_count: i64,
+    pub avatar: Option<i64>,
 }
 
 impl ChatResponse {
@@ -52,6 +54,7 @@ impl ChatResponse {
             member,
             created_at: chat.created_at,
             unread_count,
+            avatar: chat.avatar,
         }
     }
 }

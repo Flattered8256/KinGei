@@ -6,6 +6,7 @@ use crate::error::chat::ChatError;
 use crate::event::{ClientEvent, EventHub};
 use crate::model::chat::{Chat, ChatType};
 use crate::repository::chat::ChatRepository;
+use crate::repository::file::FileRepository;
 use crate::repository::friend::FriendRepository;
 use crate::repository::message::MessageRepository;
 use crate::repository::user::UserRepository;
@@ -13,11 +14,13 @@ use crate::serializer::chat::{
     ChatMemberResponse, ChatResponse, CreateDirectRequest, CreateGroupRequest, InviteMemberRequest,
     UpdateChatRequest,
 };
+use crate::service::file::require_image;
 
 pub struct ChatService {
     chat_repo: Arc<ChatRepository>,
     friend_repo: Arc<FriendRepository>,
     user_repo: Arc<UserRepository>,
+    file_repo: Arc<FileRepository>,
     message_repo: Arc<MessageRepository>,
     event_hub: EventHub,
 }
@@ -27,6 +30,7 @@ impl ChatService {
         chat_repo: Arc<ChatRepository>,
         friend_repo: Arc<FriendRepository>,
         user_repo: Arc<UserRepository>,
+        file_repo: Arc<FileRepository>,
         message_repo: Arc<MessageRepository>,
         event_hub: EventHub,
     ) -> Self {
@@ -34,6 +38,7 @@ impl ChatService {
             chat_repo,
             friend_repo,
             user_repo,
+            file_repo,
             message_repo,
             event_hub,
         }
@@ -112,16 +117,32 @@ impl ChatService {
             return Err(AppError::Chat(ChatError::NotOwner));
         }
 
-        let name = request.name.trim();
-        if name.is_empty() {
+        if request.name.is_none() && request.avatar.is_none() {
             return Err(AppError::Chat(ChatError::EmptyName));
         }
 
-        let updated = self
-            .chat_repo
-            .update_name(chat.id, name)
-            .await?
-            .ok_or(AppError::Chat(ChatError::ChatNotFound))?;
+        let mut updated = chat;
+
+        if let Some(name) = request.name {
+            let name = name.trim();
+            if name.is_empty() {
+                return Err(AppError::Chat(ChatError::EmptyName));
+            }
+            updated = self
+                .chat_repo
+                .update_name(updated.id, name)
+                .await?
+                .ok_or(AppError::Chat(ChatError::ChatNotFound))?;
+        }
+
+        if let Some(file_id) = request.avatar {
+            require_image(&self.file_repo, user_id, file_id).await?;
+            updated = self
+                .chat_repo
+                .update_avatar(updated.id, file_id)
+                .await?
+                .ok_or(AppError::Chat(ChatError::ChatNotFound))?;
+        }
 
         self.publish_chat_to_members(&updated, ClientEvent::ChatUpdated)
             .await;
