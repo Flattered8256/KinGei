@@ -7,7 +7,9 @@ use crate::error::AppError;
 use crate::error::file::FileError;
 use crate::model::file::FileStatus;
 use crate::repository::file::FileRepository;
-use crate::serializer::file::{CreateFileRequest, FileResponse, PresignUploadResponse};
+use crate::serializer::file::{
+    CreateFileRequest, FileResponse, PresignDownloadResponse, PresignUploadResponse,
+};
 use crate::storage::{PRESIGN_TTL, Storage};
 
 const MAX_NAME_CHARS: usize = 255;
@@ -114,5 +116,39 @@ impl FileService {
             .await?
             .ok_or(AppError::File(FileError::FileNotFound))?;
         Ok(FileResponse::from(updated))
+    }
+
+    pub async fn download(
+        &self,
+        user_id: Uuid,
+        id: i64,
+    ) -> Result<PresignDownloadResponse, AppError> {
+        let file = self
+            .repo
+            .find_by_id(id)
+            .await?
+            .ok_or(AppError::File(FileError::FileNotFound))?;
+
+        if file.owner_id != user_id {
+            return Err(AppError::File(FileError::NotOwner));
+        }
+
+        if file.status != FileStatus::Ready {
+            return Err(AppError::File(FileError::FileNotReady));
+        }
+
+        let download_url = self
+            .storage
+            .presign_get(&file.object_key, &file.content_type, &file.name)
+            .await?;
+
+        Ok(PresignDownloadResponse {
+            id: file.id,
+            name: file.name,
+            content_type: file.content_type,
+            size: file.size,
+            download_url,
+            expires_at: Utc::now() + Duration::seconds(PRESIGN_TTL.as_secs() as i64),
+        })
     }
 }

@@ -94,6 +94,27 @@ impl Storage {
         Ok(presigned.uri().to_string())
     }
 
+    pub async fn presign_get(
+        &self,
+        key: &str,
+        content_type: &str,
+        filename: &str,
+    ) -> Result<String, StorageError> {
+        let presigning =
+            PresigningConfig::expires_in(PRESIGN_TTL).map_err(|e| StorageError(e.to_string()))?;
+        let presigned = self
+            .client
+            .get_object()
+            .bucket(&self.bucket)
+            .key(key)
+            .response_content_type(content_type)
+            .response_content_disposition(&content_disposition(filename))
+            .presigned(presigning)
+            .await
+            .map_err(|e| StorageError(format!("{e:?}")))?;
+        Ok(presigned.uri().to_string())
+    }
+
     pub async fn head_object(&self, key: &str) -> Result<Option<ObjectMeta>, StorageError> {
         match self
             .client
@@ -131,4 +152,46 @@ fn is_not_found(error: &SdkError<HeadObjectError>) -> bool {
     error
         .raw_response()
         .is_some_and(|response| response.status().as_u16() == 404)
+}
+
+fn content_disposition(filename: &str) -> String {
+    let sanitized: String = filename
+        .chars()
+        .filter(|c| *c != '\r' && *c != '\n')
+        .collect();
+    let fallback: String = sanitized
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    let fallback = if fallback.is_empty() {
+        "download".to_string()
+    } else {
+        fallback
+    };
+    format!(
+        "attachment; filename=\"{fallback}\"; filename*=UTF-8''{}",
+        percent_encode(sanitized.as_bytes())
+    )
+}
+
+fn percent_encode(bytes: &[u8]) -> String {
+    let mut out = String::with_capacity(bytes.len());
+    for &b in bytes {
+        if is_unreserved(b) {
+            out.push(b as char);
+        } else {
+            out.push_str(&format!("%{b:02X}"));
+        }
+    }
+    out
+}
+
+fn is_unreserved(b: u8) -> bool {
+    matches!(b, b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~')
 }

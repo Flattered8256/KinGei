@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
-use axum::{Router, middleware, routing::post};
+use axum::{
+    Router, middleware,
+    routing::{get, post},
+};
 
 use crate::handler::file;
 use crate::middleware::auth;
@@ -10,5 +13,6 @@ pub fn protected_routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/", post(file::create))
         .route("/{id}/complete", post(file::complete))
+        .route("/{id}/download", get(file::download))
         .layer(middleware::from_fn(auth::auth_middleware))
 }

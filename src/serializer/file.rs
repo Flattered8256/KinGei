@@ -22,6 +22,16 @@ pub struct PresignUploadResponse {
 }
 
 #[derive(Debug, Serialize)]
+pub struct PresignDownloadResponse {
+    pub id: i64,
+    pub name: String,
+    pub content_type: String,
+    pub size: i64,
+    pub download_url: String,
+    pub expires_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize)]
 pub struct FileResponse {
     pub id: i64,
     pub owner_id: Uuid,

@@ -19,6 +19,8 @@ pub enum FileError {
     UploadIncomplete,
     #[error("SizeMismatch")]
     SizeMismatch,
+    #[error("FileNotReady")]
+    FileNotReady,
 }
 
 #[derive(Debug, Serialize)]
@@ -36,6 +38,7 @@ impl IntoResponse for FileError {
             FileError::NotOwner => (StatusCode::FORBIDDEN, self.to_string()),
             FileError::UploadIncomplete => (StatusCode::BAD_REQUEST, self.to_string()),
             FileError::SizeMismatch => (StatusCode::BAD_REQUEST, self.to_string()),
+            FileError::FileNotReady => (StatusCode::BAD_REQUEST, self.to_string()),
         };
 
         (
