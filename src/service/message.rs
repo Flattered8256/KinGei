@@ -7,12 +7,15 @@ use crate::error::message::MessageError;
 use crate::event::{ClientEvent, EventHub};
 use crate::model::chat::{Chat, ChatType};
 use crate::repository::chat::ChatRepository;
+use crate::repository::file::FileRepository;
 use crate::repository::friend::FriendRepository;
 use crate::repository::message::MessageRepository;
+use crate::serializer::file::FileResponse;
 use crate::serializer::message::{
     ListMessageQuery, MessageResponse, ReadCursorResponse, SendMessageRequest,
     UpdateReadCursorRequest,
 };
+use crate::service::file::require_ready_file;
 
 const DEFAULT_MESSAGE_LIMIT: i64 = 50;
 const MAX_MESSAGE_LIMIT: i64 = 100;
@@ -21,6 +24,7 @@ pub struct MessageService {
     message_repo: Arc<MessageRepository>,
     chat_repo: Arc<ChatRepository>,
     friend_repo: Arc<FriendRepository>,
+    file_repo: Arc<FileRepository>,
     event_hub: EventHub,
 }
 
@@ -29,12 +33,14 @@ impl MessageService {
         message_repo: Arc<MessageRepository>,
         chat_repo: Arc<ChatRepository>,
         friend_repo: Arc<FriendRepository>,
+        file_repo: Arc<FileRepository>,
         event_hub: EventHub,
     ) -> Self {
         Self {
             message_repo,
             chat_repo,
             friend_repo,
+            file_repo,
             event_hub,
         }
     }
@@ -45,16 +51,24 @@ impl MessageService {
         chat_id: i64,
         request: SendMessageRequest,
     ) -> Result<MessageResponse, AppError> {
-        let content = request.content.trim();
-        if content.is_empty() {
+        let content = request.content.as_deref().unwrap_or_default().trim();
+        if content.is_empty() && request.file_id.is_none() {
             return Err(AppError::Message(MessageError::EmptyContent));
         }
 
         let chat = self.require_member(user_id, chat_id).await?;
         self.require_direct_friends(user_id, &chat).await?;
 
-        let created = self.message_repo.create(chat.id, user_id, content).await?;
-        let response = MessageResponse::from(created);
+        let file = match request.file_id {
+            Some(file_id) => Some(require_ready_file(&self.file_repo, user_id, file_id).await?),
+            None => None,
+        };
+
+        let created = self
+            .message_repo
+            .create(chat.id, user_id, content, request.file_id)
+            .await?;
+        let response = MessageResponse::from_message(created, file.map(FileResponse::from));
         self.publish_message_created(chat.id, response.clone())
             .await;
         Ok(response)
@@ -74,7 +88,20 @@ impl MessageService {
 
         let mut messages = self.message_repo.list(chat.id, query.before, limit).await?;
         messages.reverse();
-        Ok(messages.into_iter().map(MessageResponse::from).collect())
+
+        let mut responses = Vec::with_capacity(messages.len());
+        for message in messages {
+            let file = match message.file_id {
+                Some(file_id) => self
+                    .file_repo
+                    .find_by_id(file_id)
+                    .await?
+                    .map(FileResponse::from),
+                None => None,
+            };
+            responses.push(MessageResponse::from_message(message, file));
+        }
+        Ok(responses)
     }
 
     pub async fn update_read_cursor(

@@ -31,7 +31,7 @@ pub struct PresignDownloadResponse {
     pub expires_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct FileResponse {
     pub id: i64,
     pub owner_id: Uuid,

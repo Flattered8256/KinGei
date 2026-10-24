@@ -8,5 +8,6 @@ pub struct Message {
     pub chat_id: i64,
     pub sender_id: Uuid,
     pub content: String,
+    pub file_id: Option<i64>,
     pub created_at: DateTime<Utc>,
 }

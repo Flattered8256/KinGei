@@ -51,6 +51,7 @@ impl AppState {
                 message_repo,
                 chat_repo,
                 friend_repo,
+                file_repo.clone(),
                 event_hub.clone(),
             ),
             file_service: FileService::new(file_repo, storage),

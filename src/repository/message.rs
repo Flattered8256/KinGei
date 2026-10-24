@@ -18,20 +18,22 @@ impl MessageRepository {
         chat_id: i64,
         sender_id: Uuid,
         content: &str,
+        file_id: Option<i64>,
     ) -> Result<Message, sqlx::Error> {
         let mut tx = self.pool.begin().await?;
         let now = Utc::now();
 
         let message = sqlx::query_as::<_, Message>(
             r#"
-            INSERT INTO message(chat_id, sender_id, content, created_at)
-            VALUES (?, ?, ?, ?)
-            RETURNING id, chat_id, sender_id, content, created_at
+            INSERT INTO message(chat_id, sender_id, content, file_id, created_at)
+            VALUES (?, ?, ?, ?, ?)
+            RETURNING id, chat_id, sender_id, content, file_id, created_at
             "#,
         )
         .bind(chat_id)
         .bind(sender_id)
         .bind(content)
+        .bind(file_id)
         .bind(now)
         .fetch_one(&mut *tx)
         .await?;
@@ -62,7 +64,7 @@ impl MessageRepository {
     ) -> Result<Option<Message>, sqlx::Error> {
         sqlx::query_as::<_, Message>(
             r#"
-            SELECT id, chat_id, sender_id, content, created_at
+            SELECT id, chat_id, sender_id, content, file_id, created_at
             FROM message
             WHERE chat_id = ? AND id = ?
             "#,
@@ -81,7 +83,7 @@ impl MessageRepository {
     ) -> Result<Vec<Message>, sqlx::Error> {
         let mut builder = QueryBuilder::new(
             r#"
-            SELECT id, chat_id, sender_id, content, created_at
+            SELECT id, chat_id, sender_id, content, file_id, created_at
             FROM message
             WHERE chat_id = 
             "#,

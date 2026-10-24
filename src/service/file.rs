@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use crate::error::AppError;
 use crate::error::file::FileError;
-use crate::model::file::FileStatus;
+use crate::model::file::{File, FileStatus};
 use crate::repository::file::FileRepository;
 use crate::serializer::file::{
     CreateFileRequest, FileResponse, PresignDownloadResponse, PresignUploadResponse,
@@ -147,11 +147,11 @@ impl FileService {
 
 const IMAGE_CONTENT_TYPES: &[&str] = &["image/jpeg", "image/png", "image/webp", "image/gif"];
 
-pub async fn require_image(
+pub async fn require_ready_file(
     repo: &FileRepository,
     user_id: Uuid,
     file_id: i64,
-) -> Result<(), AppError> {
+) -> Result<File, AppError> {
     let file = repo
         .find_by_id(file_id)
         .await?
@@ -162,6 +162,15 @@ pub async fn require_image(
     if file.status != FileStatus::Ready {
         return Err(AppError::File(FileError::FileNotReady));
     }
+    Ok(file)
+}
+
+pub async fn require_image(
+    repo: &FileRepository,
+    user_id: Uuid,
+    file_id: i64,
+) -> Result<(), AppError> {
+    let file = require_ready_file(repo, user_id, file_id).await?;
     if !IMAGE_CONTENT_TYPES
         .iter()
         .any(|allowed| file.content_type.eq_ignore_ascii_case(allowed))
