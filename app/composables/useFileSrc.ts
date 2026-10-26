@@ -1,77 +1,35 @@
 import type { MaybeRefOrGetter } from 'vue'
-import { downloadFile } from '~/utils/api/file'
-
-type CacheEntry = {
-  url: string
-  expiresAt: number
-}
-
-const inflight = new Map<number, Promise<string | null>>()
-const SKEW_MS = 60_000
+import { refreshSession } from '~/utils/api/http'
 
 export function useFileSrc(fileId: MaybeRefOrGetter<number | null | undefined>) {
-  const cache = useState<Record<number, CacheEntry>>('files.byFileId', () => ({}))
+  const bust = ref(0)
+  const config = useRuntimeConfig()
+  const apiBase = String(config.public.apiBase)
+
+  watch(
+    () => toValue(fileId),
+    () => {
+      bust.value = 0
+    },
+  )
 
   const src = computed(() => {
     const id = toValue(fileId)
     if (id == null) {
       return null
     }
-    const hit = cache.value[id]
-    if (!hit || hit.expiresAt <= Date.now()) {
-      return null
-    }
-    return hit.url
+    const path = `${apiBase}/file/${id}/content`
+    return bust.value > 0 ? `${path}?r=${bust.value}` : path
   })
 
-  async function load(id: number) {
-    const hit = cache.value[id]
-    if (hit && hit.expiresAt > Date.now() + SKEW_MS) {
-      return hit.url
+  async function reload() {
+    try {
+      await refreshSession()
     }
-    const pending = inflight.get(id)
-    if (pending) {
-      return pending
+    catch {
+      // cookie 可能已经有效，仍让图片换 query 再请求
     }
-    const task = downloadFile(id)
-      .then((result) => {
-        const expiresAt = Date.parse(result.expires_at)
-        cache.value = {
-          ...cache.value,
-          [id]: {
-            url: result.download_url,
-            expiresAt: Number.isFinite(expiresAt) ? expiresAt : Date.now() + 14 * 60_000,
-          },
-        }
-        return result.download_url
-      })
-      .catch(() => null)
-      .finally(() => {
-        inflight.delete(id)
-      })
-    inflight.set(id, task)
-    return task
-  }
-
-  watch(
-    () => toValue(fileId),
-    (id) => {
-      if (id != null) {
-        void load(id)
-      }
-    },
-    { immediate: true },
-  )
-
-  function reload() {
-    const id = toValue(fileId)
-    if (id == null) {
-      return
-    }
-    const next = { ...cache.value }
-    delete next[id]
-    cache.value = next
-    void load(id)
+    bust.value += 1
   }
 
   return { src, reload }

@@ -3,6 +3,8 @@ import type { User } from '~/types/api'
 const ACCESS_TOKEN_KEY = 'kingei.access_token'
 const REFRESH_TOKEN_KEY = 'kingei.refresh_token'
 const USER_KEY = 'kingei.user'
+const ACCESS_COOKIE = 'kingei.access_token'
+const ACCESS_COOKIE_MAX_AGE = 900
 
 export interface AuthSession {
   accessToken: string | null
@@ -74,6 +76,7 @@ export function restoreSession(): AuthSession {
   session.accessToken = localStorage.getItem(ACCESS_TOKEN_KEY)
   session.refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY)
   session.user = readStoredUser()
+  writeAccessCookie(session.accessToken)
   notify()
   return session
 }
@@ -96,11 +99,25 @@ function persist(): void {
 
   writeKey(ACCESS_TOKEN_KEY, session.accessToken)
   writeKey(REFRESH_TOKEN_KEY, session.refreshToken)
+  writeAccessCookie(session.accessToken)
   if (session.user) {
     localStorage.setItem(USER_KEY, JSON.stringify(session.user))
   }
   else {
     localStorage.removeItem(USER_KEY)
+  }
+}
+
+function writeAccessCookie(token: string | null) {
+  if (!import.meta.client) {
+    return
+  }
+  if (token) {
+    const secure = location.protocol === 'https:' ? '; Secure' : ''
+    document.cookie = `${ACCESS_COOKIE}=${token}; Path=/; SameSite=Lax; Max-Age=${ACCESS_COOKIE_MAX_AGE}${secure}`
+  }
+  else {
+    document.cookie = `${ACCESS_COOKIE}=; Path=/; SameSite=Lax; Max-Age=0`
   }
 }
 

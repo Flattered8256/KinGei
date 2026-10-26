@@ -9,7 +9,7 @@ export {
   setSession,
   setUser,
 } from './session'
-export { apiFetch, apiFetchVoid } from './http'
+export { apiFetch, apiFetchVoid, refreshSession } from './http'
 
 export {
   changePassword,

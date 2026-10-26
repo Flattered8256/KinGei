@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { FileResponse } from '~/types/api'
+import { refreshSession } from '~/utils/api/http'
 import { attachmentKind } from '~/utils/display'
 
 const props = defineProps<{
@@ -11,11 +12,35 @@ const emit = defineEmits<{
 }>()
 
 const kind = computed(() => (props.file ? attachmentKind(props.file) : 'file'))
-const { src } = useFileSrc(() => props.file?.id ?? null)
+const { src, reload } = useFileSrc(() => props.file?.id ?? null)
 const { src: posterSrc } = useFileSrc(() => props.file?.media?.thumbnail_id ?? null)
+const videoEl = ref<HTMLVideoElement | null>(null)
+const retried = ref(false)
 
 function close() {
   emit('close')
+}
+
+async function onImageError() {
+  if (retried.value) {
+    return
+  }
+  retried.value = true
+  await reload()
+}
+
+async function onVideoError() {
+  if (retried.value) {
+    return
+  }
+  retried.value = true
+  try {
+    await refreshSession()
+  }
+  catch {
+    return
+  }
+  videoEl.value?.load()
 }
 
 function onBackdrop(event: MouseEvent) {
@@ -32,7 +57,10 @@ function onKey(event: KeyboardEvent) {
 
 watch(
   () => props.file,
-  (file) => {
+  (file, prev) => {
+    if (file?.id !== prev?.id) {
+      retried.value = false
+    }
     if (!import.meta.client) {
       return
     }
@@ -80,14 +108,17 @@ onUnmounted(() => {
         :src="src"
         :alt="file.name"
         class="stage"
+        @error="onImageError"
       >
       <video
         v-else-if="kind === 'video'"
+        ref="videoEl"
         class="stage"
         :src="src"
         :poster="posterSrc ?? undefined"
         controls
         autoplay
+        @error="onVideoError"
       />
     </div>
   </Teleport>

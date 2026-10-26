@@ -55,7 +55,7 @@ export async function apiFetch<T>(
   }
   catch (error) {
     if (shouldRefresh(error, path)) {
-      await refreshTokens()
+      await refreshSession()
       try {
         return await request<T>(path, options)
       }
@@ -88,7 +88,7 @@ function shouldRefresh(error: unknown, path: string): boolean {
   return code === 'InvalidToken' || code === 'InvalidCredentials'
 }
 
-async function refreshTokens(): Promise<void> {
+export async function refreshSession(): Promise<void> {
   if (!refreshPromise) {
     refreshPromise = doRefresh().finally(() => {
       refreshPromise = null
