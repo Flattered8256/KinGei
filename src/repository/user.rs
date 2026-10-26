@@ -84,6 +84,27 @@ impl UserRepository {
         .await
     }
 
+    pub async fn find_by_ids(&self, ids: &[Uuid]) -> Result<Vec<User>, sqlx::Error> {
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let mut builder = QueryBuilder::new(
+            r#"
+            SELECT id, username, email, created_at, password_hash, avatar
+            FROM user
+            WHERE id IN (
+            "#,
+        );
+        let mut separated = builder.separated(", ");
+        for id in ids {
+            separated.push_bind(id);
+        }
+        builder.push(")");
+
+        builder.build_query_as::<User>().fetch_all(&self.pool).await
+    }
+
     pub async fn update(&self, id: Uuid, user: UpdateUser) -> Result<Option<User>, sqlx::Error> {
         let mut builder = QueryBuilder::new("UPDATE user SET ");
 

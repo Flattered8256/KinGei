@@ -157,6 +157,7 @@ if self.friend_repo.find(user_id, friend_id).await?.is_none() {
 - 返回 `Result<T, sqlx::Error>`，不要返回 `AppError`。
 - 方法名用资源语义：`create` / `find` / `find_by_*` / `list` / `list_*` / `update_*` / `delete`。
 - 查不到用 `fetch_optional` 返回 `Option`，不要在仓储层决定 HTTP 语义。
+- 列表不要在循环里 `find_by_id`，用 `find_by_ids` 一次查出。
 - 多步写入用事务：
 
 ```rust

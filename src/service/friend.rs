@@ -1,4 +1,6 @@
+use std::collections::HashMap;
 use std::sync::Arc;
+
 use uuid::Uuid;
 
 use crate::error::AppError;
@@ -211,14 +213,16 @@ impl FriendService {
 
     pub async fn list_friends(&self, user_id: Uuid) -> Result<Vec<FriendResponse>, AppError> {
         let friends = self.friend_repo.list(user_id).await?;
+        let user_ids: Vec<Uuid> = friends.iter().map(|friend| friend.friend_id).collect();
+        let users = self.users_by_ids(&user_ids).await?;
         let mut responses = Vec::with_capacity(friends.len());
 
         for friend in friends {
-            let Some(user) = self.user_repo.find_by_id(friend.friend_id).await? else {
+            let Some(user) = users.get(&friend.friend_id) else {
                 continue;
             };
             responses.push(FriendResponse {
-                user: UserResponse::from(user),
+                user: user.clone(),
                 created_at: friend.created_at,
             });
         }
@@ -241,35 +245,53 @@ impl FriendService {
     }
 
     async fn to_response(&self, request: FriendRequest) -> Result<FriendRequestResponse, AppError> {
-        let sender = self
-            .user_repo
-            .find_by_id(request.sender_id)
-            .await?
+        let users = self
+            .users_by_ids(&[request.sender_id, request.receiver_id])
+            .await?;
+        let sender = users
+            .get(&request.sender_id)
+            .cloned()
             .ok_or(AppError::Friend(FriendError::UserNotFound))?;
-        let receiver = self
-            .user_repo
-            .find_by_id(request.receiver_id)
-            .await?
+        let receiver = users
+            .get(&request.receiver_id)
+            .cloned()
             .ok_or(AppError::Friend(FriendError::UserNotFound))?;
-        Ok(FriendRequestResponse::from(
-            request,
-            sender.into(),
-            receiver.into(),
-        ))
+        Ok(FriendRequestResponse::from(request, sender, receiver))
     }
 
     async fn to_response_list(
         &self,
         requests: Vec<FriendRequest>,
     ) -> Result<Vec<FriendRequestResponse>, AppError> {
+        let mut user_ids = Vec::with_capacity(requests.len() * 2);
+        for request in &requests {
+            user_ids.push(request.sender_id);
+            user_ids.push(request.receiver_id);
+        }
+        let users = self.users_by_ids(&user_ids).await?;
+
         let mut responses = Vec::with_capacity(requests.len());
         for request in requests {
-            match self.to_response(request).await {
-                Ok(response) => responses.push(response),
-                Err(AppError::Friend(FriendError::UserNotFound)) => continue,
-                Err(err) => return Err(err),
-            }
+            let Some(sender) = users.get(&request.sender_id) else {
+                continue;
+            };
+            let Some(receiver) = users.get(&request.receiver_id) else {
+                continue;
+            };
+            responses.push(FriendRequestResponse::from(
+                request,
+                sender.clone(),
+                receiver.clone(),
+            ));
         }
         Ok(responses)
+    }
+
+    async fn users_by_ids(&self, ids: &[Uuid]) -> Result<HashMap<Uuid, UserResponse>, sqlx::Error> {
+        let users = self.user_repo.find_by_ids(ids).await?;
+        Ok(users
+            .into_iter()
+            .map(|user| (user.id, UserResponse::from(user)))
+            .collect())
     }
 }
