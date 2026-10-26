@@ -1,4 +1,5 @@
 use std::env;
+use std::path::Path;
 use std::time::Duration;
 
 use aws_config::BehaviorVersion;
@@ -9,6 +10,8 @@ use aws_sdk_s3::config::{
 use aws_sdk_s3::error::SdkError;
 use aws_sdk_s3::operation::head_object::HeadObjectError;
 use aws_sdk_s3::presigning::PresigningConfig;
+use aws_sdk_s3::primitives::ByteStream;
+use tokio::io::AsyncWriteExt;
 
 pub const PRESIGN_TTL: Duration = Duration::from_secs(15 * 60);
 
@@ -135,6 +138,55 @@ impl Storage {
                 }
             }
         }
+    }
+
+    pub async fn get_object_to_path(&self, key: &str, path: &Path) -> Result<(), StorageError> {
+        let object = self
+            .client
+            .get_object()
+            .bucket(&self.bucket)
+            .key(key)
+            .send()
+            .await
+            .map_err(|e| StorageError(format!("{e:?}")))?;
+        let mut reader = object.body.into_async_read();
+        let mut writer = tokio::fs::File::create(path)
+            .await
+            .map_err(|e| StorageError(e.to_string()))?;
+        tokio::io::copy(&mut reader, &mut writer)
+            .await
+            .map_err(|e| StorageError(e.to_string()))?;
+        writer
+            .flush()
+            .await
+            .map_err(|e| StorageError(e.to_string()))?;
+        Ok(())
+    }
+
+    pub async fn put_object(
+        &self,
+        key: &str,
+        content_type: &str,
+        path: &Path,
+    ) -> Result<i64, StorageError> {
+        let size = tokio::fs::metadata(path)
+            .await
+            .map_err(|e| StorageError(e.to_string()))?
+            .len() as i64;
+        let body = ByteStream::from_path(path)
+            .await
+            .map_err(|e| StorageError(e.to_string()))?;
+        self.client
+            .put_object()
+            .bucket(&self.bucket)
+            .key(key)
+            .content_type(content_type)
+            .content_length(size)
+            .body(body)
+            .send()
+            .await
+            .map_err(|e| StorageError(format!("{e:?}")))?;
+        Ok(size)
     }
 }
 

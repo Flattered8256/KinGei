@@ -6,11 +6,12 @@ use uuid::Uuid;
 use crate::error::AppError;
 use crate::error::file::FileError;
 use crate::model::file::{File, FileStatus};
-use crate::repository::file::FileRepository;
+use crate::repository::file::{FileRepository, NewThumbnail, ReadyMedia};
 use crate::serializer::file::{
     CreateFileRequest, FileResponse, PresignDownloadResponse, PresignUploadResponse,
 };
 use crate::storage::{PRESIGN_TTL, Storage};
+use crate::utils::media::{media_kind_from_content_type, probe_path, write_thumbnail};
 
 const MAX_NAME_CHARS: usize = 255;
 
@@ -97,7 +98,7 @@ impl FileService {
         }
 
         if file.status == FileStatus::Ready {
-            return Ok(FileResponse::from(file));
+            return self.to_response(file).await;
         }
 
         let meta = match self.storage.head_object(&file.object_key).await {
@@ -110,12 +111,105 @@ impl FileService {
             return Err(AppError::File(FileError::SizeMismatch));
         }
 
-        let updated = self
+        let (media, thumbnail) = self.probe_and_thumb(&file).await;
+        let (updated, saved_media) = self
             .repo
-            .update_status(file.id, FileStatus::Ready)
+            .mark_ready(file.id, media, thumbnail)
             .await?
             .ok_or(AppError::File(FileError::FileNotFound))?;
-        Ok(FileResponse::from(updated))
+        Ok(FileResponse::from(updated, saved_media))
+    }
+
+    async fn to_response(&self, file: File) -> Result<FileResponse, AppError> {
+        let media = self.repo.find_media(file.id).await?;
+        Ok(FileResponse::from(file, media))
+    }
+
+    async fn probe_and_thumb(&self, file: &File) -> (Option<ReadyMedia>, Option<NewThumbnail>) {
+        let Some(kind) = media_kind_from_content_type(&file.content_type) else {
+            return (None, None);
+        };
+
+        let dir = match tempfile::TempDir::new() {
+            Ok(dir) => dir,
+            Err(e) => {
+                tracing::error!(?e, "media tempdir failed");
+                return (None, None);
+            }
+        };
+        let source = dir.path().join("source");
+        if let Err(e) = self
+            .storage
+            .get_object_to_path(&file.object_key, &source)
+            .await
+        {
+            tracing::error!(?e, file_id = file.id, "download for probe failed");
+            return (None, None);
+        }
+
+        let source_for_probe = source.clone();
+        let probed =
+            match tokio::task::spawn_blocking(move || probe_path(&source_for_probe, kind)).await {
+                Ok(value) => value,
+                Err(e) => {
+                    tracing::error!(?e, "ffprobe join failed");
+                    return (None, None);
+                }
+            };
+        let Some(probe) = probed else {
+            return (None, None);
+        };
+        let media = ReadyMedia {
+            kind: probe.kind,
+            width: probe.width,
+            height: probe.height,
+            duration_ms: probe.duration_ms,
+        };
+
+        let thumb_path = dir.path().join("thumbnail.jpg");
+        let source_for_thumb = source.clone();
+        let dest_for_thumb = thumb_path.clone();
+        let width = probe.width;
+        let height = probe.height;
+        let thumb_ok = match tokio::task::spawn_blocking(move || {
+            write_thumbnail(&source_for_thumb, &dest_for_thumb, width, height)
+        })
+        .await
+        {
+            Ok(Ok(())) => true,
+            Ok(Err(e)) => {
+                tracing::error!(error = %e, file_id = file.id, "ffmpeg thumbnail failed");
+                false
+            }
+            Err(e) => {
+                tracing::error!(?e, "ffmpeg join failed");
+                false
+            }
+        };
+
+        if !thumb_ok {
+            return (Some(media), None);
+        }
+
+        let object_key = format!("{}/{}", file.owner_id, Uuid::new_v4());
+        match self
+            .storage
+            .put_object(&object_key, "image/jpeg", &thumb_path)
+            .await
+        {
+            Ok(size) => (
+                Some(media),
+                Some(NewThumbnail {
+                    owner_id: file.owner_id,
+                    object_key,
+                    size,
+                }),
+            ),
+            Err(e) => {
+                tracing::error!(?e, file_id = file.id, "thumbnail upload failed");
+                (Some(media), None)
+            }
+        }
     }
 
     pub async fn download(&self, id: i64) -> Result<PresignDownloadResponse, AppError> {

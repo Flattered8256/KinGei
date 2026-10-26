@@ -19,6 +19,7 @@ mod state;
 #[tokio::main]
 async fn main() {
     dotenv().ok();
+    crate::utils::media::require_tools();
 
     let database_url =
         env::var("DATABASE_URL").expect("缺少DATABASE_URL,请检查项目根目录下的.env文件");

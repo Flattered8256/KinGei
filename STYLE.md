@@ -333,16 +333,18 @@ WHERE user_id = ? AND friend_id = ?
 
 ## 7. 鉴权与配置
 
-- 环境变量：`DATABASE_URL`、`PORT`、`JWT_SECRET`、`RUST_LOG`、`GARAGE_ENDPOINT`、`GARAGE_ACCESS_KEY`、`GARAGE_SECRET_KEY`、`GARAGE_BUCKET`、`GARAGE_REGION`（缺省 `us-east-1`）。`.env` 不入库。
+- 环境变量：`DATABASE_URL`、`PORT`、`JWT_SECRET`、`RUST_LOG`、`GARAGE_ENDPOINT`、`GARAGE_ACCESS_KEY`、`GARAGE_SECRET_KEY`、`GARAGE_BUCKET`、`GARAGE_REGION`（缺省 `us-east-1`）、可选 `FFPROBE_PATH`（缺省 `ffprobe`）、可选 `FFMPEG_PATH`（缺省 `ffmpeg`）。`.env` 不入库。启动时跑 `ffprobe -version` 和 `ffmpeg -version`，找不到则中文 `expect` 退出。
 - Garage 为本机 path-style S3（本地 `http://127.0.0.1:3900`）。`Storage::connect` 启动时 `ListBuckets`，没有目标 bucket 则 `CreateBucket`；连不上则中止启动。
 - `POST /file`（JWT）申请 PutObject 预签名 URL：请求 `name`、`content_type`（可空，默认 `application/octet-stream`）、`size`；响应 `id`、`name`、`content_type`、`size`、`upload_url`、`expires_at`。object key 为 `{owner_id}/{uuid}`，不进 JSON。预签名 15 分钟，绑定 `Content-Type` 和 `Content-Length`。申请时插入 `file.status = Pending`。
-- `POST /file/{id}/complete`（JWT）确认上传：owner 才能操作。对 Garage 做 HeadObject，对象不存在 → `400 UploadIncomplete`；`Content-Length` 与申请时 `size` 不一致 → `400 SizeMismatch`；通过后把 `status` 写成 `Ready`。已是 `Ready` 则直接返回。响应 `id`、`owner_id`、`name`、`content_type`、`size`、`status`、`created_at`。缺失行 `404 FileNotFound`，非 owner `403 NotOwner`。
+- `POST /file/{id}/complete`（JWT）确认上传：owner 才能操作。对 Garage 做 HeadObject，对象不存在 → `400 UploadIncomplete`；`Content-Length` 与申请时 `size` 不一致 → `400 SizeMismatch`；通过后把 `status` 写成 `Ready`。已是 `Ready` 则直接返回（含已有 `media`，不重探测、不出图）。响应 `id`、`owner_id`、`name`、`content_type`、`size`、`status`、`media`、`created_at`。缺失行 `404 FileNotFound`，非 owner `403 NotOwner`。
+- `media` 表与 `file` 1:1（`file_id` PK，`ON DELETE CASCADE`），仍归 file 领域。有预览才插入一行。JSON 嵌在 `FileResponse.media`：`{ kind, width, height, duration_ms, thumbnail_id }` 或 `null`。`kind` 为 `Image` | `Video`。宽高是原文件显示尺寸（90°/270° 已对调）。`duration_ms` 仅 Video。`thumbnail_id` 是缩略图 `file.id`（JPEG，长边最多 320px），没有则为 `null`。探测或出图失败不阻断 Ready：没有视频流则不插行、`media: null`；探测成功但 ffmpeg/上传失败则仍插行、`thumbnail_id: null`。
+- 探测 MIME：`image/jpeg` `image/png` `image/webp` `image/gif`（GIF 当 Image，忽略时长）和 `video/mp4` `video/quicktime` `video/webm`。complete 把对象流到临时文件，ffprobe 取流，ffmpeg 出第一帧。缩略图由服务端 `put_object` 写入 Garage 并插入 Ready 的 `file` 行，不走客户端 presign，不再探测。下载仍用 `GET /file/{id}/download`。
 - `GET /file/{id}/download`（JWT）申请 GetObject 预签名 URL：任意登录用户，且 `status = Ready`。响应 `id`、`name`、`content_type`、`size`、`download_url`、`expires_at`。object key 不进 JSON。预签名 15 分钟，path-style，绑定 `response-content-type`（库里的 `content_type`）和 `response-content-disposition: attachment`（ASCII `filename` + RFC 5987 `filename*`，保存名为原 `name`）。不 HeadObject；对象已删则 Garage 对这条 URL 返回 404。仍是 Pending → `400 FileNotReady`；缺失行 `404 FileNotFound`。上传与 complete 仍仅 owner。
 - `UserResponse` 的 `avatar` 是 file id 或 `null`，不嵌 File、不含 `download_url`。前端用 id 再调下载。
 - `GET /friend` 的 `FriendResponse` 嵌 `user`（`UserResponse`）和好友关系 `created_at`。不摊平 `friend_id` / `username` / `email`。
 - 把文件当图片用（用户/群头像）共用 `service::file::require_image`：属于当前用户、Ready、MIME 为 `image/jpeg`、`image/png`、`image/webp`、`image/gif`。失败 → `404 FileNotFound` / `403 NotOwner` / `400 FileNotReady` / `400 InvalidImage`。谁能把这张图挂到哪条记录，仍由各领域判断。
 - 消息附件共用 `service::file::require_ready_file`：属于发送者且 `status = Ready`，不限 MIME。失败 → `404 FileNotFound` / `403 NotOwner` / `400 FileNotReady`，不创建消息。
-- `POST /chat/{id}/message` 请求 `content`（可省略或为 `null`）和可选 `file_id`；`content` 为空且无 `file_id` → `400 EmptyContent`。`MessageResponse` 嵌 `file: FileResponse | null`，`GET /chat/{id}/message` 与 `message.created` SSE 同形；前端用 `file.content_type` 判断媒体类型，再用 `GET /file/{id}/download` 取地址。
+- `POST /chat/{id}/message` 请求 `content`（可省略或为 `null`）和可选 `file_id`；`content` 为空且无 `file_id` → `400 EmptyContent`。`MessageResponse` 嵌 `file: FileResponse | null`，`GET /chat/{id}/message` 与 `message.created` SSE 同形。前端用 `file.media` 做气泡占位和封面（`thumbnail_id` 再调下载），`file.content_type` 区分类型。
 - `PATCH /user/update` 可改 `username`、`email`、`avatar`。省略 `avatar` 不改头像；给 file id 则先 `require_image` 再写 `user.avatar`。只改 FK，不删 Garage 对象。
 - `ChatResponse.avatar` 是 file id 或 `null`。私聊为 null。`PATCH /chat/{id}`（群主）可改 `name` 和/或 `avatar`；省略则不改。只改头像时走 `require_image`。Direct 仍 `CannotModifyDirect`。
 - Access Token 15 分钟，Refresh Token 7 天。改时长只改 `src/utils/auth.rs` 里的常量。

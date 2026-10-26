@@ -6,6 +6,7 @@ use crate::error::AppError;
 use crate::error::message::MessageError;
 use crate::event::{ClientEvent, EventHub};
 use crate::model::chat::{Chat, ChatType};
+use crate::model::file::File;
 use crate::repository::chat::ChatRepository;
 use crate::repository::file::FileRepository;
 use crate::repository::friend::FriendRepository;
@@ -68,7 +69,11 @@ impl MessageService {
             .message_repo
             .create(chat.id, user_id, content, request.file_id)
             .await?;
-        let response = MessageResponse::from_message(created, file.map(FileResponse::from));
+        let file = match file {
+            Some(file) => Some(self.file_response(file).await?),
+            None => None,
+        };
+        let response = MessageResponse::from_message(created, file);
         self.publish_message_created(chat.id, response.clone())
             .await;
         Ok(response)
@@ -92,11 +97,10 @@ impl MessageService {
         let mut responses = Vec::with_capacity(messages.len());
         for message in messages {
             let file = match message.file_id {
-                Some(file_id) => self
-                    .file_repo
-                    .find_by_id(file_id)
-                    .await?
-                    .map(FileResponse::from),
+                Some(file_id) => match self.file_repo.find_by_id(file_id).await? {
+                    Some(file) => Some(self.file_response(file).await?),
+                    None => None,
+                },
                 None => None,
             };
             responses.push(MessageResponse::from_message(message, file));
@@ -135,6 +139,11 @@ impl MessageService {
             last_read_message_id,
             unread_count,
         })
+    }
+
+    async fn file_response(&self, file: File) -> Result<FileResponse, AppError> {
+        let media = self.file_repo.find_media(file.id).await?;
+        Ok(FileResponse::from(file, media))
     }
 
     async fn require_member(&self, user_id: Uuid, chat_id: i64) -> Result<Chat, AppError> {
