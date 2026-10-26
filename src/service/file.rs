@@ -10,7 +10,7 @@ use crate::repository::file::{FileRepository, NewThumbnail, ReadyMedia};
 use crate::serializer::file::{
     CreateFileRequest, FileResponse, PresignDownloadResponse, PresignUploadResponse,
 };
-use crate::storage::{PRESIGN_TTL, Storage};
+use crate::storage::{ObjectStream, PRESIGN_TTL, Storage, parse_bytes_range};
 use crate::utils::media::{media_kind_from_content_type, probe_path, write_thumbnail};
 
 const MAX_NAME_CHARS: usize = 255;
@@ -237,6 +237,40 @@ impl FileService {
             expires_at: Utc::now() + Duration::seconds(PRESIGN_TTL.as_secs() as i64),
         })
     }
+
+    pub async fn content(
+        &self,
+        id: i64,
+        range_header: Option<&str>,
+    ) -> Result<FileContent, AppError> {
+        let file = self
+            .repo
+            .find_by_id(id)
+            .await?
+            .ok_or(AppError::File(FileError::FileNotFound))?;
+
+        if file.status != FileStatus::Ready {
+            return Err(AppError::File(FileError::FileNotReady));
+        }
+
+        let range = range_header.and_then(parse_bytes_range);
+        let object = self
+            .storage
+            .get_object(&file.object_key, range.as_deref())
+            .await?;
+
+        Ok(FileContent {
+            file,
+            object,
+            ranged: range.is_some(),
+        })
+    }
+}
+
+pub struct FileContent {
+    pub file: File,
+    pub object: ObjectStream,
+    pub ranged: bool,
 }
 
 const IMAGE_CONTENT_TYPES: &[&str] = &["image/jpeg", "image/png", "image/webp", "image/gif"];

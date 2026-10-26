@@ -341,6 +341,7 @@ WHERE user_id = ? AND friend_id = ?
 - `media` 表与 `file` 1:1（`file_id` PK，`ON DELETE CASCADE`），仍归 file 领域。有预览才插入一行。JSON 嵌在 `FileResponse.media`：`{ kind, width, height, duration_ms, thumbnail_id }` 或 `null`。`kind` 为 `Image` | `Video`。宽高是原文件显示尺寸（90°/270° 已对调）。`duration_ms` 仅 Video。`thumbnail_id` 是缩略图 `file.id`（JPEG，长边最多 320px），没有则为 `null`。探测或出图失败不阻断 Ready：没有视频流则不插行、`media: null`；探测成功但 ffmpeg/上传失败则仍插行、`thumbnail_id: null`。
 - 探测 MIME：`image/jpeg` `image/png` `image/webp` `image/gif`（GIF 当 Image，忽略时长）和 `video/mp4` `video/quicktime` `video/webm`。complete 把对象流到临时文件，ffprobe 取流，ffmpeg 出第一帧。缩略图由服务端 `put_object` 写入 Garage 并插入 Ready 的 `file` 行，不走客户端 presign，不再探测。下载仍用 `GET /file/{id}/download`。
 - `GET /file/{id}/download`（JWT）申请 GetObject 预签名 URL：任意登录用户，且 `status = Ready`。响应 `id`、`name`、`content_type`、`size`、`download_url`、`expires_at`。object key 不进 JSON。预签名 15 分钟，path-style，绑定 `response-content-type`（库里的 `content_type`）和 `response-content-disposition: attachment`（ASCII `filename` + RFC 5987 `filename*`，保存名为原 `name`）。不 HeadObject；对象已删则 Garage 对这条 URL 返回 404。仍是 Pending → `400 FileNotReady`；缺失行 `404 FileNotFound`。上传与 complete 仍仅 owner。
+- `GET /file/{id}/content` 把 Ready 对象从 Garage 流式转给浏览器（预览）。任意登录用户。鉴权：`Authorization: Bearer`，或 cookie `kingei.access_token`（access JWT）。其它 `/file` 路由仍只认 Bearer。`Content-Type` 用库里的 `content_type`，`Content-Disposition: inline`（filename 编码与 download 相同），`Accept-Ranges: bytes`，`Cache-Control: private, max-age=86400`。请求带 `Range` 且对象支持则 206 + `Content-Range`，否则 200。不把对象读进内存。Pending → `400 FileNotReady`；缺失行 `404 FileNotFound`。保存文件仍走 `/download` 预签名，不走这条。
 - `UserResponse` 的 `avatar` 是 file id 或 `null`，不嵌 File、不含 `download_url`。前端用 id 再调下载。
 - `GET /friend` 的 `FriendResponse` 嵌 `user`（`UserResponse`）和好友关系 `created_at`。不摊平 `friend_id` / `username` / `email`。
 - 把文件当图片用（用户/群头像）共用 `service::file::require_image`：属于当前用户、Ready、MIME 为 `image/jpeg`、`image/png`、`image/webp`、`image/gif`。失败 → `404 FileNotFound` / `403 NotOwner` / `400 FileNotReady` / `400 InvalidImage`。谁能把这张图挂到哪条记录，仍由各领域判断。
@@ -349,7 +350,7 @@ WHERE user_id = ? AND friend_id = ?
 - `PATCH /user/update` 可改 `username`、`email`、`avatar`。省略 `avatar` 不改头像；给 file id 则先 `require_image` 再写 `user.avatar`。只改 FK，不删 Garage 对象。
 - `ChatResponse.avatar` 是 file id 或 `null`。私聊为 null。`PATCH /chat/{id}`（群主）可改 `name` 和/或 `avatar`；省略则不改。只改头像时走 `require_image`。Direct 仍 `CannotModifyDirect`。
 - Access Token 15 分钟，Refresh Token 7 天。改时长只改 `src/utils/auth.rs` 里的常量。
-- 受保护路由从 `Authorization: Bearer <token>` 取 access token，把 `claims.sub` 插入 `Extension<Uuid>`。
+- 受保护路由从 `Authorization: Bearer <token>` 取 access token，把 `claims.sub` 插入 `Extension<Uuid>`。`GET /file/{id}/content` 额外接受 cookie `kingei.access_token`；其它路由不认 cookie。
 - 缺少/非法 header 视为 `UserError::InvalidCredentials`（401）。
 - token 类型不符（用 refresh 当 access）视为 `UserError::InvalidToken`。
 - 密码只存 bcrypt hash，`DEFAULT_COST`。响应里永远不要出现 `password` 或 `password_hash`。

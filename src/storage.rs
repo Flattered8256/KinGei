@@ -111,7 +111,7 @@ impl Storage {
             .bucket(&self.bucket)
             .key(key)
             .response_content_type(content_type)
-            .response_content_disposition(&content_disposition(filename))
+            .response_content_disposition(&content_disposition(filename, false))
             .presigned(presigning)
             .await
             .map_err(|e| StorageError(format!("{e:?}")))?;
@@ -138,6 +138,26 @@ impl Storage {
                 }
             }
         }
+    }
+
+    pub async fn get_object(
+        &self,
+        key: &str,
+        range: Option<&str>,
+    ) -> Result<ObjectStream, StorageError> {
+        let mut request = self.client.get_object().bucket(&self.bucket).key(key);
+        if let Some(range) = range {
+            request = request.range(range);
+        }
+        let output = request
+            .send()
+            .await
+            .map_err(|e| StorageError(format!("{e:?}")))?;
+        Ok(ObjectStream {
+            content_length: output.content_length().unwrap_or(0),
+            content_range: output.content_range().map(str::to_string),
+            body: output.body,
+        })
     }
 
     pub async fn get_object_to_path(&self, key: &str, path: &Path) -> Result<(), StorageError> {
@@ -194,6 +214,27 @@ pub struct ObjectMeta {
     pub content_length: i64,
 }
 
+pub struct ObjectStream {
+    pub content_length: i64,
+    pub content_range: Option<String>,
+    pub body: ByteStream,
+}
+
+pub fn parse_bytes_range(header: &str) -> Option<String> {
+    let spec = header.trim().strip_prefix("bytes=")?.trim();
+    if spec.is_empty() || spec.contains(',') {
+        return None;
+    }
+    let (start, end) = spec.split_once('-')?;
+    if start.is_empty() && end.is_empty() {
+        return None;
+    }
+    if !start.chars().all(|c| c.is_ascii_digit()) || !end.chars().all(|c| c.is_ascii_digit()) {
+        return None;
+    }
+    Some(format!("bytes={spec}"))
+}
+
 fn is_not_found(error: &SdkError<HeadObjectError>) -> bool {
     if error
         .as_service_error()
@@ -206,7 +247,7 @@ fn is_not_found(error: &SdkError<HeadObjectError>) -> bool {
         .is_some_and(|response| response.status().as_u16() == 404)
 }
 
-fn content_disposition(filename: &str) -> String {
+pub fn content_disposition(filename: &str, inline: bool) -> String {
     let sanitized: String = filename
         .chars()
         .filter(|c| *c != '\r' && *c != '\n')
@@ -226,8 +267,9 @@ fn content_disposition(filename: &str) -> String {
     } else {
         fallback
     };
+    let kind = if inline { "inline" } else { "attachment" };
     format!(
-        "attachment; filename=\"{fallback}\"; filename*=UTF-8''{}",
+        "{kind}; filename=\"{fallback}\"; filename*=UTF-8''{}",
         percent_encode(sanitized.as_bytes())
     )
 }
@@ -246,4 +288,52 @@ fn percent_encode(bytes: &[u8]) -> String {
 
 fn is_unreserved(b: u8) -> bool {
     matches!(b, b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~')
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn attachment_ascii_filename() {
+        assert_eq!(
+            content_disposition("hello.txt", false),
+            "attachment; filename=\"hello.txt\"; filename*=UTF-8''hello.txt"
+        );
+    }
+
+    #[test]
+    fn inline_ascii_filename() {
+        assert_eq!(
+            content_disposition("hello.txt", true),
+            "inline; filename=\"hello.txt\"; filename*=UTF-8''hello.txt"
+        );
+    }
+
+    #[test]
+    fn chinese_filename() {
+        assert_eq!(
+            content_disposition("照片.png", false),
+            "attachment; filename=\"__.png\"; filename*=UTF-8''%E7%85%A7%E7%89%87.png"
+        );
+    }
+
+    #[test]
+    fn parse_open_and_closed_range() {
+        assert_eq!(
+            parse_bytes_range("bytes=0-1023"),
+            Some("bytes=0-1023".to_string())
+        );
+        assert_eq!(
+            parse_bytes_range("bytes=500-"),
+            Some("bytes=500-".to_string())
+        );
+        assert_eq!(
+            parse_bytes_range("bytes=-500"),
+            Some("bytes=-500".to_string())
+        );
+        assert_eq!(parse_bytes_range("bytes=0-1,2-3"), None);
+        assert_eq!(parse_bytes_range("bytes="), None);
+        assert_eq!(parse_bytes_range("items=0-1"), None);
+    }
 }
