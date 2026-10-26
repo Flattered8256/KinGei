@@ -1,5 +1,5 @@
 use chrono::Utc;
-use sqlx::SqlitePool;
+use sqlx::{QueryBuilder, SqlitePool};
 use uuid::Uuid;
 
 use crate::model::file::{File, FileStatus, Media, MediaKind};
@@ -77,6 +77,54 @@ impl FileRepository {
         .bind(file_id)
         .fetch_optional(&self.pool)
         .await
+    }
+
+    pub async fn find_by_ids(&self, ids: &[i64]) -> Result<Vec<File>, sqlx::Error> {
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let mut builder = QueryBuilder::new(
+            r#"
+            SELECT id, owner_id, object_key, name, content_type, size, status, created_at
+            FROM file
+            WHERE id IN (
+            "#,
+        );
+        let mut separated = builder.separated(", ");
+        for id in ids {
+            separated.push_bind(id);
+        }
+        builder.push(")");
+
+        builder.build_query_as::<File>().fetch_all(&self.pool).await
+    }
+
+    pub async fn find_media_by_file_ids(
+        &self,
+        file_ids: &[i64],
+    ) -> Result<Vec<Media>, sqlx::Error> {
+        if file_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let mut builder = QueryBuilder::new(
+            r#"
+            SELECT file_id, kind, width, height, duration_ms, thumbnail_id, created_at
+            FROM media
+            WHERE file_id IN (
+            "#,
+        );
+        let mut separated = builder.separated(", ");
+        for id in file_ids {
+            separated.push_bind(id);
+        }
+        builder.push(")");
+
+        builder
+            .build_query_as::<Media>()
+            .fetch_all(&self.pool)
+            .await
     }
 
     pub async fn mark_ready(

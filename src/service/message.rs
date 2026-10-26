@@ -1,3 +1,4 @@
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use uuid::Uuid;
@@ -94,15 +95,35 @@ impl MessageService {
         let mut messages = self.message_repo.list(chat.id, query.before, limit).await?;
         messages.reverse();
 
+        let mut file_ids = Vec::new();
+        let mut seen = HashSet::new();
+        for message in &messages {
+            if let Some(file_id) = message.file_id
+                && seen.insert(file_id)
+            {
+                file_ids.push(file_id);
+            }
+        }
+
+        let files = self.file_repo.find_by_ids(&file_ids).await?;
+        let mut media: HashMap<i64, _> = self
+            .file_repo
+            .find_media_by_file_ids(&file_ids)
+            .await?
+            .into_iter()
+            .map(|row| (row.file_id, row))
+            .collect();
+        let files: HashMap<i64, FileResponse> = files
+            .into_iter()
+            .map(|file| {
+                let media = media.remove(&file.id);
+                (file.id, FileResponse::from(file, media))
+            })
+            .collect();
+
         let mut responses = Vec::with_capacity(messages.len());
         for message in messages {
-            let file = match message.file_id {
-                Some(file_id) => match self.file_repo.find_by_id(file_id).await? {
-                    Some(file) => Some(self.file_response(file).await?),
-                    None => None,
-                },
-                None => None,
-            };
+            let file = message.file_id.and_then(|id| files.get(&id).cloned());
             responses.push(MessageResponse::from_message(message, file));
         }
         Ok(responses)
