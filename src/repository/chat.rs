@@ -1,5 +1,5 @@
 use chrono::Utc;
-use sqlx::SqlitePool;
+use sqlx::{QueryBuilder, SqlitePool};
 use uuid::Uuid;
 
 use crate::model::chat::{Chat, ChatMember, ChatType};
@@ -201,6 +201,33 @@ impl ChatRepository {
         .bind(&chat_id)
         .fetch_all(&self.pool)
         .await
+    }
+
+    pub async fn list_members_by_chat_ids(
+        &self,
+        chat_ids: &[i64],
+    ) -> Result<Vec<ChatMember>, sqlx::Error> {
+        if chat_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let mut builder = QueryBuilder::new(
+            r#"
+            SELECT id, chat_id, user_id, created_at, last_read_message_id
+            FROM chat_member
+            WHERE chat_id IN (
+            "#,
+        );
+        let mut separated = builder.separated(", ");
+        for id in chat_ids {
+            separated.push_bind(id);
+        }
+        builder.push(") ORDER BY created_at ASC, id ASC");
+
+        builder
+            .build_query_as::<ChatMember>()
+            .fetch_all(&self.pool)
+            .await
     }
 
     pub async fn find_member(

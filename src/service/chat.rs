@@ -1,4 +1,6 @@
+use std::collections::HashMap;
 use std::sync::Arc;
+
 use uuid::Uuid;
 
 use crate::error::AppError;
@@ -14,6 +16,7 @@ use crate::serializer::chat::{
     ChatMemberResponse, ChatResponse, CreateDirectRequest, CreateGroupRequest, InviteMemberRequest,
     UpdateChatRequest,
 };
+use crate::serializer::user::UserResponse;
 use crate::service::file::require_image;
 
 pub struct ChatService {
@@ -92,11 +95,7 @@ impl ChatService {
 
     pub async fn list(&self, user_id: Uuid) -> Result<Vec<ChatResponse>, AppError> {
         let chats = self.chat_repo.list_by_user(user_id).await?;
-        let mut responses = Vec::with_capacity(chats.len());
-        for chat in chats {
-            responses.push(self.to_response(user_id, chat).await?);
-        }
-        Ok(responses)
+        self.to_responses(user_id, chats).await
     }
 
     pub async fn get(&self, user_id: Uuid, chat_id: i64) -> Result<ChatResponse, AppError> {
@@ -273,29 +272,58 @@ impl ChatService {
     }
 
     async fn to_response(&self, user_id: Uuid, chat: Chat) -> Result<ChatResponse, AppError> {
-        let members = self.chat_repo.list_members(chat.id).await?;
-        let mut member = Vec::with_capacity(members.len());
-        let mut last_read_message_id = None;
+        self.to_responses(user_id, vec![chat])
+            .await?
+            .into_iter()
+            .next()
+            .ok_or(AppError::Chat(ChatError::ChatNotFound))
+    }
 
-        for item in members {
-            if item.user_id == user_id {
-                last_read_message_id = item.last_read_message_id;
-            }
-            let Some(user) = self.user_repo.find_by_id(item.user_id).await? else {
-                continue;
-            };
-            member.push(ChatMemberResponse {
-                user: user.into(),
-                last_read_message_id: item.last_read_message_id,
-            });
+    async fn to_responses(
+        &self,
+        viewer_id: Uuid,
+        chats: Vec<Chat>,
+    ) -> Result<Vec<ChatResponse>, AppError> {
+        if chats.is_empty() {
+            return Ok(Vec::new());
         }
 
-        let unread_count = self
+        let chat_ids: Vec<i64> = chats.iter().map(|chat| chat.id).collect();
+        let members = self.chat_repo.list_members_by_chat_ids(&chat_ids).await?;
+        let user_ids: Vec<Uuid> = members.iter().map(|member| member.user_id).collect();
+        let users = self.users_by_ids(&user_ids).await?;
+        let unread: HashMap<i64, i64> = self
             .message_repo
-            .unread_count(chat.id, user_id, last_read_message_id)
-            .await?;
+            .unread_counts_for_user(viewer_id, &chat_ids)
+            .await?
+            .into_iter()
+            .collect();
 
-        Ok(ChatResponse::from(chat, member, unread_count))
+        let mut members_by_chat: HashMap<i64, Vec<_>> = HashMap::new();
+        for member in members {
+            members_by_chat
+                .entry(member.chat_id)
+                .or_default()
+                .push(member);
+        }
+
+        let mut responses = Vec::with_capacity(chats.len());
+        for chat in chats {
+            let chat_members = members_by_chat.remove(&chat.id).unwrap_or_default();
+            let mut member = Vec::with_capacity(chat_members.len());
+            for item in chat_members {
+                let Some(user) = users.get(&item.user_id) else {
+                    continue;
+                };
+                member.push(ChatMemberResponse {
+                    user: user.clone(),
+                    last_read_message_id: item.last_read_message_id,
+                });
+            }
+            let unread_count = unread.get(&chat.id).copied().unwrap_or(0);
+            responses.push(ChatResponse::from(chat, member, unread_count));
+        }
+        Ok(responses)
     }
 
     async fn publish_chat_to_members(&self, chat: &Chat, wrap: fn(ChatResponse) -> ClientEvent) {
@@ -311,21 +339,54 @@ impl ChatService {
             }
         };
 
-        for member in members {
-            match self.to_response(member.user_id, chat.clone()).await {
-                Ok(response) => {
-                    self.event_hub
-                        .publish(member.user_id, Arc::new(wrap(response)));
-                }
-                Err(e) => {
-                    tracing::error!(
-                        ?e,
-                        chat_id = chat.id,
-                        user_id = %member.user_id,
-                        "failed to build chat event"
-                    );
-                }
+        let user_ids: Vec<Uuid> = members.iter().map(|member| member.user_id).collect();
+        let users = match self.users_by_ids(&user_ids).await {
+            Ok(users) => users,
+            Err(e) => {
+                tracing::error!(
+                    ?e,
+                    chat_id = chat.id,
+                    "failed to load members for chat event"
+                );
+                return;
             }
+        };
+        let unread = match self.message_repo.unread_counts_for_chat(chat.id).await {
+            Ok(unread) => unread.into_iter().collect::<HashMap<_, _>>(),
+            Err(e) => {
+                tracing::error!(
+                    ?e,
+                    chat_id = chat.id,
+                    "failed to load unread counts for chat event"
+                );
+                return;
+            }
+        };
+
+        let mut member_responses = Vec::with_capacity(members.len());
+        for item in &members {
+            let Some(user) = users.get(&item.user_id) else {
+                continue;
+            };
+            member_responses.push(ChatMemberResponse {
+                user: user.clone(),
+                last_read_message_id: item.last_read_message_id,
+            });
         }
+
+        for member in members {
+            let unread_count = unread.get(&member.user_id).copied().unwrap_or(0);
+            let response = ChatResponse::from(chat.clone(), member_responses.clone(), unread_count);
+            self.event_hub
+                .publish(member.user_id, Arc::new(wrap(response)));
+        }
+    }
+
+    async fn users_by_ids(&self, ids: &[Uuid]) -> Result<HashMap<Uuid, UserResponse>, sqlx::Error> {
+        let users = self.user_repo.find_by_ids(ids).await?;
+        Ok(users
+            .into_iter()
+            .map(|user| (user.id, UserResponse::from(user)))
+            .collect())
     }
 }

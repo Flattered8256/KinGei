@@ -161,4 +161,59 @@ impl MessageRepository {
         .fetch_one(&self.pool)
         .await
     }
+
+    pub async fn unread_counts_for_user(
+        &self,
+        user_id: Uuid,
+        chat_ids: &[i64],
+    ) -> Result<Vec<(i64, i64)>, sqlx::Error> {
+        if chat_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let mut builder = QueryBuilder::new(
+            r#"
+            SELECT cm.chat_id, COUNT(m.id)
+            FROM chat_member cm
+            LEFT JOIN message m
+              ON m.chat_id = cm.chat_id
+             AND m.sender_id != cm.user_id
+             AND m.id > COALESCE(cm.last_read_message_id, 0)
+            WHERE cm.user_id = 
+            "#,
+        );
+        builder.push_bind(user_id);
+        builder.push(" AND cm.chat_id IN (");
+        let mut separated = builder.separated(", ");
+        for id in chat_ids {
+            separated.push_bind(id);
+        }
+        builder.push(") GROUP BY cm.chat_id");
+
+        builder
+            .build_query_as::<(i64, i64)>()
+            .fetch_all(&self.pool)
+            .await
+    }
+
+    pub async fn unread_counts_for_chat(
+        &self,
+        chat_id: i64,
+    ) -> Result<Vec<(Uuid, i64)>, sqlx::Error> {
+        sqlx::query_as::<_, (Uuid, i64)>(
+            r#"
+            SELECT cm.user_id, COUNT(m.id)
+            FROM chat_member cm
+            LEFT JOIN message m
+              ON m.chat_id = cm.chat_id
+             AND m.sender_id != cm.user_id
+             AND m.id > COALESCE(cm.last_read_message_id, 0)
+            WHERE cm.chat_id = ?
+            GROUP BY cm.user_id
+            "#,
+        )
+        .bind(chat_id)
+        .fetch_all(&self.pool)
+        .await
+    }
 }
