@@ -1,0 +1,5 @@
+target
+chat.db
+.env
+.git
+*.md

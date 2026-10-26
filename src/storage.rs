@@ -11,6 +11,7 @@ use aws_sdk_s3::error::SdkError;
 use aws_sdk_s3::operation::head_object::HeadObjectError;
 use aws_sdk_s3::presigning::PresigningConfig;
 use aws_sdk_s3::primitives::ByteStream;
+use aws_sdk_s3::types::{CorsConfiguration, CorsRule};
 use tokio::io::AsyncWriteExt;
 
 pub const PRESIGN_TTL: Duration = Duration::from_secs(15 * 60);
@@ -28,6 +29,7 @@ impl std::error::Error for StorageError {}
 
 pub struct Storage {
     client: Client,
+    presign: Client,
     bucket: String,
 }
 
@@ -42,21 +44,15 @@ impl Storage {
         let bucket =
             env::var("GARAGE_BUCKET").expect("缺少GARAGE_BUCKET,请检查项目根目录下的.env文件");
         let region = env::var("GARAGE_REGION").unwrap_or_else(|_| "us-east-1".to_string());
+        let public_endpoint =
+            env::var("GARAGE_PUBLIC_ENDPOINT").unwrap_or_else(|_| endpoint.clone());
 
-        let credentials = Credentials::new(access_key, secret_key, None, None, "garage");
-        let sdk_config = aws_config::defaults(BehaviorVersion::latest())
-            .endpoint_url(&endpoint)
-            .region(Region::new(region))
-            .credentials_provider(credentials)
-            .load()
-            .await;
-
-        let config = aws_sdk_s3::config::Builder::from(&sdk_config)
-            .force_path_style(true)
-            .request_checksum_calculation(RequestChecksumCalculation::WhenRequired)
-            .response_checksum_validation(ResponseChecksumValidation::WhenRequired)
-            .build();
-        let client = Client::from_conf(config);
+        let client = s3_client(&endpoint, &access_key, &secret_key, &region).await;
+        let presign = if public_endpoint == endpoint {
+            client.clone()
+        } else {
+            s3_client(&public_endpoint, &access_key, &secret_key, &region).await
+        };
 
         let listed = client.list_buckets().send().await.expect("连接Garage失败");
         let exists = listed
@@ -72,8 +68,41 @@ impl Storage {
                 .expect("创建Garage bucket失败");
         }
 
-        tracing::info!(bucket = %bucket, "garage connected");
-        Self { client, bucket }
+        let cors = CorsConfiguration::builder()
+            .cors_rules(
+                CorsRule::builder()
+                    .allowed_methods("PUT")
+                    .allowed_methods("GET")
+                    .allowed_methods("HEAD")
+                    .allowed_origins("*")
+                    .allowed_headers("*")
+                    .expose_headers("ETag")
+                    .expose_headers("Content-Length")
+                    .expose_headers("Content-Range")
+                    .build()
+                    .expect("构造Garage CORS规则失败"),
+            )
+            .build()
+            .expect("构造Garage CORS配置失败");
+        client
+            .put_bucket_cors()
+            .bucket(&bucket)
+            .cors_configuration(cors)
+            .send()
+            .await
+            .expect("设置Garage bucket CORS失败");
+
+        tracing::info!(
+            bucket = %bucket,
+            endpoint = %endpoint,
+            public_endpoint = %public_endpoint,
+            "garage connected"
+        );
+        Self {
+            client,
+            presign,
+            bucket,
+        }
     }
 
     pub async fn presign_put(
@@ -85,7 +114,7 @@ impl Storage {
         let presigning =
             PresigningConfig::expires_in(PRESIGN_TTL).map_err(|e| StorageError(e.to_string()))?;
         let presigned = self
-            .client
+            .presign
             .put_object()
             .bucket(&self.bucket)
             .key(key)
@@ -106,7 +135,7 @@ impl Storage {
         let presigning =
             PresigningConfig::expires_in(PRESIGN_TTL).map_err(|e| StorageError(e.to_string()))?;
         let presigned = self
-            .client
+            .presign
             .get_object()
             .bucket(&self.bucket)
             .key(key)
@@ -233,6 +262,22 @@ pub fn parse_bytes_range(header: &str) -> Option<String> {
         return None;
     }
     Some(format!("bytes={spec}"))
+}
+
+async fn s3_client(endpoint: &str, access_key: &str, secret_key: &str, region: &str) -> Client {
+    let credentials = Credentials::new(access_key, secret_key, None, None, "garage");
+    let sdk_config = aws_config::defaults(BehaviorVersion::latest())
+        .endpoint_url(endpoint)
+        .region(Region::new(region.to_string()))
+        .credentials_provider(credentials)
+        .load()
+        .await;
+    let config = aws_sdk_s3::config::Builder::from(&sdk_config)
+        .force_path_style(true)
+        .request_checksum_calculation(RequestChecksumCalculation::WhenRequired)
+        .response_checksum_validation(ResponseChecksumValidation::WhenRequired)
+        .build();
+    Client::from_conf(config)
 }
 
 fn is_not_found(error: &SdkError<HeadObjectError>) -> bool {

@@ -334,8 +334,10 @@ WHERE user_id = ? AND friend_id = ?
 
 ## 7. 鉴权与配置
 
-- 环境变量：`DATABASE_URL`、`PORT`、`JWT_SECRET`、`RUST_LOG`、`GARAGE_ENDPOINT`、`GARAGE_ACCESS_KEY`、`GARAGE_SECRET_KEY`、`GARAGE_BUCKET`、`GARAGE_REGION`（缺省 `us-east-1`）、可选 `FFPROBE_PATH`（缺省 `ffprobe`）、可选 `FFMPEG_PATH`（缺省 `ffmpeg`）。`.env` 不入库。启动时跑 `ffprobe -version` 和 `ffmpeg -version`，找不到则中文 `expect` 退出。
-- Garage 为本机 path-style S3（本地 `http://127.0.0.1:3900`）。`Storage::connect` 启动时 `ListBuckets`，没有目标 bucket 则 `CreateBucket`；连不上则中止启动。
+- 环境变量：`DATABASE_URL`、`PORT`、`JWT_SECRET`、`RUST_LOG`、`GARAGE_ENDPOINT`、`GARAGE_ACCESS_KEY`、`GARAGE_SECRET_KEY`、`GARAGE_BUCKET`、`GARAGE_REGION`（缺省 `us-east-1`）、可选 `GARAGE_PUBLIC_ENDPOINT`（缺省等于 `GARAGE_ENDPOINT`，只用于预签名 URL）、可选 `FFPROBE_PATH`（缺省 `ffprobe`）、可选 `FFMPEG_PATH`（缺省 `ffmpeg`）。`.env` 不入库。启动时跑 `ffprobe -version` 和 `ffmpeg -version`，找不到则中文 `expect` 退出。
+- Garage 为本机 path-style S3（本地 `http://127.0.0.1:3900`）。`Storage::connect` 启动时 `ListBuckets`，没有目标 bucket 则 `CreateBucket`；连不上则中止启动。随后 `PutBucketCors`：Methods `PUT` `GET` `HEAD`，Origins/Headers `*`，Expose `ETag` `Content-Length` `Content-Range`。
+- `GET /health` 不鉴权、不碰 Garage，固定 200。
+- SQLite 连接使用 `create_if_missing(true)`，库文件不存在则创建。
 - `POST /file`（JWT）申请 PutObject 预签名 URL：请求 `name`、`content_type`（可空，默认 `application/octet-stream`）、`size`；响应 `id`、`name`、`content_type`、`size`、`upload_url`、`expires_at`。object key 为 `{owner_id}/{uuid}`，不进 JSON。预签名 15 分钟，绑定 `Content-Type` 和 `Content-Length`。申请时插入 `file.status = Pending`。
 - `POST /file/{id}/complete`（JWT）确认上传：owner 才能操作。对 Garage 做 HeadObject，对象不存在 → `400 UploadIncomplete`；`Content-Length` 与申请时 `size` 不一致 → `400 SizeMismatch`；通过后把 `status` 写成 `Ready`。已是 `Ready` 则直接返回（含已有 `media`，不重探测、不出图）。响应 `id`、`owner_id`、`name`、`content_type`、`size`、`status`、`media`、`created_at`。缺失行 `404 FileNotFound`，非 owner `403 NotOwner`。
 - `media` 表与 `file` 1:1（`file_id` PK，`ON DELETE CASCADE`），仍归 file 领域。有预览才插入一行。JSON 嵌在 `FileResponse.media`：`{ kind, width, height, duration_ms, thumbnail_id }` 或 `null`。`kind` 为 `Image` | `Video`。宽高是原文件显示尺寸（90°/270° 已对调）。`duration_ms` 仅 Video。`thumbnail_id` 是缩略图 `file.id`（JPEG，长边最多 320px），没有则为 `null`。探测或出图失败不阻断 Ready：没有视频流则不插行、`media: null`；探测成功但 ffmpeg/上传失败则仍插行、`thumbnail_id: null`。
