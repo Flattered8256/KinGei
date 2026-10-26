@@ -1,6 +1,6 @@
 <script setup lang="ts">
 const props = withDefaults(defineProps<{
-  name: 'chat' | 'friends' | 'settings' | 'home' | 'search' | 'plus' | 'send' | 'back' | 'close' | 'more' | 'down'
+  name: 'chat' | 'friends' | 'settings' | 'home' | 'search' | 'plus' | 'send' | 'back' | 'close' | 'more' | 'down' | 'paperclip' | 'download' | 'play' | 'file'
   size?: number
 }>(), {
   size: 22,
@@ -54,6 +54,21 @@ const props = withDefaults(defineProps<{
     </template>
     <template v-else-if="props.name === 'down'">
       <path d="M6 9l6 6 6-6" />
+    </template>
+    <template v-else-if="props.name === 'paperclip'">
+      <path d="M21.44 11.05 12.25 20.24a6 6 0 1 1-8.49-8.49l9.19-9.19a4 4 0 1 1 5.66 5.66l-9.2 9.19a2 2 0 1 1-2.83-2.83l8.49-8.48" />
+    </template>
+    <template v-else-if="props.name === 'download'">
+      <path d="M12 3v12" />
+      <path d="m7 11 5 5 5-5" />
+      <path d="M5 21h14" />
+    </template>
+    <template v-else-if="props.name === 'play'">
+      <path d="M9 7.2v9.6L18 12 9 7.2Z" fill="currentColor" stroke="none" />
+    </template>
+    <template v-else-if="props.name === 'file'">
+      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z" />
+      <path d="M14 3v5h5" />
     </template>
     <template v-else>
       <circle cx="6" cy="12" r="1.4" fill="currentColor" stroke="none" />

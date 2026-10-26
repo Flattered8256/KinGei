@@ -54,7 +54,10 @@ export {
   completeFile,
   createFile,
   downloadFile,
+  isAbortError,
   isImageType,
+  isVideoType,
   putToPresign,
+  uploadFile,
   uploadImage,
 } from './file'

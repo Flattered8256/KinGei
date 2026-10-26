@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { VList } from 'virtua/vue'
 import type { VListHandle } from 'virtua/vue'
-import type { Chat, Message } from '~/types/api'
+import type { Chat, FileResponse, Message } from '~/types/api'
 import { dayKey, formatClockTime, formatDateDivider } from '~/utils/display'
 
 const props = defineProps<{
@@ -24,6 +24,7 @@ const ready = ref(false)
 
 const myId = computed(() => user.value?.id ?? '')
 const showJump = computed(() => !stickToBottom.value && messages.items.value.length > 0)
+const lightbox = ref<FileResponse | null>(null)
 
 const prevIds = {
   first: null as number | null,
@@ -261,7 +262,16 @@ onMounted(scrollToLatest)
                 >{{ sender(item)?.username ?? $t('app.unknownUser') }}</span>
                 <span class="time">{{ timeOf(item) }}</span>
               </div>
-              <div class="bubble">
+              <MessageAttachment
+                v-if="item.file"
+                :file="item.file"
+                :own="isOwn(item)"
+                @open="lightbox = item.file"
+              />
+              <div
+                v-if="item.content.trim()"
+                class="bubble"
+              >
                 {{ item.content }}
               </div>
               <div
@@ -289,6 +299,10 @@ onMounted(scrollToLatest)
         </div>
       </template>
     </VList>
+    <MediaLightbox
+      :file="lightbox"
+      @close="lightbox = null"
+    />
     <button
       v-if="showJump"
       type="button"
@@ -396,6 +410,7 @@ onMounted(scrollToLatest)
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+  gap: 6px;
   min-width: 0;
   max-width: 72%;
 }
@@ -411,7 +426,6 @@ onMounted(scrollToLatest)
   width: fit-content;
   max-width: 100%;
   min-width: 0;
-  margin-bottom: 4px;
 }
 
 .message-line.own .meta {
@@ -448,6 +462,5 @@ onMounted(scrollToLatest)
   display: flex;
   gap: 4px;
   justify-content: flex-end;
-  margin-top: 4px;
 }
 </style>

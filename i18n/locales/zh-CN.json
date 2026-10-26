@@ -119,7 +119,15 @@
     "kick": "移出",
     "kickConfirm": "确定将该成员移出群聊？",
     "scrollToBottom": "回到底部",
-    "untitledGroup": "未命名群聊"
+    "untitledGroup": "未命名群聊",
+    "attach": "添加附件",
+    "removeAttachment": "移除附件",
+    "uploading": "上传中",
+    "processing": "处理中",
+    "download": "下载",
+    "previewImage": "[图片]",
+    "previewVideo": "[视频]",
+    "previewFile": "[文件]"
   },
   "friends": {
     "title": "好友",

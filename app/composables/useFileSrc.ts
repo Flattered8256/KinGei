@@ -9,8 +9,8 @@ type CacheEntry = {
 const inflight = new Map<number, Promise<string | null>>()
 const SKEW_MS = 60_000
 
-export function useAvatarSrc(fileId: MaybeRefOrGetter<number | null | undefined>) {
-  const cache = useState<Record<number, CacheEntry>>('avatars.byFileId', () => ({}))
+export function useFileSrc(fileId: MaybeRefOrGetter<number | null | undefined>) {
+  const cache = useState<Record<number, CacheEntry>>('files.byFileId', () => ({}))
 
   const src = computed(() => {
     const id = toValue(fileId)

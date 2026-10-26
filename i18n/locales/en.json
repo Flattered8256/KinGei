@@ -119,7 +119,15 @@
     "kick": "Remove",
     "kickConfirm": "Remove this member from the group?",
     "scrollToBottom": "Jump to latest",
-    "untitledGroup": "Untitled group"
+    "untitledGroup": "Untitled group",
+    "attach": "Attach a file",
+    "removeAttachment": "Remove attachment",
+    "uploading": "Uploading",
+    "processing": "Processing",
+    "download": "Download",
+    "previewImage": "[Image]",
+    "previewVideo": "[Video]",
+    "previewFile": "[File]"
   },
   "friends": {
     "title": "Friends",

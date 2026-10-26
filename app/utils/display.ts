@@ -1,4 +1,5 @@
-import type { Chat, User } from '~/types/api'
+import type { Chat, FileResponse, Message, User } from '~/types/api'
+import { isImageType, isVideoType } from '~/utils/api/file'
 
 const AVATAR_COLORS = [
   '#0e7090',
@@ -140,3 +141,76 @@ export function formatDate(iso: string, locale: string): string {
 export function shortId(id: string): string {
   return id.replace(/-/g, '').slice(0, 8)
 }
+
+export type AttachmentKind = 'image' | 'video' | 'file'
+
+export function attachmentKind(file: FileResponse): AttachmentKind {
+  if (file.media?.kind === 'Image') {
+    return 'image'
+  }
+  if (file.media?.kind === 'Video') {
+    return 'video'
+  }
+  if (isImageType(file.content_type)) {
+    return 'image'
+  }
+  if (isVideoType(file.content_type)) {
+    return 'video'
+  }
+  return 'file'
+}
+
+export function mediaBox(width: number, height: number, maxW = 240, maxH = 320) {
+  if (width <= 0 || height <= 0) {
+    return { width: maxW, height: 160 }
+  }
+  const scale = Math.min(maxW / width, maxH / height, 1)
+  return {
+    width: Math.max(1, Math.round(width * scale)),
+    height: Math.max(1, Math.round(height * scale)),
+  }
+}
+
+export function formatFileSize(bytes: number): string {
+  if (bytes < 1024) {
+    return `${bytes} B`
+  }
+  const kb = bytes / 1024
+  if (kb < 1024) {
+    return `${kb < 10 ? kb.toFixed(1) : Math.round(kb)} KB`
+  }
+  const mb = kb / 1024
+  return `${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB`
+}
+
+export function formatDuration(ms: number | null | undefined): string {
+  if (ms == null || ms <= 0) {
+    return ''
+  }
+  const total = Math.round(ms / 1000)
+  const minutes = Math.floor(total / 60)
+  const seconds = total % 60
+  return `${minutes}:${String(seconds).padStart(2, '0')}`
+}
+
+export function messagePreviewText(
+  message: Message,
+  labels: { image: string, video: string, file: string },
+): string {
+  const text = message.content.trim()
+  if (text) {
+    return text
+  }
+  if (!message.file) {
+    return ''
+  }
+  const kind = attachmentKind(message.file)
+  if (kind === 'image') {
+    return labels.image
+  }
+  if (kind === 'video') {
+    return labels.video
+  }
+  return `${labels.file} ${message.file.name}`
+}
+

@@ -1,4 +1,4 @@
-import type { ClientEvent, Message } from '~/types/api'
+import type { ClientEvent, Message, SendMessageRequest } from '~/types/api'
 import { listMessages, sendMessage, updateReadCursor } from '~/utils/api/message'
 
 const PAGE_SIZE = 50
@@ -112,15 +112,22 @@ export function useMessages() {
     }
   }
 
-  async function send(content: string) {
+  async function send(content: string, fileId?: number) {
     const chatId = currentId.value
     const text = content.trim()
-    if (!chatId || !text) {
+    if (!chatId || (!text && fileId == null)) {
       return
     }
     sending.value = true
     try {
-      const created = await sendMessage(chatId, { content: text })
+      const body: SendMessageRequest = {}
+      if (text) {
+        body.content = text
+      }
+      if (fileId != null) {
+        body.file_id = fileId
+      }
+      const created = await sendMessage(chatId, body)
       if (isCurrent(chatId) && !items.value.some(item => item.id === created.id)) {
         items.value = [...items.value, created]
       }

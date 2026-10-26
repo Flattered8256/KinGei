@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatChatTime, initials } from '~/utils/display'
+import { formatChatTime, initials, messagePreviewText } from '~/utils/display'
 
 const { t, locale } = useI18n()
 const chats = useChats()
@@ -16,8 +16,11 @@ const filtered = computed(() => {
   }
   return chats.chats.value.filter((chat) => {
     const title = chats.titleOf(chat).toLowerCase()
-    const preview = chats.previews.value[chat.id]?.content.toLowerCase() ?? ''
-    return title.includes(q) || preview.includes(q)
+    const preview = chats.previews.value[chat.id]
+    const content = preview?.content.toLowerCase() ?? ''
+    const fileName = preview?.file?.name.toLowerCase() ?? ''
+    const label = preview ? previewText(chat.id).toLowerCase() : ''
+    return title.includes(q) || content.includes(q) || fileName.includes(q) || label.includes(q)
   })
 })
 
@@ -60,7 +63,15 @@ function isActive(id: number) {
 }
 
 function previewText(id: number) {
-  return chats.previews.value[id]?.content ?? ''
+  const message = chats.previews.value[id]
+  if (!message) {
+    return ''
+  }
+  return messagePreviewText(message, {
+    image: t('chat.previewImage'),
+    video: t('chat.previewVideo'),
+    file: t('chat.previewFile'),
+  })
 }
 
 function previewTime(id: number, createdAt: string) {

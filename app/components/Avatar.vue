@@ -24,7 +24,7 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const toast = useToast()
-const { src, reload } = useAvatarSrc(() => props.fileId)
+const { src, reload } = useFileSrc(() => props.fileId)
 const broken = ref(false)
 const retried = ref(false)
 const pending = ref(false)

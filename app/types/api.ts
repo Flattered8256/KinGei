@@ -135,16 +135,28 @@ export interface InviteMemberRequest {
   user_id: string
 }
 
+export type MediaKind = 'Image' | 'Video'
+
+export interface MediaResponse {
+  kind: MediaKind
+  width: number
+  height: number
+  duration_ms: number | null
+  thumbnail_id: number | null
+}
+
 export interface Message {
   id: number
   chat_id: number
   sender_id: string
   content: string
+  file: FileResponse | null
   created_at: string
 }
 
 export interface SendMessageRequest {
-  content: string
+  content?: string | null
+  file_id?: number
 }
 
 export interface ListMessageQuery {
@@ -213,7 +225,7 @@ export type ClientEvent =
 
 export interface CreateFileRequest {
   name: string
-  content_type: string
+  content_type?: string
   size: number
 }
 
@@ -233,6 +245,7 @@ export interface FileResponse {
   content_type: string
   size: number
   status: 'Pending' | 'Ready'
+  media: MediaResponse | null
   created_at: string
 }
 
