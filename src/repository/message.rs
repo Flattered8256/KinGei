@@ -1,15 +1,16 @@
 use chrono::Utc;
-use sqlx::{QueryBuilder, SqlitePool};
+use sqlx::QueryBuilder;
 use uuid::Uuid;
 
+use crate::database::{Db, DbPool};
 use crate::model::message::Message;
 
 pub struct MessageRepository {
-    pool: SqlitePool,
+    pool: DbPool,
 }
 
 impl MessageRepository {
-    pub fn new(pool: SqlitePool) -> Self {
+    pub fn new(pool: DbPool) -> Self {
         Self { pool }
     }
 
@@ -26,7 +27,7 @@ impl MessageRepository {
         let message = sqlx::query_as::<_, Message>(
             r#"
             INSERT INTO message(chat_id, sender_id, content, file_id, created_at)
-            VALUES (?, ?, ?, ?, ?)
+            VALUES ($1, $2, $3, $4, $5)
             RETURNING id, chat_id, sender_id, content, file_id, created_at
             "#,
         )
@@ -41,9 +42,9 @@ impl MessageRepository {
         sqlx::query(
             r#"
             UPDATE chat_member
-            SET last_read_message_id = ?
-            WHERE chat_id = ? AND user_id = ?
-              AND (last_read_message_id IS NULL OR last_read_message_id < ?)
+            SET last_read_message_id = $1
+            WHERE chat_id = $2 AND user_id = $3
+              AND (last_read_message_id IS NULL OR last_read_message_id < $4)
             "#,
         )
         .bind(message.id)
@@ -66,7 +67,7 @@ impl MessageRepository {
             r#"
             SELECT id, chat_id, sender_id, content, file_id, created_at
             FROM message
-            WHERE chat_id = ? AND id = ?
+            WHERE chat_id = $1 AND id = $2
             "#,
         )
         .bind(chat_id)
@@ -81,7 +82,7 @@ impl MessageRepository {
         before: Option<i64>,
         limit: i64,
     ) -> Result<Vec<Message>, sqlx::Error> {
-        let mut builder = QueryBuilder::new(
+        let mut builder = QueryBuilder::<Db>::new(
             r#"
             SELECT id, chat_id, sender_id, content, file_id, created_at
             FROM message
@@ -111,9 +112,9 @@ impl MessageRepository {
         sqlx::query(
             r#"
             UPDATE chat_member
-            SET last_read_message_id = ?
-            WHERE chat_id = ? AND user_id = ?
-              AND (last_read_message_id IS NULL OR last_read_message_id < ?)
+            SET last_read_message_id = $1
+            WHERE chat_id = $2 AND user_id = $3
+              AND (last_read_message_id IS NULL OR last_read_message_id < $4)
             "#,
         )
         .bind(message_id)
@@ -127,7 +128,7 @@ impl MessageRepository {
             r#"
             SELECT last_read_message_id
             FROM chat_member
-            WHERE chat_id = ? AND user_id = ?
+            WHERE chat_id = $1 AND user_id = $2
             "#,
         )
         .bind(chat_id)
@@ -152,7 +153,7 @@ impl MessageRepository {
             r#"
             SELECT COUNT(*)
             FROM message
-            WHERE chat_id = ? AND id > ? AND sender_id != ?
+            WHERE chat_id = $1 AND id > $2 AND sender_id != $3
             "#,
         )
         .bind(chat_id)
@@ -171,7 +172,7 @@ impl MessageRepository {
             return Ok(Vec::new());
         }
 
-        let mut builder = QueryBuilder::new(
+        let mut builder = QueryBuilder::<Db>::new(
             r#"
             SELECT cm.chat_id, COUNT(m.id)
             FROM chat_member cm
@@ -208,7 +209,7 @@ impl MessageRepository {
               ON m.chat_id = cm.chat_id
              AND m.sender_id != cm.user_id
              AND m.id > COALESCE(cm.last_read_message_id, 0)
-            WHERE cm.chat_id = ?
+            WHERE cm.chat_id = $1
             GROUP BY cm.user_id
             "#,
         )

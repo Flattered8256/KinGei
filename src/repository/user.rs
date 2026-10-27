@@ -1,6 +1,8 @@
-use crate::model::user::User;
-use sqlx::{QueryBuilder, SqlitePool};
+use sqlx::QueryBuilder;
 use uuid::Uuid;
+
+use crate::database::{Db, DbPool};
+use crate::model::user::User;
 
 #[derive(Debug)]
 pub struct UpdateUser {
@@ -11,19 +13,19 @@ pub struct UpdateUser {
 }
 
 pub struct UserRepository {
-    pool: SqlitePool,
+    pool: DbPool,
 }
 
 impl UserRepository {
-    pub fn new(pool: SqlitePool) -> Self {
+    pub fn new(pool: DbPool) -> Self {
         Self { pool }
     }
 
     pub async fn create(&self, user: User) -> Result<User, sqlx::Error> {
         sqlx::query_as::<_, User>(
             r#"
-            INSERT INTO user(id, username, email, created_at, password_hash)
-            VALUES (?,?,?,?,?)
+            INSERT INTO "user"(id, username, email, created_at, password_hash)
+            VALUES ($1, $2, $3, $4, $5)
             RETURNING id, username, email, created_at, password_hash, avatar
             "#,
         )
@@ -39,8 +41,8 @@ impl UserRepository {
     pub async fn delete(&self, id: Uuid) -> Result<Option<User>, sqlx::Error> {
         sqlx::query_as::<_, User>(
             r#"
-            DELETE FROM user
-            WHERE id = ?
+            DELETE FROM "user"
+            WHERE id = $1
             RETURNING id, username, email, created_at, password_hash, avatar
             "#,
         )
@@ -52,7 +54,7 @@ impl UserRepository {
         sqlx::query_as::<_, User>(
             r#"
             SELECT id, username, email, created_at, password_hash, avatar
-            FROM user
+            FROM "user"
             "#,
         )
         .fetch_all(&self.pool)
@@ -62,8 +64,8 @@ impl UserRepository {
         sqlx::query_as::<_, User>(
             r#"
             SELECT id, username, email, created_at, password_hash, avatar
-            FROM user
-            WHERE email = ?
+            FROM "user"
+            WHERE email = $1
             "#,
         )
         .bind(email)
@@ -75,8 +77,8 @@ impl UserRepository {
         sqlx::query_as::<_, User>(
             r#"
             SELECT id, username, email, created_at, password_hash, avatar
-            FROM user
-            WHERE id = ?
+            FROM "user"
+            WHERE id = $1
             "#,
         )
         .bind(&id)
@@ -89,10 +91,10 @@ impl UserRepository {
             return Ok(Vec::new());
         }
 
-        let mut builder = QueryBuilder::new(
+        let mut builder = QueryBuilder::<Db>::new(
             r#"
             SELECT id, username, email, created_at, password_hash, avatar
-            FROM user
+            FROM "user"
             WHERE id IN (
             "#,
         );
@@ -106,7 +108,7 @@ impl UserRepository {
     }
 
     pub async fn update(&self, id: Uuid, user: UpdateUser) -> Result<Option<User>, sqlx::Error> {
-        let mut builder = QueryBuilder::new("UPDATE user SET ");
+        let mut builder = QueryBuilder::<Db>::new(r#"UPDATE "user" SET "#);
 
         let mut has_set = false;
 

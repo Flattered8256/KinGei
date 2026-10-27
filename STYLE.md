@@ -18,7 +18,7 @@
 | 语言 | Rust，`edition = "2024"` |
 | Web | Axum 0.8 |
 | 运行时 | Tokio（`macros` + `rt-multi-thread`） |
-| 数据库 | SQLite + sqlx 0.9 |
+| 数据库 | SQLite 或 PostgreSQL + sqlx 0.9（cargo feature `sqlite` / `postgres`，默认 sqlite） |
 | 序列化 | serde / serde_json |
 | 错误 | thiserror + 各领域 `IntoResponse` |
 | 鉴权 | JWT（access + refresh）+ bcrypt |
@@ -40,7 +40,8 @@ src/
   middleware/          中间件（鉴权等）
   utils/               与 HTTP 无关的工具（JWT 等）
   storage.rs           Garage S3 客户端（path-style、预签名）
-migrations/            sqlx 迁移脚本
+migrations/sqlite/     SQLite 迁移脚本
+migrations/postgres/   PostgreSQL 终态 schema
 ```
 
 分层模块一律采用 **门面文件 + 子目录**：
@@ -153,7 +154,7 @@ if self.friend_repo.find(user_id, friend_id).await?.is_none() {
 
 ### 2.4 Repository
 
-- 只接收 `SqlitePool`（或在方法内 `begin` 事务）。
+- 只接收 `DbPool`（或在方法内 `begin` 事务）。`DbPool` 按 feature 是 `SqlitePool` 或 `PgPool`。
 - 返回 `Result<T, sqlx::Error>`，不要返回 `AppError`。
 - 方法名用资源语义：`create` / `find` / `find_by_*` / `list` / `list_*` / `update_*` / `delete`。
 - 查不到用 `fetch_optional` 返回 `Option`，不要在仓储层决定 HTTP 语义。
@@ -294,7 +295,7 @@ cargo build
 - 不要在行尾留空白，不要用 `// filename.rs` 这种文件头注释。
 - `use` 分组：标准库 → 第三方 → `crate::`，组之间空一行。同一组内按模块路径字母序。
 - 优先 `crate::foo::bar`，不要 `super::` 跨多层。
-- 异步函数：仓储和服务用 `&self`，不要把 `SqlitePool` 传来传去。
+- 异步函数：仓储和服务用 `&self`，不要把 `DbPool` 传来传去。
 - 可空查询用 `if let Some(...)` / `let Some(x) = ... else { continue; }`，不要 `unwrap`。
 - 启动期配置缺失可以用 `expect`，且信息用中文：`expect("缺少DATABASE_URL,请检查项目根目录下的.env文件")`。
 - 请求路径上的失败用 `Result` + `?`，禁止 `unwrap`。
@@ -317,14 +318,15 @@ use crate::state::AppState;
 ## 6. SQL 写法
 
 - 使用 `sqlx::query` / `query_as`，SQL 放在 `r#"` 原始字符串里。
-- 占位符用 `?`，按 `.bind(...)` 顺序绑定。
+- 占位符用 `$1` `$2` …（sqlx 的 SQLite 与 Postgres 都认），按 `.bind(...)` 顺序绑定。动态片段用 `QueryBuilder::<Db>`。
+- 表名 `user` 写成 `"user"`（Postgres 保留字；SQLite 同样合法）。
 - `INSERT` / `UPDATE` / `DELETE` 需要返回行时写 `RETURNING` 全列，列顺序与 `FromRow` 一致。
 - 关键字大写，表名/列名小写：
 
 ```sql
 SELECT id, user_id, friend_id, created_at
 FROM friend
-WHERE user_id = ? AND friend_id = ?
+WHERE user_id = $1 AND friend_id = $2
 ```
 
 - 需要原子性的多条语句放进同一个 repository 方法的事务，不要在 service 里“连续 await 两次写入”冒充事务。
@@ -337,7 +339,7 @@ WHERE user_id = ? AND friend_id = ?
 - 环境变量：`DATABASE_URL`、`PORT`、`JWT_SECRET`、`RUST_LOG`、`GARAGE_ENDPOINT`、`GARAGE_ACCESS_KEY`、`GARAGE_SECRET_KEY`、`GARAGE_BUCKET`、`GARAGE_REGION`（缺省 `us-east-1`）、可选 `GARAGE_PUBLIC_ENDPOINT`（缺省等于 `GARAGE_ENDPOINT`，只用于预签名 URL）、可选 `FFPROBE_PATH`（缺省 `ffprobe`）、可选 `FFMPEG_PATH`（缺省 `ffmpeg`）。`.env` 不入库。启动时跑 `ffprobe -version` 和 `ffmpeg -version`，找不到则中文 `expect` 退出。
 - Garage 为本机 path-style S3（本地 `http://127.0.0.1:3900`）。`Storage::connect` 启动时 `ListBuckets`，没有目标 bucket 则 `CreateBucket`；连不上则中止启动。随后 `PutBucketCors`：Methods `PUT` `GET` `HEAD`，Origins/Headers `*`，Expose `ETag` `Content-Length` `Content-Range`。
 - `GET /health` 不鉴权、不碰 Garage，固定 200。
-- SQLite 连接使用 `create_if_missing(true)`，库文件不存在则创建。
+- SQLite 连接使用 `create_if_missing(true)`，库文件不存在则创建。Postgres 假定库已存在。`DATABASE_URL` 为 `sqlite:...` 或 `postgres://...`，须与编译 feature 一致。
 - `POST /file`（JWT）申请 PutObject 预签名 URL：请求 `name`、`content_type`（可空，默认 `application/octet-stream`）、`size`；响应 `id`、`name`、`content_type`、`size`、`upload_url`、`expires_at`。object key 为 `{owner_id}/{uuid}`，不进 JSON。预签名 15 分钟，绑定 `Content-Type` 和 `Content-Length`。申请时插入 `file.status = Pending`。
 - `POST /file/{id}/complete`（JWT）确认上传：owner 才能操作。对 Garage 做 HeadObject，对象不存在 → `400 UploadIncomplete`；`Content-Length` 与申请时 `size` 不一致 → `400 SizeMismatch`；通过后把 `status` 写成 `Ready`。已是 `Ready` 则直接返回（含已有 `media`，不重探测、不出图）。响应 `id`、`owner_id`、`name`、`content_type`、`size`、`status`、`media`、`created_at`。缺失行 `404 FileNotFound`，非 owner `403 NotOwner`。
 - `media` 表与 `file` 1:1（`file_id` PK，`ON DELETE CASCADE`），仍归 file 领域。有预览才插入一行。JSON 嵌在 `FileResponse.media`：`{ kind, width, height, duration_ms, thumbnail_id }` 或 `null`。`kind` 为 `Image` | `Video`。宽高是原文件显示尺寸（90°/270° 已对调）。`duration_ms` 仅 Video。`thumbnail_id` 是缩略图 `file.id`（JPEG，长边最多 320px），没有则为 `null`。探测或出图失败不阻断 Ready：没有视频流则不插行、`media: null`；探测成功但 ffmpeg/上传失败则仍插行、`thumbnail_id: null`。

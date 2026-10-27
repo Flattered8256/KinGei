@@ -1,14 +1,15 @@
-use crate::model::friend::{Friend, FriendRequest, Status};
 use chrono::Utc;
-use sqlx::SqlitePool;
 use uuid::Uuid;
 
+use crate::database::DbPool;
+use crate::model::friend::{Friend, FriendRequest, Status};
+
 pub struct FriendRepository {
-    pool: SqlitePool,
+    pool: DbPool,
 }
 
 impl FriendRepository {
-    pub fn new(pool: SqlitePool) -> Self {
+    pub fn new(pool: DbPool) -> Self {
         Self { pool }
     }
 
@@ -19,7 +20,7 @@ impl FriendRepository {
         let a = sqlx::query_as::<_, Friend>(
             r#"
             INSERT INTO friend(user_id, friend_id, created_at)
-            VALUES (?, ?, ?)
+            VALUES ($1, $2, $3)
             RETURNING id, user_id, friend_id, created_at
             "#,
         )
@@ -32,7 +33,7 @@ impl FriendRepository {
         let b = sqlx::query_as::<_, Friend>(
             r#"
             INSERT INTO friend(user_id, friend_id, created_at)
-            VALUES (?, ?, ?)
+            VALUES ($1, $2, $3)
             RETURNING id, user_id, friend_id, created_at
             "#,
         )
@@ -55,7 +56,7 @@ impl FriendRepository {
             r#"
             SELECT id, user_id, friend_id, created_at
             FROM friend
-            WHERE user_id = ? AND friend_id = ?
+            WHERE user_id = $1 AND friend_id = $2
             "#,
         )
         .bind(&user_id)
@@ -68,8 +69,8 @@ impl FriendRepository {
         let result = sqlx::query(
             r#"
             DELETE FROM friend
-            WHERE (user_id = ? AND friend_id = ?)
-               OR (user_id = ? AND friend_id = ?)
+            WHERE (user_id = $1 AND friend_id = $2)
+               OR (user_id = $3 AND friend_id = $4)
             "#,
         )
         .bind(&user_id)
@@ -87,7 +88,7 @@ impl FriendRepository {
             r#"
             SELECT id, user_id, friend_id, created_at
             FROM friend
-            WHERE user_id = ?
+            WHERE user_id = $1
             "#,
         )
         .bind(&user_id)
@@ -97,11 +98,11 @@ impl FriendRepository {
 }
 
 pub struct FriendRequestRepository {
-    pool: SqlitePool,
+    pool: DbPool,
 }
 
 impl FriendRequestRepository {
-    pub fn new(pool: SqlitePool) -> Self {
+    pub fn new(pool: DbPool) -> Self {
         Self { pool }
     }
 
@@ -115,7 +116,7 @@ impl FriendRequestRepository {
         sqlx::query_as::<_, FriendRequest>(
             r#"
             INSERT INTO friend_request(sender_id, receiver_id, status, created_at, updated_at)
-            VALUES (?,?,?,?,?)
+            VALUES ($1, $2, $3, $4, $5)
             RETURNING id, sender_id, receiver_id, status, created_at, updated_at
             "#,
         )
@@ -133,7 +134,7 @@ impl FriendRequestRepository {
             r#"
             SELECT id, sender_id, receiver_id, status, created_at, updated_at
             FROM friend_request
-            WHERE id = ?
+            WHERE id = $1
             "#,
         )
         .bind(&id)
@@ -150,7 +151,7 @@ impl FriendRequestRepository {
             r#"
             SELECT id, sender_id, receiver_id, status, created_at, updated_at
             FROM friend_request
-            WHERE sender_id = ? AND receiver_id = ?
+            WHERE sender_id = $1 AND receiver_id = $2
             "#,
         )
         .bind(&sender_id)
@@ -169,7 +170,7 @@ impl FriendRequestRepository {
             r#"
             SELECT id, sender_id, receiver_id, status, created_at, updated_at
             FROM friend_request
-            WHERE sender_id = ? AND receiver_id = ? AND status = ?
+            WHERE sender_id = $1 AND receiver_id = $2 AND status = $3
             "#,
         )
         .bind(&sender_id)
@@ -187,7 +188,7 @@ impl FriendRequestRepository {
             r#"
             SELECT id, sender_id, receiver_id, status, created_at, updated_at
             FROM friend_request
-            WHERE receiver_id = ?
+            WHERE receiver_id = $1
             "#,
         )
         .bind(&receiver_id)
@@ -200,7 +201,7 @@ impl FriendRequestRepository {
             r#"
             SELECT id, sender_id, receiver_id, status, created_at, updated_at
             FROM friend_request
-            WHERE sender_id = ?
+            WHERE sender_id = $1
             "#,
         )
         .bind(&sender_id)
@@ -216,8 +217,8 @@ impl FriendRequestRepository {
         sqlx::query_as::<_, FriendRequest>(
             r#"
             UPDATE friend_request
-            SET status = ?, updated_at = ?
-            WHERE id = ?
+            SET status = $1, updated_at = $2
+            WHERE id = $3
             RETURNING id, sender_id, receiver_id, status, created_at, updated_at
             "#,
         )
@@ -241,8 +242,8 @@ impl FriendRequestRepository {
         let request = sqlx::query_as::<_, FriendRequest>(
             r#"
             UPDATE friend_request
-            SET status = ?, updated_at = ?
-            WHERE id = ?
+            SET status = $1, updated_at = $2
+            WHERE id = $3
             RETURNING id, sender_id, receiver_id, status, created_at, updated_at
             "#,
         )
@@ -255,7 +256,7 @@ impl FriendRequestRepository {
         let a = sqlx::query_as::<_, Friend>(
             r#"
             INSERT INTO friend(user_id, friend_id, created_at)
-            VALUES (?, ?, ?)
+            VALUES ($1, $2, $3)
             RETURNING id, user_id, friend_id, created_at
             "#,
         )
@@ -268,7 +269,7 @@ impl FriendRequestRepository {
         let b = sqlx::query_as::<_, Friend>(
             r#"
             INSERT INTO friend(user_id, friend_id, created_at)
-            VALUES (?, ?, ?)
+            VALUES ($1, $2, $3)
             RETURNING id, user_id, friend_id, created_at
             "#,
         )
@@ -286,7 +287,7 @@ impl FriendRequestRepository {
         sqlx::query_as::<_, FriendRequest>(
             r#"
             DELETE FROM friend_request
-            WHERE id = ?
+            WHERE id = $1
             RETURNING id, sender_id, receiver_id, status, created_at, updated_at
             "#,
         )

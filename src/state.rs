@@ -1,3 +1,4 @@
+use crate::database::DbPool;
 use crate::event::EventHub;
 use crate::repository::chat::ChatRepository;
 use crate::repository::file::FileRepository;
@@ -10,7 +11,6 @@ use crate::service::friend::FriendService;
 use crate::service::message::MessageService;
 use crate::service::user::UserService;
 use crate::storage::Storage;
-use sqlx::SqlitePool;
 use std::sync::Arc;
 
 pub struct AppState {
@@ -23,7 +23,7 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub fn new(pool: SqlitePool, storage: Storage) -> Self {
+    pub fn new(pool: DbPool, storage: Storage) -> Self {
         let user_repo = Arc::new(UserRepository::new(pool.clone()));
         let friend_repo = Arc::new(FriendRepository::new(pool.clone()));
         let friend_request_repo = Arc::new(FriendRequestRepository::new(pool.clone()));

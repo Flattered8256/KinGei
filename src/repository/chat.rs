@@ -1,15 +1,16 @@
 use chrono::Utc;
-use sqlx::{QueryBuilder, SqlitePool};
+use sqlx::QueryBuilder;
 use uuid::Uuid;
 
+use crate::database::{Db, DbPool};
 use crate::model::chat::{Chat, ChatMember, ChatType};
 
 pub struct ChatRepository {
-    pool: SqlitePool,
+    pool: DbPool,
 }
 
 impl ChatRepository {
-    pub fn new(pool: SqlitePool) -> Self {
+    pub fn new(pool: DbPool) -> Self {
         Self { pool }
     }
 
@@ -18,7 +19,7 @@ impl ChatRepository {
             r#"
             SELECT id, chat_type, name, owner_id, created_at, avatar
             FROM chat
-            WHERE id = ?
+            WHERE id = $1
             "#,
         )
         .bind(&id)
@@ -35,9 +36,9 @@ impl ChatRepository {
             r#"
             SELECT c.id, c.chat_type, c.name, c.owner_id, c.created_at, c.avatar
             FROM chat c
-            INNER JOIN chat_member m1 ON m1.chat_id = c.id AND m1.user_id = ?
-            INNER JOIN chat_member m2 ON m2.chat_id = c.id AND m2.user_id = ?
-            WHERE c.chat_type = ?
+            INNER JOIN chat_member m1 ON m1.chat_id = c.id AND m1.user_id = $1
+            INNER JOIN chat_member m2 ON m2.chat_id = c.id AND m2.user_id = $2
+            WHERE c.chat_type = $3
             "#,
         )
         .bind(&user_id)
@@ -53,7 +54,7 @@ impl ChatRepository {
             SELECT c.id, c.chat_type, c.name, c.owner_id, c.created_at, c.avatar
             FROM chat c
             INNER JOIN chat_member m ON m.chat_id = c.id
-            WHERE m.user_id = ?
+            WHERE m.user_id = $1
             ORDER BY c.created_at DESC
             "#,
         )
@@ -70,7 +71,7 @@ impl ChatRepository {
         let chat = sqlx::query_as::<_, Chat>(
             r#"
             INSERT INTO chat(chat_type, name, owner_id, created_at)
-            VALUES (?, ?, ?, ?)
+            VALUES ($1, $2, $3, $4)
             RETURNING id, chat_type, name, owner_id, created_at, avatar
             "#,
         )
@@ -84,7 +85,7 @@ impl ChatRepository {
         sqlx::query(
             r#"
             INSERT INTO chat_member(chat_id, user_id, created_at)
-            VALUES (?, ?, ?)
+            VALUES ($1, $2, $3)
             "#,
         )
         .bind(&chat.id)
@@ -96,7 +97,7 @@ impl ChatRepository {
         sqlx::query(
             r#"
             INSERT INTO chat_member(chat_id, user_id, created_at)
-            VALUES (?, ?, ?)
+            VALUES ($1, $2, $3)
             "#,
         )
         .bind(&chat.id)
@@ -117,7 +118,7 @@ impl ChatRepository {
         let chat = sqlx::query_as::<_, Chat>(
             r#"
             INSERT INTO chat(chat_type, name, owner_id, created_at)
-            VALUES (?, ?, ?, ?)
+            VALUES ($1, $2, $3, $4)
             RETURNING id, chat_type, name, owner_id, created_at, avatar
             "#,
         )
@@ -131,7 +132,7 @@ impl ChatRepository {
         sqlx::query(
             r#"
         INSERT INTO chat_member(chat_id, user_id, created_at)
-        VALUES (?, ?, ?)
+        VALUES ($1, $2, $3)
         "#,
         )
         .bind(&chat.id)
@@ -148,8 +149,8 @@ impl ChatRepository {
         sqlx::query_as::<_, Chat>(
             r#"
             UPDATE chat
-            SET name = ?
-            WHERE id = ?
+            SET name = $1
+            WHERE id = $2
             RETURNING id, chat_type, name, owner_id, created_at, avatar
             "#,
         )
@@ -163,8 +164,8 @@ impl ChatRepository {
         sqlx::query_as::<_, Chat>(
             r#"
             UPDATE chat
-            SET avatar = ?
-            WHERE id = ?
+            SET avatar = $1
+            WHERE id = $2
             RETURNING id, chat_type, name, owner_id, created_at, avatar
             "#,
         )
@@ -178,8 +179,8 @@ impl ChatRepository {
         sqlx::query_as::<_, Chat>(
             r#"
             UPDATE chat
-            SET owner_id = ?
-            WHERE id = ?
+            SET owner_id = $1
+            WHERE id = $2
             RETURNING id, chat_type, name, owner_id, created_at, avatar
             "#,
         )
@@ -194,7 +195,7 @@ impl ChatRepository {
             r#"
             SELECT id, chat_id, user_id, created_at, last_read_message_id
             FROM chat_member
-            WHERE chat_id = ?
+            WHERE chat_id = $1
             ORDER BY created_at ASC, id ASC
             "#,
         )
@@ -211,7 +212,7 @@ impl ChatRepository {
             return Ok(Vec::new());
         }
 
-        let mut builder = QueryBuilder::new(
+        let mut builder = QueryBuilder::<Db>::new(
             r#"
             SELECT id, chat_id, user_id, created_at, last_read_message_id
             FROM chat_member
@@ -239,7 +240,7 @@ impl ChatRepository {
             r#"
             SELECT id, chat_id, user_id, created_at, last_read_message_id
             FROM chat_member
-            WHERE chat_id = ? AND user_id = ?
+            WHERE chat_id = $1 AND user_id = $2
             "#,
         )
         .bind(&chat_id)
@@ -253,7 +254,7 @@ impl ChatRepository {
         sqlx::query_as::<_, ChatMember>(
             r#"
             INSERT INTO chat_member(chat_id, user_id, created_at)
-            VALUES (?, ?, ?)
+            VALUES ($1, $2, $3)
             RETURNING id, chat_id, user_id, created_at, last_read_message_id
             "#,
         )
@@ -272,7 +273,7 @@ impl ChatRepository {
         sqlx::query_as::<_, ChatMember>(
             r#"
             DELETE FROM chat_member
-            WHERE chat_id = ? AND user_id = ?
+            WHERE chat_id = $1 AND user_id = $2
             RETURNING id, chat_id, user_id, created_at, last_read_message_id
             "#,
         )
@@ -288,7 +289,7 @@ impl ChatRepository {
         sqlx::query(
             r#"
             DELETE FROM message
-            WHERE chat_id = ?
+            WHERE chat_id = $1
             "#,
         )
         .bind(&id)
@@ -298,7 +299,7 @@ impl ChatRepository {
         sqlx::query(
             r#"
             DELETE FROM chat_member
-            WHERE chat_id = ?
+            WHERE chat_id = $1
             "#,
         )
         .bind(&id)
@@ -308,7 +309,7 @@ impl ChatRepository {
         sqlx::query(
             r#"
             DELETE FROM chat
-            WHERE id = ?
+            WHERE id = $1
             "#,
         )
         .bind(&id)

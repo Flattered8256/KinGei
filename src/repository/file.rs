@@ -1,7 +1,8 @@
 use chrono::Utc;
-use sqlx::{QueryBuilder, SqlitePool};
+use sqlx::QueryBuilder;
 use uuid::Uuid;
 
+use crate::database::{Db, DbPool};
 use crate::model::file::{File, FileStatus, Media, MediaKind};
 
 pub struct ReadyMedia {
@@ -18,11 +19,11 @@ pub struct NewThumbnail {
 }
 
 pub struct FileRepository {
-    pool: SqlitePool,
+    pool: DbPool,
 }
 
 impl FileRepository {
-    pub fn new(pool: SqlitePool) -> Self {
+    pub fn new(pool: DbPool) -> Self {
         Self { pool }
     }
 
@@ -38,7 +39,7 @@ impl FileRepository {
         sqlx::query_as::<_, File>(
             r#"
             INSERT INTO file(owner_id, object_key, name, content_type, size, status, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
             RETURNING id, owner_id, object_key, name, content_type, size, status, created_at
             "#,
         )
@@ -58,7 +59,7 @@ impl FileRepository {
             r#"
             SELECT id, owner_id, object_key, name, content_type, size, status, created_at
             FROM file
-            WHERE id = ?
+            WHERE id = $1
             "#,
         )
         .bind(id)
@@ -71,7 +72,7 @@ impl FileRepository {
             r#"
             SELECT file_id, kind, width, height, duration_ms, thumbnail_id, created_at
             FROM media
-            WHERE file_id = ?
+            WHERE file_id = $1
             "#,
         )
         .bind(file_id)
@@ -84,7 +85,7 @@ impl FileRepository {
             return Ok(Vec::new());
         }
 
-        let mut builder = QueryBuilder::new(
+        let mut builder = QueryBuilder::<Db>::new(
             r#"
             SELECT id, owner_id, object_key, name, content_type, size, status, created_at
             FROM file
@@ -108,7 +109,7 @@ impl FileRepository {
             return Ok(Vec::new());
         }
 
-        let mut builder = QueryBuilder::new(
+        let mut builder = QueryBuilder::<Db>::new(
             r#"
             SELECT file_id, kind, width, height, duration_ms, thumbnail_id, created_at
             FROM media
@@ -141,7 +142,7 @@ impl FileRepository {
             let created = sqlx::query_as::<_, File>(
                 r#"
                 INSERT INTO file(owner_id, object_key, name, content_type, size, status, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
                 RETURNING id, owner_id, object_key, name, content_type, size, status, created_at
                 "#,
             )
@@ -163,7 +164,7 @@ impl FileRepository {
             let saved = sqlx::query_as::<_, Media>(
                 r#"
                 INSERT INTO media(file_id, kind, width, height, duration_ms, thumbnail_id, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
                 RETURNING file_id, kind, width, height, duration_ms, thumbnail_id, created_at
                 "#,
             )
@@ -184,8 +185,8 @@ impl FileRepository {
         let updated = sqlx::query_as::<_, File>(
             r#"
             UPDATE file
-            SET status = ?
-            WHERE id = ?
+            SET status = $1
+            WHERE id = $2
             RETURNING id, owner_id, object_key, name, content_type, size, status, created_at
             "#,
         )
@@ -202,7 +203,7 @@ impl FileRepository {
         sqlx::query(
             r#"
             DELETE FROM file
-            WHERE id = ?
+            WHERE id = $1
             "#,
         )
         .bind(id)

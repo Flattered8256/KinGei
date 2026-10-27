@@ -26,10 +26,7 @@ async fn main() {
 
     let pool = database::create_pool(&database_url).await;
     tracing_subscriber::fmt::init();
-    sqlx::migrate!("./migrations")
-        .run(&pool)
-        .await
-        .expect("数据库迁移失败");
+    database::run_migrations(&pool).await;
 
     let storage = Storage::connect().await;
     let app_state = Arc::new(AppState::new(pool, storage));

@@ -4,7 +4,11 @@ use sqlx::FromRow;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type, Serialize)]
-#[sqlx(rename_all = "PascalCase")]
+#[cfg_attr(feature = "sqlite", sqlx(rename_all = "PascalCase"))]
+#[cfg_attr(
+    feature = "postgres",
+    sqlx(type_name = "text", rename_all = "PascalCase")
+)]
 pub enum Status {
     Accept,
     Pending,

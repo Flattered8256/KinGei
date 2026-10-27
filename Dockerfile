@@ -1,5 +1,6 @@
 FROM rust:1-bookworm AS builder
 WORKDIR /app
+ARG DB_BACKEND=sqlite
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         pkg-config cmake clang perl build-essential \
@@ -9,7 +10,7 @@ COPY src ./src
 COPY migrations ./migrations
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/app/target \
-    cargo build --release \
+    cargo build --release --no-default-features --features ${DB_BACKEND} \
     && cp /app/target/release/chat /app/chat
 
 FROM debian:bookworm-slim
