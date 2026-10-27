@@ -10,6 +10,7 @@ pub fn public_routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/register", post(user::register))
         .route("/login", post(user::login))
+        .route("/logout", post(user::logout))
         .route("/refresh", post(user::refresh))
 }
 

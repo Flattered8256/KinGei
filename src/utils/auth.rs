@@ -20,7 +20,7 @@ pub struct Claims {
     pub token_type: TokenType,
 }
 
-const ACCESS_TOKEN_DURATION_MINUTES: i64 = 15; // Access Token 15 分钟
+pub const ACCESS_TOKEN_DURATION_MINUTES: i64 = 15; // Access Token 15 分钟
 const REFRESH_TOKEN_DURATION_DAYS: i64 = 7; // Refresh Token 7 天
 
 fn get_secret() -> String {
