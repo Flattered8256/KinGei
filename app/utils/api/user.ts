@@ -8,7 +8,7 @@ import type {
   UpdateUserRequest,
   User,
 } from '~/types/api'
-import { apiFetch } from './http'
+import { apiFetch, apiFetchVoid } from './http'
 
 export function registerUser(body: CreateUserRequest) {
   return apiFetch<User>('/user/register', {
@@ -21,6 +21,12 @@ export function loginUser(body: LoginRequest) {
   return apiFetch<LoginResponse>('/user/login', {
     method: 'POST',
     body,
+  })
+}
+
+export function logoutUser() {
+  return apiFetchVoid('/user/logout', {
+    method: 'POST',
   })
 }
 

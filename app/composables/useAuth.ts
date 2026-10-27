@@ -9,6 +9,7 @@ import { clearSession, getSession, setSession, setUser } from '~/utils/api/sessi
 import {
   changePassword as changePasswordRequest,
   loginUser,
+  logoutUser,
   registerUser,
   updateUser as updateUserRequest,
 } from '~/utils/api/user'
@@ -33,7 +34,13 @@ export function useAuth() {
     return result.user
   }
 
-  function logout() {
+  async function logout() {
+    try {
+      await logoutUser()
+    }
+    catch {
+      // local session still clears
+    }
     clearSession()
   }
 

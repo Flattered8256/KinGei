@@ -88,6 +88,7 @@ async function consumeEventStream(
       Authorization: `Bearer ${token}`,
       Accept: 'text/event-stream',
     },
+    credentials: 'include',
     signal,
   })
 
@@ -184,6 +185,7 @@ async function tryRefresh(apiBase: string): Promise<boolean> {
     const result = await $fetch<RefreshTokenResponse>('/user/refresh', {
       baseURL: apiBase,
       method: 'POST',
+      credentials: 'include',
       body: { refresh_token: refreshToken },
     })
     setSession({

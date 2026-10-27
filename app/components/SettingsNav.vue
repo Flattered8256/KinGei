@@ -14,7 +14,7 @@ function active(to: string) {
 }
 
 async function signOut() {
-  logout()
+  await logout()
   await navigateTo('/login')
 }
 </script>
