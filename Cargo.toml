@@ -27,4 +27,4 @@ aws-sdk-s3 = "1.154.0"
 [features]
 default = ["sqlite"]
 sqlite = ["sqlx/sqlite"]
-postgres = ["sqlx/postgres"]
+postgres = ["sqlx/postgres", "sqlx/tls-rustls-ring-native-roots"]
