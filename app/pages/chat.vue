@@ -31,7 +31,7 @@ onBeforeUnmount(() => {
       v-show="!isMobile || Boolean(route.params.id)"
       class="body"
     >
-      <NuxtPage />
+      <NuxtPage :page-key="route.params.id ? 'chat-room' : 'chat-empty'" />
     </div>
   </div>
 </template>

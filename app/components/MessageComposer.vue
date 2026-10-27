@@ -152,6 +152,7 @@ async function submit() {
   }
 
   draft.value = ''
+  messages.saveDraft(messages.currentId.value, '')
   const held = pending.value
   pending.value = null
   try {
@@ -162,6 +163,7 @@ async function submit() {
   }
   catch (err) {
     draft.value = text
+    messages.saveDraft(messages.currentId.value, text)
     pending.value = held
     toast.error(err)
   }
@@ -232,13 +234,22 @@ watch(draft, () => {
 
 watch(
   () => messages.currentId.value,
-  () => {
+  (id, prev) => {
+    if (prev != null) {
+      messages.saveDraft(prev, draft.value)
+    }
+    draft.value = messages.takeDraft(id)
     clearPending()
+    nextTick(fit)
   },
+  { immediate: true, flush: 'sync' },
 )
 
 onMounted(fit)
-onUnmounted(clearPending)
+onUnmounted(() => {
+  messages.saveDraft(messages.currentId.value, draft.value)
+  clearPending()
+})
 </script>
 
 <template>

@@ -219,6 +219,7 @@ onMounted(scrollToLatest)
     </p>
     <VList
       v-else
+      :key="chat.id"
       ref="listRef"
       class="list"
       :data="messages.items.value"

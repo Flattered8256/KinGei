@@ -3,35 +3,96 @@ import { listMessages, sendMessage, updateReadCursor } from '~/utils/api/message
 
 const PAGE_SIZE = 50
 
+type Thread = {
+  items: Message[]
+  hasMore: boolean
+}
+
+const emptyThread: Thread = { items: [], hasMore: true }
+
 export function useMessages() {
   const { user } = useAuth()
   const chats = useChats()
 
   const currentId = useState<number | null>('messages.currentId', () => null)
-  const items = useState<Message[]>('messages.items', () => [])
+  const threads = useState<Record<number, Thread>>('messages.threads', () => ({}))
+  const drafts = useState<Record<number, string>>('messages.drafts', () => ({}))
   const loading = useState('messages.loading', () => false)
   const loadingMore = useState('messages.loadingMore', () => false)
-  const hasMore = useState('messages.hasMore', () => true)
   const sending = useState('messages.sending', () => false)
   const error = useState<string | null>('messages.error', () => null)
 
   const myId = computed(() => user.value?.id ?? null)
-
-  function resetThread() {
-    items.value = []
-    hasMore.value = true
-    error.value = null
-  }
+  const currentThread = computed(() => {
+    const id = currentId.value
+    return id == null ? emptyThread : threads.value[id] ?? emptyThread
+  })
+  const items = computed(() => currentThread.value.items)
+  const hasMore = computed(() => currentThread.value.hasMore)
 
   function isCurrent(chatId: number) {
     return currentId.value === chatId
+  }
+
+  function setThread(chatId: number, next: Thread) {
+    threads.value = { ...threads.value, [chatId]: next }
+  }
+
+  function dropThread(chatId: number) {
+    if (!(chatId in threads.value) && !(chatId in drafts.value)) {
+      return
+    }
+    const nextThreads = { ...threads.value }
+    delete nextThreads[chatId]
+    threads.value = nextThreads
+    const nextDrafts = { ...drafts.value }
+    delete nextDrafts[chatId]
+    drafts.value = nextDrafts
+  }
+
+  function threadOf(chatId: number) {
+    return threads.value[chatId]
+  }
+
+  function appendMessage(chatId: number, message: Message) {
+    const thread = threadOf(chatId)
+    if (!thread || thread.items.some(item => item.id === message.id)) {
+      return
+    }
+    setThread(chatId, { ...thread, items: [...thread.items, message] })
+  }
+
+  function mergeLatest(chatId: number, page: Message[]) {
+    const thread = threadOf(chatId)
+    const prev = thread?.items ?? []
+    if (prev.length === 0) {
+      setThread(chatId, { items: page, hasMore: page.length >= PAGE_SIZE })
+      return
+    }
+    const oldest = page[0]
+    if (!oldest) {
+      return
+    }
+    const overlap = prev.some(item => item.id >= oldest.id)
+    if (overlap) {
+      const kept = prev.filter(item => item.id < oldest.id)
+      setThread(chatId, {
+        items: [...kept, ...page],
+        hasMore: kept.length > 0 ? (thread?.hasMore ?? true) : page.length >= PAGE_SIZE,
+      })
+      return
+    }
+    const last = prev[prev.length - 1]
+    if (last && oldest.id > last.id) {
+      setThread(chatId, { items: page, hasMore: true })
+    }
   }
 
   async function markRead(chatId: number, messageId?: number) {
     if (!isCurrent(chatId)) {
       return
     }
-    const last = messageId ?? items.value[items.value.length - 1]?.id
+    const last = messageId ?? threadOf(chatId)?.items.at(-1)?.id
     if (!last) {
       return
     }
@@ -47,26 +108,53 @@ export function useMessages() {
     }
   }
 
-  async function open(chatId: number) {
-    if (isCurrent(chatId) && items.value.length > 0) {
-      await markRead(chatId)
+  async function syncLatest(chatId: number) {
+    const page = await listMessages(chatId, { limit: PAGE_SIZE })
+    mergeLatest(chatId, page)
+  }
+
+  async function catchUp(chatId: number) {
+    const thread = threadOf(chatId)
+    const lastId = thread?.items.at(-1)?.id
+    const preview = chats.previews.value[chatId]
+    if (lastId == null || !preview || preview.id <= lastId) {
       return
     }
+    try {
+      await syncLatest(chatId)
+    }
+    catch {
+      // Catch-up is best-effort; cached messages stay on screen.
+    }
+  }
+
+  async function open(chatId: number) {
+    const cached = threadOf(chatId)
     currentId.value = chatId
+    loadingMore.value = false
+    error.value = null
+
+    if (cached) {
+      loading.value = false
+      await markRead(chatId)
+      void catchUp(chatId)
+      return
+    }
+
     loading.value = true
-    resetThread()
     try {
       const page = await listMessages(chatId, { limit: PAGE_SIZE })
+      setThread(chatId, { items: page, hasMore: page.length >= PAGE_SIZE })
       if (!isCurrent(chatId)) {
         return
       }
-      items.value = page
-      hasMore.value = page.length >= PAGE_SIZE
       await markRead(chatId)
     }
     catch (err) {
-      error.value = useApiI18n().fromError(err)
-      useToast().error(err)
+      if (isCurrent(chatId)) {
+        error.value = useApiI18n().fromError(err)
+        useToast().error(err)
+      }
     }
     finally {
       if (isCurrent(chatId)) {
@@ -80,30 +168,38 @@ export function useMessages() {
       return
     }
     currentId.value = null
-    resetThread()
     loading.value = false
     loadingMore.value = false
     sending.value = false
+    error.value = null
   }
 
   async function loadOlder() {
     const chatId = currentId.value
-    const first = items.value[0]
-    if (!chatId || !first || loadingMore.value || !hasMore.value) {
+    const thread = chatId != null ? threadOf(chatId) : undefined
+    const first = thread?.items[0]
+    if (!chatId || !thread || !first || loadingMore.value || !thread.hasMore) {
       return
     }
     loadingMore.value = true
     try {
       const page = await listMessages(chatId, { before: first.id, limit: PAGE_SIZE })
-      if (!isCurrent(chatId)) {
+      const latest = threadOf(chatId)
+      if (!latest) {
         return
       }
-      hasMore.value = page.length >= PAGE_SIZE
-      items.value = [...page, ...items.value]
+      const have = new Set(latest.items.map(item => item.id))
+      const older = page.filter(item => !have.has(item.id))
+      setThread(chatId, {
+        items: [...older, ...latest.items],
+        hasMore: page.length >= PAGE_SIZE,
+      })
     }
     catch (err) {
-      error.value = useApiI18n().fromError(err)
-      useToast().error(err)
+      if (isCurrent(chatId)) {
+        error.value = useApiI18n().fromError(err)
+        useToast().error(err)
+      }
     }
     finally {
       if (isCurrent(chatId)) {
@@ -128,9 +224,7 @@ export function useMessages() {
         body.file_id = fileId
       }
       const created = await sendMessage(chatId, body)
-      if (isCurrent(chatId) && !items.value.some(item => item.id === created.id)) {
-        items.value = [...items.value, created]
-      }
+      appendMessage(chatId, created)
       await markRead(chatId, created.id)
     }
     finally {
@@ -141,31 +235,69 @@ export function useMessages() {
   }
 
   async function refreshCurrent() {
-    if (currentId.value) {
-      const id = currentId.value
-      currentId.value = null
-      await open(id)
+    const id = currentId.value
+    if (!id) {
+      return
+    }
+    try {
+      await syncLatest(id)
+    }
+    catch {
+      // Reconnect refresh is best-effort.
     }
   }
 
   function ingest(event: ClientEvent) {
-    if (event.event !== 'message.created' || !isCurrent(event.data.chat_id)) {
+    switch (event.event) {
+      case 'message.created': {
+        appendMessage(event.data.chat_id, event.data)
+        if (event.data.sender_id !== myId.value) {
+          void markRead(event.data.chat_id, event.data.id)
+        }
+        break
+      }
+      case 'chat.deleted':
+        dropThread(event.data.chat_id)
+        break
+      case 'chat.member.removed':
+        if (event.data.user_id === myId.value) {
+          dropThread(event.data.chat_id)
+        }
+        break
+      default:
+        break
+    }
+  }
+
+  function takeDraft(chatId: number | null) {
+    if (chatId == null) {
+      return ''
+    }
+    return drafts.value[chatId] ?? ''
+  }
+
+  function saveDraft(chatId: number | null, text: string) {
+    if (chatId == null) {
       return
     }
-    if (!items.value.some(item => item.id === event.data.id)) {
-      items.value = [...items.value, event.data]
+    if (!text) {
+      if (!(chatId in drafts.value)) {
+        return
+      }
+      const next = { ...drafts.value }
+      delete next[chatId]
+      drafts.value = next
+      return
     }
-    if (event.data.sender_id !== myId.value) {
-      void markRead(event.data.chat_id, event.data.id)
-    }
+    drafts.value = { ...drafts.value, [chatId]: text }
   }
 
   function reset() {
     currentId.value = null
-    items.value = []
+    threads.value = {}
+    drafts.value = {}
     loading.value = false
     loadingMore.value = false
-    hasMore.value = true
     sending.value = false
     error.value = null
   }
@@ -184,6 +316,8 @@ export function useMessages() {
     send,
     refreshCurrent,
     ingest,
+    takeDraft,
+    saveDraft,
     reset,
   }
 }

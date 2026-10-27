@@ -2,6 +2,7 @@
 definePageMeta({
   layout: 'app',
   middleware: 'auth',
+  key: 'chat-room',
 })
 
 import { getChat } from '~/utils/api/chat'
