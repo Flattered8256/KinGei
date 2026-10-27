@@ -33,75 +33,81 @@ pub struct Storage {
     bucket: String,
 }
 
+struct StorageConfig {
+    endpoint: String,
+    public_endpoint: String,
+    access_key: String,
+    secret_key: String,
+    bucket: String,
+    region: String,
+    path_style: bool,
+    manage_bucket: bool,
+}
+
+impl StorageConfig {
+    fn from_env() -> Self {
+        let endpoint = require_env("S3_ENDPOINT");
+        let public_endpoint = env::var("S3_PUBLIC_ENDPOINT").unwrap_or_else(|_| endpoint.clone());
+        Self {
+            endpoint,
+            public_endpoint,
+            access_key: require_env("S3_ACCESS_KEY"),
+            secret_key: require_env("S3_SECRET_KEY"),
+            bucket: require_env("S3_BUCKET"),
+            region: env::var("S3_REGION").unwrap_or_else(|_| "us-east-1".to_string()),
+            path_style: env_flag("S3_PATH_STYLE", true),
+            manage_bucket: env_flag("S3_MANAGE_BUCKET", true),
+        }
+    }
+}
+
 impl Storage {
     pub async fn connect() -> Self {
-        let endpoint =
-            env::var("GARAGE_ENDPOINT").expect("缺少GARAGE_ENDPOINT,请检查项目根目录下的.env文件");
-        let access_key = env::var("GARAGE_ACCESS_KEY")
-            .expect("缺少GARAGE_ACCESS_KEY,请检查项目根目录下的.env文件");
-        let secret_key = env::var("GARAGE_SECRET_KEY")
-            .expect("缺少GARAGE_SECRET_KEY,请检查项目根目录下的.env文件");
-        let bucket =
-            env::var("GARAGE_BUCKET").expect("缺少GARAGE_BUCKET,请检查项目根目录下的.env文件");
-        let region = env::var("GARAGE_REGION").unwrap_or_else(|_| "us-east-1".to_string());
-        let public_endpoint =
-            env::var("GARAGE_PUBLIC_ENDPOINT").unwrap_or_else(|_| endpoint.clone());
-
-        let client = s3_client(&endpoint, &access_key, &secret_key, &region).await;
-        let presign = if public_endpoint == endpoint {
+        let config = StorageConfig::from_env();
+        let client = s3_client(
+            &config.endpoint,
+            &config.access_key,
+            &config.secret_key,
+            &config.region,
+            config.path_style,
+        )
+        .await;
+        let presign = if config.public_endpoint == config.endpoint {
             client.clone()
         } else {
-            s3_client(&public_endpoint, &access_key, &secret_key, &region).await
+            s3_client(
+                &config.public_endpoint,
+                &config.access_key,
+                &config.secret_key,
+                &config.region,
+                config.path_style,
+            )
+            .await
         };
 
-        let listed = client.list_buckets().send().await.expect("连接Garage失败");
-        let exists = listed
-            .buckets()
-            .iter()
-            .any(|item| item.name() == Some(bucket.as_str()));
-        if !exists {
+        if config.manage_bucket {
+            ensure_bucket(&client, &config.bucket).await;
+        } else {
             client
-                .create_bucket()
-                .bucket(&bucket)
+                .head_bucket()
+                .bucket(&config.bucket)
                 .send()
                 .await
-                .expect("创建Garage bucket失败");
+                .expect("S3 bucket不存在或无权访问");
         }
 
-        let cors = CorsConfiguration::builder()
-            .cors_rules(
-                CorsRule::builder()
-                    .allowed_methods("PUT")
-                    .allowed_methods("GET")
-                    .allowed_methods("HEAD")
-                    .allowed_origins("*")
-                    .allowed_headers("*")
-                    .expose_headers("ETag")
-                    .expose_headers("Content-Length")
-                    .expose_headers("Content-Range")
-                    .build()
-                    .expect("构造Garage CORS规则失败"),
-            )
-            .build()
-            .expect("构造Garage CORS配置失败");
-        client
-            .put_bucket_cors()
-            .bucket(&bucket)
-            .cors_configuration(cors)
-            .send()
-            .await
-            .expect("设置Garage bucket CORS失败");
-
         tracing::info!(
-            bucket = %bucket,
-            endpoint = %endpoint,
-            public_endpoint = %public_endpoint,
-            "garage connected"
+            bucket = %config.bucket,
+            endpoint = %config.endpoint,
+            public_endpoint = %config.public_endpoint,
+            path_style = config.path_style,
+            manage_bucket = config.manage_bucket,
+            "s3 connected"
         );
         Self {
             client,
             presign,
-            bucket,
+            bucket: config.bucket,
         }
     }
 
@@ -264,8 +270,74 @@ pub fn parse_bytes_range(header: &str) -> Option<String> {
     Some(format!("bytes={spec}"))
 }
 
-async fn s3_client(endpoint: &str, access_key: &str, secret_key: &str, region: &str) -> Client {
-    let credentials = Credentials::new(access_key, secret_key, None, None, "garage");
+fn require_env(name: &str) -> String {
+    env::var(name).unwrap_or_else(|_| panic!("缺少{name},请检查项目根目录下的.env文件"))
+}
+
+fn env_flag(name: &str, default: bool) -> bool {
+    match env::var(name) {
+        Ok(value) => parse_bool(&value)
+            .unwrap_or_else(|| panic!("{name}必须是true或false,请检查项目根目录下的.env文件")),
+        Err(_) => default,
+    }
+}
+
+fn parse_bool(value: &str) -> Option<bool> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "1" | "true" | "yes" | "on" => Some(true),
+        "0" | "false" | "no" | "off" => Some(false),
+        _ => None,
+    }
+}
+
+async fn ensure_bucket(client: &Client, bucket: &str) {
+    let listed = client.list_buckets().send().await.expect("连接S3失败");
+    let exists = listed
+        .buckets()
+        .iter()
+        .any(|item| item.name() == Some(bucket));
+    if !exists {
+        client
+            .create_bucket()
+            .bucket(bucket)
+            .send()
+            .await
+            .expect("创建S3 bucket失败");
+    }
+
+    let cors = CorsConfiguration::builder()
+        .cors_rules(
+            CorsRule::builder()
+                .allowed_methods("PUT")
+                .allowed_methods("GET")
+                .allowed_methods("HEAD")
+                .allowed_origins("*")
+                .allowed_headers("*")
+                .expose_headers("ETag")
+                .expose_headers("Content-Length")
+                .expose_headers("Content-Range")
+                .build()
+                .expect("构造S3 CORS规则失败"),
+        )
+        .build()
+        .expect("构造S3 CORS配置失败");
+    client
+        .put_bucket_cors()
+        .bucket(bucket)
+        .cors_configuration(cors)
+        .send()
+        .await
+        .expect("设置S3 bucket CORS失败");
+}
+
+async fn s3_client(
+    endpoint: &str,
+    access_key: &str,
+    secret_key: &str,
+    region: &str,
+    path_style: bool,
+) -> Client {
+    let credentials = Credentials::new(access_key, secret_key, None, None, "s3");
     let sdk_config = aws_config::defaults(BehaviorVersion::latest())
         .endpoint_url(endpoint)
         .region(Region::new(region.to_string()))
@@ -273,7 +345,7 @@ async fn s3_client(endpoint: &str, access_key: &str, secret_key: &str, region: &
         .load()
         .await;
     let config = aws_sdk_s3::config::Builder::from(&sdk_config)
-        .force_path_style(true)
+        .force_path_style(path_style)
         .request_checksum_calculation(RequestChecksumCalculation::WhenRequired)
         .response_checksum_validation(ResponseChecksumValidation::WhenRequired)
         .build();
@@ -380,5 +452,17 @@ mod tests {
         assert_eq!(parse_bytes_range("bytes=0-1,2-3"), None);
         assert_eq!(parse_bytes_range("bytes="), None);
         assert_eq!(parse_bytes_range("items=0-1"), None);
+    }
+
+    #[test]
+    fn parse_bool_flags() {
+        assert_eq!(parse_bool("true"), Some(true));
+        assert_eq!(parse_bool("TRUE"), Some(true));
+        assert_eq!(parse_bool("1"), Some(true));
+        assert_eq!(parse_bool("yes"), Some(true));
+        assert_eq!(parse_bool("false"), Some(false));
+        assert_eq!(parse_bool("0"), Some(false));
+        assert_eq!(parse_bool("off"), Some(false));
+        assert_eq!(parse_bool("maybe"), None);
     }
 }
