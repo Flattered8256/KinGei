@@ -1,3 +1,16 @@
+# 云平台只构建本仓库时用。前端从远程克隆。本机 Compose 用上层仓库的 Dockerfile。
+FROM node:22-bookworm-slim AS web
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /src
+ARG NUXT_REPO=https://github.com/Flattered8256/kingei-nuxt.git
+ARG NUXT_REF=main
+RUN git clone --depth 1 --branch "${NUXT_REF}" "${NUXT_REPO}" .
+RUN corepack enable
+ENV NUXT_TELEMETRY_DISABLED=1
+RUN pnpm install --frozen-lockfile && pnpm generate
+
 FROM rust:1-bookworm AS builder
 WORKDIR /app
 ARG DB_BACKEND=sqlite
@@ -22,7 +35,10 @@ RUN apt-get update \
     && chown app:app /data
 WORKDIR /app
 COPY --from=builder /app/chat /app/chat
+COPY --from=web /src/.output/public /app/public
+RUN chown -R app:app /app
 USER app
-ENV PORT=8000
-EXPOSE 8000
+ENV PORT=3000
+ENV STATIC_DIR=/app/public
+EXPOSE 3000
 CMD ["./chat"]

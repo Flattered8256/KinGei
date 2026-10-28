@@ -40,6 +40,7 @@ src/
   middleware/          中间件（鉴权等）
   utils/               与 HTTP 无关的工具（JWT 等）
   storage.rs           S3 兼容客户端（预签名；本机 Garage 或云存储）
+  web.rs               设置 STATIC_DIR 时托管静态页，并把 /{bucket} 反代到 S3
 migrations/sqlite/     SQLite 迁移脚本
 migrations/postgres/   PostgreSQL 终态 schema
 ```

@@ -10,6 +10,7 @@ mod serializer;
 mod service;
 mod storage;
 mod utils;
+mod web;
 use crate::state::AppState;
 use crate::storage::Storage;
 use dotenvy::dotenv;
@@ -31,7 +32,12 @@ async fn main() {
     let storage = Storage::connect().await;
     let app_state = Arc::new(AppState::new(pool, storage));
 
-    let app = router::create_router(app_state).into_make_service();
+    let api = router::create_router(app_state);
+    let app = match env::var("STATIC_DIR") {
+        Ok(dir) if !dir.trim().is_empty() => web::with_frontend(api, dir),
+        _ => api,
+    };
+    let app = app.into_make_service();
 
     let port = env::var("PORT").expect("缺少PORT,请检查项目根目录下的.env文件");
     let addr = format!("0.0.0.0:{}", port);
