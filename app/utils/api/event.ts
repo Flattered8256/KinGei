@@ -1,124 +1,213 @@
-import type { ClientEvent, ClientEventName, RefreshTokenResponse } from '~/types/api'
+import type { ClientEvent, ClientEventName } from '~/types/api'
 import { CLIENT_EVENT_NAMES } from '~/types/api'
 import { ApiError } from './error'
-import {
-  clearSession,
-  getAccessToken,
-  getRefreshToken,
-  setSession,
-} from './session'
+import { refreshSession } from './http'
+import { getAccessToken } from './session'
 
 const KNOWN_EVENTS = new Set<string>(CLIENT_EVENT_NAMES)
 const MAX_BACKOFF_MS = 15_000
+const IDLE_MS = 45_000
 
 export interface EventStreamHandlers {
   onEvent: (event: ClientEvent) => void
   onReconnect?: () => void
+  onOpen?: () => void
+  onClose?: () => void
 }
 
 export interface EventStreamConnection {
   stop: () => void
+  wake: () => void
 }
 
 export function connectEventStream(handlers: EventStreamHandlers): EventStreamConnection {
   const apiBase = String(useRuntimeConfig().public.apiBase)
-  const abort = new AbortController()
   let stopped = false
+  let skipDelay = false
+  let attemptAbort: AbortController | null = null
+  let delayAbort: AbortController | null = null
+
+  function interrupt() {
+    attemptAbort?.abort()
+    delayAbort?.abort()
+  }
+
+  function wake() {
+    if (stopped) {
+      return
+    }
+    skipDelay = true
+    interrupt()
+  }
+
+  function stop() {
+    if (stopped) {
+      return
+    }
+    stopped = true
+    interrupt()
+  }
 
   const loop = async () => {
     let attempt = 0
-    let hasConnected = false
+    let openedOnce = false
 
-    while (!stopped) {
-      try {
-        await consumeEventStream(apiBase, handlers.onEvent, abort.signal)
-        attempt = 0
-        hasConnected = true
-      }
-      catch (error) {
-        if (stopped || abort.signal.aborted) {
-          break
+    try {
+      while (!stopped) {
+        const ac = new AbortController()
+        attemptAbort = ac
+
+        try {
+          await consumeEventStream(apiBase, handlers.onEvent, ac.signal, () => {
+            handlers.onOpen?.()
+            if (openedOnce) {
+              handlers.onReconnect?.()
+            }
+            openedOnce = true
+            attempt = 0
+          })
+          attempt = 0
         }
-        if (error instanceof ApiError && error.status === 401) {
-          const refreshed = await tryRefresh(apiBase)
-          if (!refreshed) {
+        catch (error) {
+          if (stopped) {
             break
           }
+          if (isAbortError(error)) {
+            skipDelay = true
+            attempt = 0
+          }
+          else if (error instanceof ApiError && error.status === 401) {
+            try {
+              await refreshSession()
+              if (stopped) {
+                break
+              }
+              skipDelay = true
+              attempt = 0
+            }
+            catch {
+              break
+            }
+          }
+        }
+
+        if (stopped) {
+          break
+        }
+
+        if (skipDelay) {
+          skipDelay = false
           continue
         }
-      }
 
-      if (stopped || abort.signal.aborted) {
-        break
+        const delay = Math.min(1000 * 2 ** attempt, MAX_BACKOFF_MS)
+        attempt += 1
+        delayAbort = new AbortController()
+        await sleep(delay, delayAbort.signal)
+        delayAbort = null
+        if (skipDelay) {
+          skipDelay = false
+        }
       }
-
-      if (hasConnected) {
-        handlers.onReconnect?.()
-        hasConnected = false
-      }
-
-      const delay = Math.min(1000 * 2 ** attempt, MAX_BACKOFF_MS)
-      attempt += 1
-      await sleep(delay, abort.signal)
+    }
+    finally {
+      handlers.onClose?.()
     }
   }
 
   void loop()
 
-  return {
-    stop() {
-      stopped = true
-      abort.abort()
-    },
-  }
+  return { stop, wake }
 }
 
 async function consumeEventStream(
   apiBase: string,
   onEvent: (event: ClientEvent) => void,
   signal: AbortSignal,
+  onOpen: () => void,
 ): Promise<void> {
   const token = getAccessToken()
   if (!token) {
     throw new ApiError(401, 'InvalidCredentials')
   }
 
-  const response = await fetch(`${apiBase}/event`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: 'text/event-stream',
-    },
-    credentials: 'include',
-    signal,
-  })
-
-  if (!response.ok) {
-    throw await errorFromResponse(response)
+  const local = new AbortController()
+  const onParentAbort = () => local.abort()
+  if (signal.aborted) {
+    local.abort()
   }
-  if (!response.body) {
-    throw new ApiError(500, 'InternalServerError')
+  else {
+    signal.addEventListener('abort', onParentAbort, { once: true })
   }
 
-  const reader = response.body.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ''
+  let idleTimer: ReturnType<typeof setTimeout> | undefined
+  const clearIdle = () => {
+    if (idleTimer !== undefined) {
+      clearTimeout(idleTimer)
+      idleTimer = undefined
+    }
+  }
+  const armIdle = () => {
+    clearIdle()
+    idleTimer = setTimeout(() => local.abort(), IDLE_MS)
+  }
 
   try {
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) {
-        break
+    const response = await fetch(`${apiBase}/event`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'text/event-stream',
+        'Cache-Control': 'no-store',
+      },
+      credentials: 'include',
+      cache: 'no-store',
+      signal: local.signal,
+    })
+
+    if (!response.ok) {
+      throw await errorFromResponse(response)
+    }
+    if (!response.body) {
+      throw new ApiError(500, 'InternalServerError')
+    }
+
+    onOpen()
+    armIdle()
+
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) {
+          if (local.signal.aborted) {
+            throw new DOMException('The operation was aborted.', 'AbortError')
+          }
+          break
+        }
+        armIdle()
+        buffer += decoder.decode(value, { stream: true })
+        const parsed = takeSseBlocks(buffer)
+        buffer = parsed.rest
+        for (const event of parsed.events) {
+          onEvent(event)
+        }
       }
-      buffer += decoder.decode(value, { stream: true })
-      const parsed = takeSseBlocks(buffer)
-      buffer = parsed.rest
-      for (const event of parsed.events) {
-        onEvent(event)
+    }
+    finally {
+      try {
+        reader.releaseLock()
+      }
+      catch {
+        // abort() already closed the reader
       }
     }
   }
   finally {
-    reader.releaseLock()
+    clearIdle()
+    signal.removeEventListener('abort', onParentAbort)
   }
 }
 
@@ -174,32 +263,6 @@ function parseSseBlock(block: string): ClientEvent | null {
   }
 }
 
-async function tryRefresh(apiBase: string): Promise<boolean> {
-  const refreshToken = getRefreshToken()
-  if (!refreshToken) {
-    clearSession()
-    return false
-  }
-
-  try {
-    const result = await $fetch<RefreshTokenResponse>('/user/refresh', {
-      baseURL: apiBase,
-      method: 'POST',
-      credentials: 'include',
-      body: { refresh_token: refreshToken },
-    })
-    setSession({
-      accessToken: result.access_token,
-      refreshToken: result.refresh_token,
-    })
-    return true
-  }
-  catch {
-    clearSession()
-    return false
-  }
-}
-
 async function errorFromResponse(response: Response): Promise<ApiError> {
   try {
     const data = (await response.json()) as { code?: string }
@@ -208,6 +271,12 @@ async function errorFromResponse(response: Response): Promise<ApiError> {
   catch {
     return new ApiError(response.status, 'InternalServerError')
   }
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException
+    ? error.name === 'AbortError'
+    : error instanceof Error && error.name === 'AbortError'
 }
 
 function sleep(ms: number, signal: AbortSignal): Promise<void> {

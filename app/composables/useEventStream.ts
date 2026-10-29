@@ -19,17 +19,33 @@ export function useEventStream(options: UseEventStreamOptions) {
     if (!import.meta.client || connection || !isAuthenticated.value) {
       return
     }
-    connection = connectEventStream({
+    const conn = connectEventStream({
       onEvent: options.onEvent,
       onReconnect: options.onReconnect,
+      onOpen: () => {
+        if (connection === conn) {
+          connected.value = true
+        }
+      },
+      onClose: () => {
+        if (connection === conn) {
+          connection = null
+          connected.value = false
+        }
+      },
     })
-    connected.value = true
+    connection = conn
   }
 
   function stop() {
-    connection?.stop()
+    const conn = connection
     connection = null
     connected.value = false
+    conn?.stop()
+  }
+
+  function wake() {
+    connection?.wake()
   }
 
   if (import.meta.client) {
@@ -47,7 +63,35 @@ export function useEventStream(options: UseEventStreamOptions) {
       { immediate: true },
     )
 
+    const onPageHide = () => {
+      stop()
+    }
+    const onPageShow = () => {
+      if (!isAuthenticated.value || options.immediate === false) {
+        return
+      }
+      start()
+      options.onReconnect?.()
+    }
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        wake()
+      }
+    }
+    const onOnline = () => {
+      wake()
+    }
+
+    window.addEventListener('pagehide', onPageHide)
+    window.addEventListener('pageshow', onPageShow)
+    document.addEventListener('visibilitychange', onVisibility)
+    window.addEventListener('online', onOnline)
+
     onBeforeUnmount(() => {
+      window.removeEventListener('pagehide', onPageHide)
+      window.removeEventListener('pageshow', onPageShow)
+      document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('online', onOnline)
       stop()
     })
   }
