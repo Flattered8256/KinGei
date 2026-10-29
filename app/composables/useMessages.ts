@@ -108,24 +108,44 @@ export function useMessages() {
     }
   }
 
+  function appendNewer(chatId: number, page: Message[]) {
+    const thread = threadOf(chatId)
+    if (!thread) {
+      if (page.length > 0) {
+        setThread(chatId, { items: page, hasMore: true })
+      }
+      return
+    }
+    const have = new Set(thread.items.map(item => item.id))
+    const extra = page.filter(item => !have.has(item.id))
+    if (extra.length === 0) {
+      return
+    }
+    setThread(chatId, { ...thread, items: [...thread.items, ...extra] })
+  }
+
   async function syncLatest(chatId: number) {
     const page = await listMessages(chatId, { limit: PAGE_SIZE })
     mergeLatest(chatId, page)
   }
 
-  async function catchUp(chatId: number) {
-    const thread = threadOf(chatId)
-    const lastId = thread?.items.at(-1)?.id
-    const preview = chats.previews.value[chatId]
-    if (lastId == null || !preview || preview.id <= lastId) {
+  async function pullNewer(chatId: number) {
+    const lastId = threadOf(chatId)?.items.at(-1)?.id
+    if (lastId == null) {
+      await syncLatest(chatId)
       return
     }
-    try {
+    const unread = chats.chats.value.find(item => item.id === chatId)?.unread_count ?? 0
+    if (unread >= PAGE_SIZE) {
       await syncLatest(chatId)
+      return
     }
-    catch {
-      // Catch-up is best-effort; cached messages stay on screen.
+    const batch = await listMessages(chatId, { after: lastId, limit: PAGE_SIZE })
+    if (batch.length >= PAGE_SIZE) {
+      await syncLatest(chatId)
+      return
     }
+    appendNewer(chatId, batch)
   }
 
   async function open(chatId: number) {
@@ -136,8 +156,15 @@ export function useMessages() {
 
     if (cached) {
       loading.value = false
-      await markRead(chatId)
-      void catchUp(chatId)
+      try {
+        await pullNewer(chatId)
+      }
+      catch {
+        // Cached messages stay on screen.
+      }
+      if (isCurrent(chatId)) {
+        await markRead(chatId)
+      }
       return
     }
 
@@ -240,7 +267,8 @@ export function useMessages() {
       return
     }
     try {
-      await syncLatest(id)
+      await pullNewer(id)
+      await markRead(id)
     }
     catch {
       // Reconnect refresh is best-effort.

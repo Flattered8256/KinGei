@@ -161,6 +161,7 @@ export interface SendMessageRequest {
 
 export interface ListMessageQuery {
   before?: number
+  after?: number
   limit?: number
 }
 

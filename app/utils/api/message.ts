@@ -11,6 +11,7 @@ export function listMessages(chatId: number, query: ListMessageQuery = {}) {
   return apiFetch<Message[]>(`/chat/${chatId}/message`, {
     query: {
       before: query.before,
+      after: query.after,
       limit: query.limit,
     },
   })

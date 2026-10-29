@@ -41,8 +41,7 @@ export function useAppSync() {
   useEventStream({
     onEvent: ingest,
     onReconnect: () => {
-      void bootstrap()
-      void messages.refreshCurrent()
+      void bootstrap().then(() => messages.refreshCurrent())
     },
   })
 
