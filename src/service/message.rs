@@ -92,8 +92,14 @@ impl MessageService {
             .unwrap_or(DEFAULT_MESSAGE_LIMIT)
             .clamp(1, MAX_MESSAGE_LIMIT);
 
-        let mut messages = self.message_repo.list(chat.id, query.before, limit).await?;
-        messages.reverse();
+        let after = query.after;
+        let mut messages = self
+            .message_repo
+            .list(chat.id, query.before, after, limit)
+            .await?;
+        if after.is_none() {
+            messages.reverse();
+        }
 
         let mut file_ids = Vec::new();
         let mut seen = HashSet::new();

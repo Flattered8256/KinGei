@@ -14,6 +14,7 @@ pub struct SendMessageRequest {
 #[derive(Debug, Deserialize)]
 pub struct ListMessageQuery {
     pub before: Option<i64>,
+    pub after: Option<i64>,
     pub limit: Option<i64>,
 }
 

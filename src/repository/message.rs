@@ -80,6 +80,7 @@ impl MessageRepository {
         &self,
         chat_id: i64,
         before: Option<i64>,
+        after: Option<i64>,
         limit: i64,
     ) -> Result<Vec<Message>, sqlx::Error> {
         let mut builder = QueryBuilder::<Db>::new(
@@ -90,11 +91,17 @@ impl MessageRepository {
             "#,
         );
         builder.push_bind(chat_id);
-        if let Some(before) = before {
+        if let Some(after) = after {
+            builder.push(" AND id > ");
+            builder.push_bind(after);
+            builder.push(" ORDER BY id ASC LIMIT ");
+        } else if let Some(before) = before {
             builder.push(" AND id < ");
             builder.push_bind(before);
+            builder.push(" ORDER BY id DESC LIMIT ");
+        } else {
+            builder.push(" ORDER BY id DESC LIMIT ");
         }
-        builder.push(" ORDER BY id DESC LIMIT ");
         builder.push_bind(limit);
 
         builder
