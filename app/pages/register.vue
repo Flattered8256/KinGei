@@ -6,6 +6,7 @@ definePageMeta({
 
 const { t, locale, setLocale } = useI18n()
 const { register, login } = useAuth()
+const { instance, refresh: refreshInstance } = useInstance()
 const toast = useToast()
 
 const username = ref('')
@@ -30,6 +31,7 @@ async function submit() {
       email: email.value.trim(),
       password: password.value,
     })
+    await refreshInstance()
     await login({ email: email.value.trim(), password: password.value })
     await navigateTo('/chat')
   }
@@ -58,7 +60,7 @@ function toggleLocale() {
           :size="56"
           :hash="false"
         />
-        <h1>{{ $t('auth.registerTitle', { name: $t('app.name') }) }}</h1>
+        <h1>{{ $t(instance.initializing ? 'auth.registerAdminTitle' : 'auth.registerTitle', { name: $t('app.name') }) }}</h1>
       </div>
       <label class="field">
         <span class="field-label">{{ $t('auth.username') }}</span>
@@ -106,7 +108,10 @@ function toggleLocale() {
       >
         {{ $t('auth.register') }}
       </button>
-      <p class="auth-switch">
+      <p
+        v-if="!instance.initializing"
+        class="auth-switch"
+      >
         {{ $t('auth.hasAccount') }}
         <NuxtLink to="/login">
           {{ $t('auth.login') }}

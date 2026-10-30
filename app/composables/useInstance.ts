@@ -4,6 +4,7 @@ import { getInstance } from '~/utils/api/instance'
 const DEFAULT_INSTANCE: Instance = {
   allow_add_friend: true,
   allow_create_group: true,
+  initializing: false,
 }
 
 let inflight: Promise<void> | null = null

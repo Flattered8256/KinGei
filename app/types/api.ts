@@ -53,6 +53,7 @@ export interface User {
 export interface Instance {
   allow_add_friend: boolean
   allow_create_group: boolean
+  initializing: boolean
 }
 
 export interface CreateUserRequest {

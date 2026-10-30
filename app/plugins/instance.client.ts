@@ -1,3 +1,3 @@
-export default defineNuxtPlugin(() => {
-  void useInstance().refresh()
+export default defineNuxtPlugin(async () => {
+  await useInstance().refresh()
 })

@@ -87,6 +87,7 @@
   "auth": {
     "loginTitle": "登录 {name}",
     "registerTitle": "注册 {name}",
+    "registerAdminTitle": "注册 {name} 管理员",
     "email": "Email",
     "password": "Password",
     "username": "用户名",

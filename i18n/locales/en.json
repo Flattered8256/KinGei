@@ -87,6 +87,7 @@
   "auth": {
     "loginTitle": "Sign in to {name}",
     "registerTitle": "Create a {name} account",
+    "registerAdminTitle": "Register {name} admin",
     "email": "Email",
     "password": "Password",
     "username": "Username",
