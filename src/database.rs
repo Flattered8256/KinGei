@@ -22,7 +22,8 @@ pub async fn create_pool(database_url: &str) -> DbPool {
 
         let options = SqliteConnectOptions::from_str(database_url)
             .expect("DATABASE_URL无效")
-            .create_if_missing(true);
+            .create_if_missing(true)
+            .foreign_keys(true);
         SqlitePoolOptions::new()
             .max_connections(5)
             .connect_with(options)
@@ -130,7 +131,8 @@ mod tests {
 
         let options = SqliteConnectOptions::from_str("sqlite::memory:")
             .unwrap()
-            .create_if_missing(true);
+            .create_if_missing(true)
+            .foreign_keys(true);
         SqlitePoolOptions::new()
             .max_connections(1)
             .connect_with(options)

@@ -283,6 +283,23 @@ impl ChatRepository {
         .await
     }
 
+    pub async fn delete_directs_for_user(&self, user_id: Uuid) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            r#"
+            DELETE FROM chat
+            WHERE chat_type = $1
+              AND id IN (
+                  SELECT chat_id FROM chat_member WHERE user_id = $2
+              )
+            "#,
+        )
+        .bind(ChatType::Direct)
+        .bind(&user_id)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
     pub async fn delete_chat(&self, id: i64) -> Result<(), sqlx::Error> {
         let mut tx = self.pool.begin().await?;
 

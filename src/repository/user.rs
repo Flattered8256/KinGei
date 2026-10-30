@@ -230,6 +230,64 @@ mod tests {
         assert_eq!(users[1].role, UserRole::Member);
     }
 
+    #[tokio::test]
+    async fn delete_member_removes_from_list() {
+        let pool = test_pool().await;
+        run_migrations(&pool).await;
+        let repo = UserRepository::new(pool);
+
+        repo.create(sample("alice", "alice@example.com"))
+            .await
+            .unwrap();
+        let bob = repo.create(sample("bob", "bob@example.com")).await.unwrap();
+
+        let deleted = repo.delete(bob.id).await.unwrap();
+        assert!(deleted.is_some());
+
+        let users = repo.list().await.unwrap();
+        assert_eq!(users.len(), 1);
+        assert_eq!(users[0].username, "alice");
+    }
+
+    #[tokio::test]
+    async fn delete_member_cascades_friends() {
+        let pool = test_pool().await;
+        run_migrations(&pool).await;
+        let repo = UserRepository::new(pool.clone());
+
+        let alice = repo
+            .create(sample("alice", "alice@example.com"))
+            .await
+            .unwrap();
+        let bob = repo.create(sample("bob", "bob@example.com")).await.unwrap();
+        let now = Utc::now();
+
+        sqlx::query(
+            r#"
+            INSERT INTO friend(user_id, friend_id, created_at)
+            VALUES ($1, $2, $3), ($2, $1, $3)
+            "#,
+        )
+        .bind(alice.id)
+        .bind(bob.id)
+        .bind(now)
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        repo.delete(bob.id).await.unwrap();
+
+        let remaining: i64 = sqlx::query_scalar(
+            r#"SELECT COUNT(*) FROM friend WHERE user_id = $1 OR friend_id = $1"#,
+        )
+        .bind(alice.id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(remaining, 0);
+        assert_eq!(repo.list().await.unwrap().len(), 1);
+    }
+
     fn sample(username: &str, email: &str) -> User {
         User {
             id: Uuid::new_v4(),
@@ -249,7 +307,8 @@ mod tests {
 
         let options = SqliteConnectOptions::from_str("sqlite::memory:")
             .unwrap()
-            .create_if_missing(true);
+            .create_if_missing(true)
+            .foreign_keys(true);
         SqlitePoolOptions::new()
             .max_connections(1)
             .connect_with(options)

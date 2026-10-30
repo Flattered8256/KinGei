@@ -27,6 +27,7 @@ impl std::fmt::Display for StorageError {
 
 impl std::error::Error for StorageError {}
 
+#[derive(Clone)]
 pub struct Storage {
     client: Client,
     presign: Client,
@@ -215,6 +216,17 @@ impl Storage {
             .flush()
             .await
             .map_err(|e| StorageError(e.to_string()))?;
+        Ok(())
+    }
+
+    pub async fn delete_object(&self, key: &str) -> Result<(), StorageError> {
+        self.client
+            .delete_object()
+            .bucket(&self.bucket)
+            .key(key)
+            .send()
+            .await
+            .map_err(|e| StorageError(format!("{e:?}")))?;
         Ok(())
     }
 

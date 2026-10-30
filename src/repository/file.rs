@@ -199,6 +199,21 @@ impl FileRepository {
         Ok(updated.map(|file| (file, saved_media)))
     }
 
+    pub async fn list_object_keys_by_owner(
+        &self,
+        owner_id: Uuid,
+    ) -> Result<Vec<String>, sqlx::Error> {
+        sqlx::query_scalar(
+            r#"
+            SELECT object_key FROM file
+            WHERE owner_id = $1
+            "#,
+        )
+        .bind(owner_id)
+        .fetch_all(&self.pool)
+        .await
+    }
+
     pub async fn delete(&self, id: i64) -> Result<(), sqlx::Error> {
         sqlx::query(
             r#"

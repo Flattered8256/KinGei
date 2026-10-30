@@ -5,6 +5,7 @@ use crate::repository::file::FileRepository;
 use crate::repository::friend::{FriendRepository, FriendRequestRepository};
 use crate::repository::message::MessageRepository;
 use crate::repository::user::UserRepository;
+use crate::service::admin::AdminService;
 use crate::service::chat::ChatService;
 use crate::service::file::FileService;
 use crate::service::friend::FriendService;
@@ -15,6 +16,7 @@ use std::sync::Arc;
 
 pub struct AppState {
     pub user_service: UserService,
+    pub admin_service: AdminService,
     pub friend_service: FriendService,
     pub chat_service: ChatService,
     pub message_service: MessageService,
@@ -33,6 +35,13 @@ impl AppState {
         let event_hub = EventHub::new();
         Self {
             user_service: UserService::new(user_repo.clone(), file_repo.clone()),
+            admin_service: AdminService::new(
+                user_repo.clone(),
+                chat_repo.clone(),
+                file_repo.clone(),
+                storage.clone(),
+                event_hub.clone(),
+            ),
             friend_service: FriendService::new(
                 friend_repo.clone(),
                 friend_request_repo,

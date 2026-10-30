@@ -16,6 +16,10 @@ pub enum UserError {
     InvalidToken,
     #[error("NotAdmin")]
     NotAdmin,
+    #[error("CannotDeleteSelf")]
+    CannotDeleteSelf,
+    #[error("CannotDeleteAdmin")]
+    CannotDeleteAdmin,
 }
 
 #[derive(Debug, Serialize)]
@@ -32,6 +36,8 @@ impl IntoResponse for UserError {
             UserError::PasswordMismatch => (StatusCode::UNAUTHORIZED, self.to_string()),
             UserError::InvalidToken => (StatusCode::UNAUTHORIZED, self.to_string()),
             UserError::NotAdmin => (StatusCode::FORBIDDEN, self.to_string()),
+            UserError::CannotDeleteSelf => (StatusCode::BAD_REQUEST, self.to_string()),
+            UserError::CannotDeleteAdmin => (StatusCode::FORBIDDEN, self.to_string()),
         };
 
         (

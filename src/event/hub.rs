@@ -106,6 +106,15 @@ impl EventHub {
         }
     }
 
+    pub fn disconnect(&self, user_id: Uuid) {
+        let mut mailboxes = write_lock(&self.inner.mailboxes);
+        if let Some(mailbox) = mailboxes.remove(&user_id) {
+            for conn in mailbox.conns {
+                let _ = conn.cancel.send(());
+            }
+        }
+    }
+
     pub fn publish_many(&self, user_ids: impl IntoIterator<Item = Uuid>, event: Arc<ClientEvent>) {
         let mailboxes = read_lock(&self.inner.mailboxes);
         for user_id in user_ids {
