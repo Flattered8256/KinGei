@@ -7,6 +7,7 @@ use crate::model::instance::Instance;
 pub struct UpdateInstance {
     pub allow_add_friend: Option<bool>,
     pub allow_create_group: Option<bool>,
+    pub invite_only: Option<bool>,
 }
 
 pub struct InstanceRepository {
@@ -21,7 +22,7 @@ impl InstanceRepository {
     pub async fn get(&self) -> Result<Instance, sqlx::Error> {
         sqlx::query_as::<_, Instance>(
             r#"
-            SELECT id, allow_add_friend, allow_create_group, initializing
+            SELECT id, allow_add_friend, allow_create_group, initializing, invite_only
             FROM instance
             WHERE id = 1
             "#,
@@ -49,12 +50,22 @@ impl InstanceRepository {
             has_set = true;
         }
 
+        if let Some(invite_only) = instance.invite_only {
+            if has_set {
+                builder.push(",");
+            }
+            builder.push("invite_only = ");
+            builder.push_bind(invite_only);
+            has_set = true;
+        }
+
         if !has_set {
             return self.get().await;
         }
 
-        builder
-            .push(" WHERE id = 1 RETURNING id, allow_add_friend, allow_create_group, initializing");
+        builder.push(
+            " WHERE id = 1 RETURNING id, allow_add_friend, allow_create_group, initializing, invite_only",
+        );
         builder
             .build_query_as::<Instance>()
             .fetch_one(&self.pool)
@@ -78,6 +89,7 @@ mod tests {
         assert!(instance.allow_add_friend);
         assert!(instance.allow_create_group);
         assert!(instance.initializing);
+        assert!(!instance.invite_only);
     }
 
     #[tokio::test]
@@ -90,17 +102,20 @@ mod tests {
             .update(UpdateInstance {
                 allow_add_friend: Some(false),
                 allow_create_group: None,
+                invite_only: None,
             })
             .await
             .unwrap();
         assert!(!updated.allow_add_friend);
         assert!(updated.allow_create_group);
         assert!(updated.initializing);
+        assert!(!updated.invite_only);
 
         let current = repo.get().await.unwrap();
         assert!(!current.allow_add_friend);
         assert!(current.allow_create_group);
         assert!(current.initializing);
+        assert!(!current.invite_only);
     }
 
     #[tokio::test]
@@ -113,12 +128,44 @@ mod tests {
             .update(UpdateInstance {
                 allow_add_friend: Some(false),
                 allow_create_group: Some(false),
+                invite_only: None,
             })
             .await
             .unwrap();
         assert!(!updated.allow_add_friend);
         assert!(!updated.allow_create_group);
         assert!(updated.initializing);
+        assert!(!updated.invite_only);
+    }
+
+    #[tokio::test]
+    async fn update_invite_only_leaves_other_flags() {
+        let pool = test_pool().await;
+        run_migrations(&pool).await;
+        let repo = InstanceRepository::new(pool);
+
+        let updated = repo
+            .update(UpdateInstance {
+                allow_add_friend: None,
+                allow_create_group: None,
+                invite_only: Some(true),
+            })
+            .await
+            .unwrap();
+        assert!(updated.allow_add_friend);
+        assert!(updated.allow_create_group);
+        assert!(updated.invite_only);
+
+        let current = repo
+            .update(UpdateInstance {
+                allow_add_friend: Some(false),
+                allow_create_group: None,
+                invite_only: None,
+            })
+            .await
+            .unwrap();
+        assert!(!current.allow_add_friend);
+        assert!(current.invite_only);
     }
 
     async fn test_pool() -> DbPool {

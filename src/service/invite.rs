@@ -36,18 +36,6 @@ impl InviteService {
         let invite = self.repo.upsert(&code).await?;
         Ok(InviteResponse::from(invite))
     }
-
-    pub async fn consume(&self, code: &str) -> Result<(), AppError> {
-        let code = code.trim().to_ascii_uppercase();
-        if code.is_empty() {
-            return Err(AppError::Invite(InviteError::InviteNotFound));
-        }
-        self.repo
-            .find_by_code(&code)
-            .await?
-            .ok_or(AppError::Invite(InviteError::InviteNotFound))?;
-        Ok(())
-    }
 }
 
 #[cfg(all(test, feature = "sqlite"))]
@@ -76,29 +64,11 @@ mod tests {
 
         let first = service.regenerate().await.unwrap();
         assert_eq!(first.code.len(), CODE_LEN);
-        service.consume(&first.code).await.unwrap();
-        service.consume(&first.code.to_lowercase()).await.unwrap();
+        assert_eq!(service.get().await.unwrap().code, first.code);
 
         let second = service.regenerate().await.unwrap();
         assert_ne!(first.code, second.code);
-        let old = service.consume(&first.code).await.unwrap_err();
-        assert!(matches!(old, AppError::Invite(InviteError::InviteNotFound)));
-        service.consume(&second.code).await.unwrap();
-        service.get().await.unwrap();
-    }
-
-    #[tokio::test]
-    async fn consume_empty_or_unknown_is_not_found() {
-        let service = test_service().await;
-        service.regenerate().await.unwrap();
-
-        for code in ["", "   ", "NOTACODE"] {
-            let err = service.consume(code).await.unwrap_err();
-            assert!(
-                matches!(err, AppError::Invite(InviteError::InviteNotFound)),
-                "{code:?}"
-            );
-        }
+        assert_eq!(service.get().await.unwrap().code, second.code);
     }
 
     async fn test_service() -> InviteService {

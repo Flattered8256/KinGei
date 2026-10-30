@@ -22,7 +22,10 @@ impl InstanceService {
         &self,
         request: UpdateInstanceRequest,
     ) -> Result<InstanceResponse, AppError> {
-        if request.allow_add_friend.is_none() && request.allow_create_group.is_none() {
+        if request.allow_add_friend.is_none()
+            && request.allow_create_group.is_none()
+            && request.invite_only.is_none()
+        {
             return self.get().await;
         }
 
@@ -31,6 +34,7 @@ impl InstanceService {
             .update(UpdateInstance {
                 allow_add_friend: request.allow_add_friend,
                 allow_create_group: request.allow_create_group,
+                invite_only: request.invite_only,
             })
             .await?;
         Ok(InstanceResponse::from(updated))

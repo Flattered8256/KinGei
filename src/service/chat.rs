@@ -428,6 +428,7 @@ mod tests {
             .update(UpdateInstance {
                 allow_add_friend: None,
                 allow_create_group: Some(false),
+                invite_only: None,
             })
             .await
             .unwrap();
@@ -454,6 +455,7 @@ mod tests {
             .update(UpdateInstance {
                 allow_add_friend: None,
                 allow_create_group: Some(false),
+                invite_only: None,
             })
             .await
             .unwrap();

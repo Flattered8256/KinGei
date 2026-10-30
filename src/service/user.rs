@@ -4,9 +4,12 @@ use chrono::Utc;
 use uuid::Uuid;
 
 use crate::error::AppError;
+use crate::error::invite::InviteError;
 use crate::error::user::UserError;
 use crate::model::user::{User, UserRole};
 use crate::repository::file::FileRepository;
+use crate::repository::instance::InstanceRepository;
+use crate::repository::invite::InviteRepository;
 use crate::repository::user::{UpdateUser, UserRepository};
 use crate::serializer::user::{
     ChangePasswordRequest, CreateUserRequest, LoginRequest, LoginResponse, RefreshTokenRequest,
@@ -18,14 +21,42 @@ use crate::utils::auth::{create_access_token, create_refresh_token, verify_refre
 pub struct UserService {
     repo: Arc<UserRepository>,
     file_repo: Arc<FileRepository>,
+    instance_repo: Arc<InstanceRepository>,
+    invite_repo: Arc<InviteRepository>,
 }
 
 impl UserService {
-    pub fn new(repo: Arc<UserRepository>, file_repo: Arc<FileRepository>) -> Self {
-        Self { repo, file_repo }
+    pub fn new(
+        repo: Arc<UserRepository>,
+        file_repo: Arc<FileRepository>,
+        instance_repo: Arc<InstanceRepository>,
+        invite_repo: Arc<InviteRepository>,
+    ) -> Self {
+        Self {
+            repo,
+            file_repo,
+            instance_repo,
+            invite_repo,
+        }
     }
 
     pub async fn register(&self, request: CreateUserRequest) -> Result<UserResponse, AppError> {
+        let instance = self.instance_repo.get().await?;
+        if !instance.initializing && instance.invite_only {
+            let code = request
+                .invite_code
+                .as_deref()
+                .unwrap_or("")
+                .trim()
+                .to_ascii_uppercase();
+            if code.is_empty() {
+                return Err(AppError::Invite(InviteError::InviteNotFound));
+            }
+            self.invite_repo
+                .find_by_code(&code)
+                .await?
+                .ok_or(AppError::Invite(InviteError::InviteNotFound))?;
+        }
         if self.repo.find_by_email(&request.email).await?.is_some() {
             return Err(AppError::User(UserError::UserAlreadyExists));
         }
@@ -173,5 +204,113 @@ impl UserService {
             return Err(AppError::User(UserError::NotAdmin));
         }
         Ok(())
+    }
+}
+
+#[cfg(all(test, feature = "sqlite"))]
+mod tests {
+    use super::*;
+    use crate::database::{DbPool, run_migrations};
+    use crate::repository::instance::UpdateInstance;
+    use crate::service::invite::InviteService;
+
+    #[tokio::test]
+    async fn register_open_without_code() {
+        let (users, _, _) = test_service().await;
+        let created = users.register(sample("alice", None)).await.unwrap();
+        assert_eq!(created.role, UserRole::Admin);
+    }
+
+    #[tokio::test]
+    async fn initializing_skips_invite_even_when_invite_only() {
+        let (users, instance, _) = test_service().await;
+        instance
+            .update(UpdateInstance {
+                allow_add_friend: None,
+                allow_create_group: None,
+                invite_only: Some(true),
+            })
+            .await
+            .unwrap();
+
+        let created = users.register(sample("alice", None)).await.unwrap();
+        assert_eq!(created.role, UserRole::Admin);
+    }
+
+    #[tokio::test]
+    async fn invite_only_rejects_missing_or_wrong_code() {
+        let (users, instance, invites) = test_service().await;
+        users.register(sample("alice", None)).await.unwrap();
+        instance
+            .update(UpdateInstance {
+                allow_add_friend: None,
+                allow_create_group: None,
+                invite_only: Some(true),
+            })
+            .await
+            .unwrap();
+        let code = invites.regenerate().await.unwrap().code;
+
+        let missing = users.register(sample("bob", None)).await.unwrap_err();
+        assert!(matches!(
+            missing,
+            AppError::Invite(InviteError::InviteNotFound)
+        ));
+
+        let wrong = users
+            .register(sample("bob", Some("NOTACODE")))
+            .await
+            .unwrap_err();
+        assert!(matches!(
+            wrong,
+            AppError::Invite(InviteError::InviteNotFound)
+        ));
+
+        let created = users
+            .register(sample("bob", Some(&code.to_lowercase())))
+            .await
+            .unwrap();
+        assert_eq!(created.role, UserRole::Member);
+        assert_eq!(invites.get().await.unwrap().code, code);
+    }
+
+    fn sample(username: &str, invite_code: Option<&str>) -> CreateUserRequest {
+        CreateUserRequest {
+            username: username.to_string(),
+            email: format!("{username}@example.com"),
+            password: "password".to_string(),
+            invite_code: invite_code.map(str::to_string),
+        }
+    }
+
+    async fn test_service() -> (UserService, Arc<InstanceRepository>, InviteService) {
+        let pool = test_pool().await;
+        run_migrations(&pool).await;
+        let invite_repo = Arc::new(InviteRepository::new(pool.clone()));
+        let invites = InviteService::new(invite_repo.clone());
+        let instance = Arc::new(InstanceRepository::new(pool.clone()));
+        let users = UserService::new(
+            Arc::new(UserRepository::new(pool.clone())),
+            Arc::new(FileRepository::new(pool)),
+            instance.clone(),
+            invite_repo,
+        );
+        (users, instance, invites)
+    }
+
+    async fn test_pool() -> DbPool {
+        use std::str::FromStr;
+
+        use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+
+        let options = SqliteConnectOptions::from_str("sqlite::memory:")
+            .unwrap()
+            .create_if_missing(true)
+            .foreign_keys(true);
+        SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(options)
+            .await
+            .unwrap()
     }
 }

@@ -6,4 +6,5 @@ pub struct Instance {
     pub allow_add_friend: bool,
     pub allow_create_group: bool,
     pub initializing: bool,
+    pub invite_only: bool,
 }

@@ -42,7 +42,12 @@ impl AppState {
         let invite_repo = Arc::new(InviteRepository::new(pool));
         let event_hub = EventHub::new();
         Self {
-            user_service: UserService::new(user_repo.clone(), file_repo.clone()),
+            user_service: UserService::new(
+                user_repo.clone(),
+                file_repo.clone(),
+                instance_repo.clone(),
+                invite_repo.clone(),
+            ),
             admin_service: AdminService::new(
                 user_repo.clone(),
                 chat_repo.clone(),
