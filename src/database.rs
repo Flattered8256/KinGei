@@ -124,6 +124,78 @@ mod tests {
     }
 
     #[cfg(feature = "sqlite")]
+    #[tokio::test]
+    async fn cascade_rebuild_with_existing_chats() {
+        use sqlx::migrate::Migrate;
+
+        let pool = test_pool().await;
+        let migrator = sqlx::migrate!("./migrations/sqlite");
+        let mut conn = pool.acquire().await.unwrap();
+        conn.ensure_migrations_table("_sqlx_migrations")
+            .await
+            .unwrap();
+
+        for migration in migrator.iter() {
+            if migration.version == 20261030120000 {
+                let id = Uuid::new_v4();
+                let now = Utc::now();
+                sqlx::query(
+                    r#"
+                    INSERT INTO "user"(id, username, email, created_at, password_hash)
+                    VALUES ($1, $2, $3, $4, $5)
+                    "#,
+                )
+                .bind(id)
+                .bind("alice")
+                .bind("alice@example.com")
+                .bind(now)
+                .bind("hash")
+                .execute(&mut *conn)
+                .await
+                .unwrap();
+
+                sqlx::query(
+                    r#"
+                    INSERT INTO chat(chat_type, name, created_at)
+                    VALUES ($1, $2, $3)
+                    "#,
+                )
+                .bind(crate::model::chat::ChatType::Group)
+                .bind("group")
+                .bind(now)
+                .execute(&mut *conn)
+                .await
+                .unwrap();
+
+                let chat_id: i64 = sqlx::query_scalar("SELECT id FROM chat")
+                    .fetch_one(&mut *conn)
+                    .await
+                    .unwrap();
+
+                sqlx::query(
+                    r#"
+                    INSERT INTO chat_member(chat_id, user_id, created_at)
+                    VALUES ($1, $2, $3)
+                    "#,
+                )
+                .bind(chat_id)
+                .bind(id)
+                .bind(now)
+                .execute(&mut *conn)
+                .await
+                .unwrap();
+            }
+            conn.apply("_sqlx_migrations", migration).await.unwrap();
+        }
+
+        let members: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM chat_member")
+            .fetch_one(&mut *conn)
+            .await
+            .unwrap();
+        assert_eq!(members, 1);
+    }
+
+    #[cfg(feature = "sqlite")]
     async fn test_pool() -> DbPool {
         use std::str::FromStr;
 

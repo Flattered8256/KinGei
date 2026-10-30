@@ -1,4 +1,4 @@
--- migrate:disable-transaction
+-- no-transaction
 PRAGMA foreign_keys = OFF;
 
 CREATE TABLE friend_new (
