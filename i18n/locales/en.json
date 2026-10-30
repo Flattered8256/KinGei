@@ -71,6 +71,11 @@
     "left": "You left the group",
     "passwordChanged": "Password updated"
   },
+  "sse": {
+    "connecting": "Connecting",
+    "connected": "Connected",
+    "failed": "Connection failed"
+  },
   "nav": {
     "home": "Home",
     "chat": "Chats",

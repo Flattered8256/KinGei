@@ -11,7 +11,9 @@ const IDLE_MS = 45_000
 export interface EventStreamHandlers {
   onEvent: (event: ClientEvent) => void
   onReconnect?: () => void
+  onConnecting?: () => void
   onOpen?: () => void
+  onDisconnect?: () => void
   onClose?: () => void
 }
 
@@ -56,6 +58,11 @@ export function connectEventStream(handlers: EventStreamHandlers): EventStreamCo
       while (!stopped) {
         const ac = new AbortController()
         attemptAbort = ac
+        await Promise.resolve()
+        if (stopped) {
+          break
+        }
+        handlers.onConnecting?.()
 
         try {
           await consumeEventStream(apiBase, handlers.onEvent, ac.signal, () => {
@@ -67,6 +74,9 @@ export function connectEventStream(handlers: EventStreamHandlers): EventStreamCo
             attempt = 0
           })
           attempt = 0
+          if (!stopped) {
+            handlers.onDisconnect?.()
+          }
         }
         catch (error) {
           if (stopped) {
@@ -88,6 +98,9 @@ export function connectEventStream(handlers: EventStreamHandlers): EventStreamCo
             catch {
               break
             }
+          }
+          else {
+            handlers.onDisconnect?.()
           }
         }
 

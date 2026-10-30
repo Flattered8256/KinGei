@@ -4,33 +4,55 @@ import {
   type EventStreamConnection,
 } from '~/utils/api/event'
 
+export type SseStatus = 'idle' | 'connecting' | 'connected' | 'failed'
+
 export interface UseEventStreamOptions {
   onEvent: (event: ClientEvent) => void
   onReconnect?: () => void
   immediate?: boolean
 }
 
+export function useSseStatus() {
+  return useState<SseStatus>('sse.status', () => 'idle')
+}
+
 export function useEventStream(options: UseEventStreamOptions) {
   const { isAuthenticated } = useAuth()
-  const connected = ref(false)
+  const status = useSseStatus()
+  const connected = computed(() => status.value === 'connected')
   let connection: EventStreamConnection | null = null
+
+  function setStatus(next: SseStatus) {
+    status.value = next
+  }
 
   function start() {
     if (!import.meta.client || connection || !isAuthenticated.value) {
       return
     }
-    const conn = connectEventStream({
+    let conn: EventStreamConnection | null = null
+    conn = connectEventStream({
       onEvent: options.onEvent,
       onReconnect: options.onReconnect,
+      onConnecting: () => {
+        if (connection === conn) {
+          setStatus('connecting')
+        }
+      },
       onOpen: () => {
         if (connection === conn) {
-          connected.value = true
+          setStatus('connected')
+        }
+      },
+      onDisconnect: () => {
+        if (connection === conn) {
+          setStatus('failed')
         }
       },
       onClose: () => {
         if (connection === conn) {
           connection = null
-          connected.value = false
+          setStatus('idle')
         }
       },
     })
@@ -40,7 +62,7 @@ export function useEventStream(options: UseEventStreamOptions) {
   function stop() {
     const conn = connection
     connection = null
-    connected.value = false
+    setStatus('idle')
     conn?.stop()
   }
 
@@ -49,6 +71,11 @@ export function useEventStream(options: UseEventStreamOptions) {
   }
 
   if (import.meta.client) {
+    const toast = useToast()
+    watch(status, (next) => {
+      toast.sse(next)
+    }, { immediate: true })
+
     watch(
       isAuthenticated,
       (authenticated) => {
@@ -98,6 +125,7 @@ export function useEventStream(options: UseEventStreamOptions) {
 
   return {
     connected,
+    status,
     start,
     stop,
   }

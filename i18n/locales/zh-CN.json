@@ -71,6 +71,11 @@
     "left": "已退出群聊",
     "passwordChanged": "密码已修改"
   },
+  "sse": {
+    "connecting": "连接中",
+    "connected": "连接成功",
+    "failed": "连接失败"
+  },
   "nav": {
     "home": "首页",
     "chat": "聊天",

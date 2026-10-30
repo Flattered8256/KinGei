@@ -300,6 +300,21 @@ select.input {
   color: var(--color-danger);
 }
 
+.el-message.kg-toast .el-message-icon--info {
+  color: var(--color-primary);
+}
+
+.el-message.kg-toast .el-message__icon {
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.el-message.kg-toast .el-message__badge {
+  display: none;
+}
+
 .empty-state {
   display: flex;
   flex-direction: column;
