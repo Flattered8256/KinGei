@@ -2,12 +2,14 @@
 pub mod chat;
 pub mod file;
 pub mod friend;
+pub mod invite;
 pub mod message;
 pub mod user;
 
 use crate::error::chat::ChatError;
 use crate::error::file::FileError;
 use crate::error::friend::FriendError;
+use crate::error::invite::InviteError;
 use crate::error::message::MessageError;
 use crate::error::user::UserError;
 use crate::storage::StorageError;
@@ -34,6 +36,9 @@ pub enum AppError {
 
     #[error("{0}")]
     File(#[from] FileError),
+
+    #[error("{0}")]
+    Invite(#[from] InviteError),
 
     #[error("Storage error: {0}")]
     Storage(#[from] StorageError),
@@ -67,6 +72,7 @@ impl IntoResponse for AppError {
             AppError::Chat(chat_err) => chat_err.into_response(),
             AppError::Message(message_err) => message_err.into_response(),
             AppError::File(file_err) => file_err.into_response(),
+            AppError::Invite(invite_err) => invite_err.into_response(),
             AppError::Storage(e) => {
                 tracing::error!(?e, "storage error");
                 internal_error()

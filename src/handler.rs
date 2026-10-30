@@ -4,5 +4,6 @@ pub mod event;
 pub mod file;
 pub mod friend;
 pub mod instance;
+pub mod invite;
 pub mod message;
 pub mod user;

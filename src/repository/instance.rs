@@ -53,9 +53,8 @@ impl InstanceRepository {
             return self.get().await;
         }
 
-        builder.push(
-            " WHERE id = 1 RETURNING id, allow_add_friend, allow_create_group, initializing",
-        );
+        builder
+            .push(" WHERE id = 1 RETURNING id, allow_add_friend, allow_create_group, initializing");
         builder
             .build_query_as::<Instance>()
             .fetch_one(&self.pool)

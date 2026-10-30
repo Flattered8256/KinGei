@@ -258,7 +258,7 @@ HTTP 状态码习惯：
 
 ### 4.2 数据库
 
-- 表名 **单数**：`user`、`friend`、`chat`、`chat_member`、`friend_request`、`file`。
+- 表名 **单数**：`user`、`friend`、`chat`、`chat_member`、`friend_request`、`file`、`instance`、`invite`。
 - 列名 snake_case，与 model 字段相同。
 - 用户主键：`TEXT` 存 UUID。
 - 其余资源主键：`INTEGER PRIMARY KEY AUTOINCREMENT`，Rust 侧 `i64`。
@@ -341,6 +341,7 @@ WHERE user_id = $1 AND friend_id = $2
 - 对象存储为 S3 兼容 API。本机 Garage：`S3_ENDPOINT` 如 `http://127.0.0.1:3900`，`S3_PATH_STYLE=true`。`S3_MANAGE_BUCKET=true` 时 `Storage::connect` 启动 `ListBuckets`，没有目标 bucket 则 `CreateBucket`，再 `PutBucketCors`（Methods `PUT` `GET` `HEAD`，Origins/Headers `*`，Expose `ETag` `Content-Length` `Content-Range`）。`S3_MANAGE_BUCKET=false`（云上）只 `HeadBucket`，不建桶、不改 CORS。
 - `GET /health` 不鉴权、不碰对象存储，固定 200。
 - 单例 `instance` 表保存实例开关：`allow_add_friend`、`allow_create_group`（默认 true）和 `initializing`（默认 true）。`GET /instance` 不鉴权，返回这三个 bool。`initializing` 表示还没有管理员：空库为 true，第一个用户在 `UserRepository::create` 同一事务里写成 Admin 并 `UPDATE instance SET initializing = false`。已有库迁移时若已有 user 则写成 false。不按次 COUNT user。`PATCH /admin/instance`（JWT + Admin）只改两个开关，省略字段不改，空 `{}` 返回当前行，改不了 `initializing`。成员在 `allow_add_friend = false` 时 `POST /friend/request` → 403 `AddFriendDisabled`；`allow_create_group = false` 时 `POST /chat/group` → 403 `CreateGroupDisabled`。Admin 不受这两个开关影响。已有好友、私聊、群、邀请、同意申请仍可用。
+- 单例 `invite` 表（id=1 CHECK）存全站一个邀请码 `code`，不预插入。`GET /admin/invite`（JWT + Admin）返回 `{ code }`，尚未生成 → 404 `InviteNotFound`。`POST /admin/invite` 无请求体，生成或替换 8 位码（字母表 `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`，Uuid 字节映射）。公开 `GET /instance` 不含码。`InviteService::consume` 只校验当前码（trim + 大写），不改行；重新生成后旧码失效。注册尚未调用 consume。
 - SQLite 连接使用 `create_if_missing(true)`，库文件不存在则创建。Postgres 假定库已存在。`DATABASE_URL` 为 `sqlite:...` 或 `postgres://...`，须与编译 feature 一致。
 - `POST /file`（JWT）申请 PutObject 预签名 URL：请求 `name`、`content_type`（可空，默认 `application/octet-stream`）、`size`；响应 `id`、`name`、`content_type`、`size`、`upload_url`、`expires_at`。object key 为 `{owner_id}/{uuid}`，不进 JSON。预签名 15 分钟，绑定 `Content-Type` 和 `Content-Length`。申请时插入 `file.status = Pending`。
 - `POST /file/{id}/complete`（JWT）确认上传：owner 才能操作。对对象存储做 HeadObject，对象不存在 → `400 UploadIncomplete`；`Content-Length` 与申请时 `size` 不一致 → `400 SizeMismatch`；通过后把 `status` 写成 `Ready`。已是 `Ready` 则直接返回（含已有 `media`，不重探测、不出图）。响应 `id`、`owner_id`、`name`、`content_type`、`size`、`status`、`media`、`created_at`。缺失行 `404 FileNotFound`，非 owner `403 NotOwner`。
