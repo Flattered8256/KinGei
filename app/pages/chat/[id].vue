@@ -14,6 +14,7 @@ const chats = useChats()
 const messages = useMessages()
 const showMembers = ref(false)
 const missing = ref(false)
+const fetching = ref(false)
 
 const chatId = computed(() => Number(route.params.id))
 const chat = computed(() => chats.chats.value.find(item => item.id === chatId.value) ?? null)
@@ -24,20 +25,34 @@ watch(
     showMembers.value = false
     missing.value = false
     if (!Number.isFinite(id)) {
+      fetching.value = false
       return
     }
     void messages.open(id)
     if (chats.chats.value.some(item => item.id === id)) {
+      fetching.value = false
       return
     }
+    fetching.value = true
     try {
       chats.replaceChat(await getChat(id))
     }
     catch {
-      missing.value = true
+      if (chatId.value === id) {
+        missing.value = true
+      }
+    }
+    finally {
+      if (chatId.value === id) {
+        fetching.value = false
+      }
     }
   },
   { immediate: true },
+)
+
+const showRoomOverlay = computed(() =>
+  !chat.value && !missing.value && (fetching.value || chats.loading.value),
 )
 
 const title = computed(() => (chat.value ? chats.titleOf(chat.value) : ''))
@@ -129,9 +144,10 @@ const headerAvatar = computed(() => {
   </div>
   <div
     v-else
-    class="empty-state"
+    class="empty-state room-missing"
   >
-    <p>{{ chats.loading.value && !missing ? $t('app.loading') : $t('error.ChatNotFound') }}</p>
+    <KgOverlay v-if="showRoomOverlay" />
+    <p v-else>{{ $t('error.ChatNotFound') }}</p>
   </div>
 </template>
 
@@ -141,6 +157,12 @@ const headerAvatar = computed(() => {
   flex-direction: column;
   height: 100%;
   min-height: 0;
+}
+
+.room-missing {
+  position: relative;
+  flex: 1;
+  width: 100%;
 }
 
 .top {

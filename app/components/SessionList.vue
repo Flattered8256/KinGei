@@ -196,11 +196,13 @@ function onClickOutsideMenu() {
         </div>
       </NuxtLink>
     </div>
+    <KgOverlay v-if="chats.loading.value && !chats.chats.value.length" />
   </section>
 </template>
 
 <style scoped>
 .sessions {
+  position: relative;
   display: flex;
   flex-direction: column;
   width: var(--session-width);

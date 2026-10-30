@@ -205,12 +205,7 @@ onMounted(scrollToLatest)
 
 <template>
   <div class="thread">
-    <p
-      v-if="messages.loading.value"
-      class="muted center"
-    >
-      {{ $t('app.loading') }}
-    </p>
+    <KgOverlay v-if="messages.loading.value && !messages.items.value.length" />
     <p
       v-else-if="!messages.items.value.length"
       class="muted center"
@@ -304,6 +299,12 @@ onMounted(scrollToLatest)
       :file="lightbox"
       @close="lightbox = null"
     />
+    <div
+      v-if="messages.loadingMore.value"
+      class="more-spin"
+    >
+      <KgSpinner :size="18" />
+    </div>
     <button
       v-if="showJump"
       type="button"
@@ -335,6 +336,17 @@ onMounted(scrollToLatest)
 .list {
   flex: 1;
   min-height: 0;
+}
+
+.more-spin {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  z-index: 3;
+  display: flex;
+  color: var(--color-muted);
+  transform: translateX(-50%);
+  pointer-events: none;
 }
 
 .to-bottom {

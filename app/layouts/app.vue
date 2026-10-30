@@ -2,7 +2,7 @@
 const route = useRoute()
 const { isMobile } = useIsMobile()
 
-useAppSync()
+const { ready } = useAppSync()
 
 const hideChrome = computed(() => {
   if (!isMobile.value) {
@@ -32,11 +32,16 @@ const padded = computed(() => !isMobile.value)
     </div>
     <AppTabbar v-if="showTabbar" />
     <AppModals />
+    <KgOverlay
+      v-if="!ready"
+      global
+    />
   </div>
 </template>
 
 <style scoped>
 .app-shell {
+  position: relative;
   display: flex;
   height: 100%;
   overflow: hidden;

@@ -44,6 +44,12 @@ const filteredFriends = computed(() => {
 function isFriendActive(id: string) {
   return String(route.params.id) === id
 }
+
+const listsEmpty = computed(() =>
+  !friends.friends.value.length
+  && !friends.incoming.value.length
+  && !friends.outgoing.value.length,
+)
 </script>
 
 <template>
@@ -170,11 +176,13 @@ function isFriendActive(id: string) {
         </div>
       </NuxtLink>
     </div>
+    <KgOverlay v-if="friends.loading.value && listsEmpty" />
   </section>
 </template>
 
 <style scoped>
 .list-pane {
+  position: relative;
   display: flex;
   flex-direction: column;
   width: var(--session-width);

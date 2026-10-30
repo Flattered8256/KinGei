@@ -17,8 +17,17 @@ const friend = computed(() => friends.friendById(String(route.params.id)))
   />
   <div
     v-else
-    class="empty-state"
+    class="empty-state profile-missing"
   >
-    <p>{{ friends.loading.value ? $t('app.loading') : $t('friends.notFound') }}</p>
+    <KgOverlay v-if="friends.loading.value" />
+    <p v-else>{{ $t('friends.notFound') }}</p>
   </div>
 </template>
+
+<style scoped>
+.profile-missing {
+  position: relative;
+  flex: 1;
+  width: 100%;
+}
+</style>

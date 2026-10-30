@@ -7,6 +7,7 @@ export function useAppSync() {
   const messages = useMessages()
   const users = useUserDirectory()
   const router = useRouter()
+  const ready = useState('app.ready', () => false)
 
   function ingest(event: ClientEvent) {
     chats.ingest(event)
@@ -28,7 +29,14 @@ export function useAppSync() {
       return
     }
     users.remember(user.value)
-    await Promise.all([chats.refresh(), friends.refresh()])
+    try {
+      await Promise.all([chats.refresh(), friends.refresh()])
+    }
+    finally {
+      if (isAuthenticated.value) {
+        ready.value = true
+      }
+    }
   }
 
   function resetAll() {
@@ -36,6 +44,7 @@ export function useAppSync() {
     friends.reset()
     messages.reset()
     users.reset()
+    ready.value = false
   }
 
   useEventStream({
@@ -63,5 +72,6 @@ export function useAppSync() {
   return {
     bootstrap,
     resetAll,
+    ready,
   }
 }
