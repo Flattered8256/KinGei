@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use crate::error::AppError;
 use crate::error::user::UserError;
-use crate::model::user::User;
+use crate::model::user::{User, UserRole};
 use crate::repository::file::FileRepository;
 use crate::repository::user::{UpdateUser, UserRepository};
 use crate::serializer::user::{
@@ -38,6 +38,7 @@ impl UserService {
             created_at: Utc::now(),
             password_hash,
             avatar: None,
+            role: UserRole::Member,
         };
 
         let created = self.repo.create(user).await?;
@@ -155,5 +156,17 @@ impl UserService {
             refresh_token: new_refresh_token,
             token_type: "Bearer".to_string(),
         })
+    }
+
+    pub async fn require_admin(&self, user_id: Uuid) -> Result<(), AppError> {
+        let user = self
+            .repo
+            .find_by_id(user_id)
+            .await?
+            .ok_or(AppError::User(UserError::NotFound))?;
+        if user.role != UserRole::Admin {
+            return Err(AppError::User(UserError::NotAdmin));
+        }
+        Ok(())
     }
 }

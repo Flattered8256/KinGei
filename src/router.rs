@@ -1,3 +1,4 @@
+pub mod admin;
 pub mod chat;
 pub mod event;
 pub mod file;
@@ -26,6 +27,7 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         )
         .nest("/event", event::protected_routes())
         .nest("/file", file::protected_routes())
+        .nest("/admin", admin::protected_routes(state.clone()))
         .with_state(state);
     if let Some(cors) = crate::middleware::cors::layer() {
         app = app.layer(cors);

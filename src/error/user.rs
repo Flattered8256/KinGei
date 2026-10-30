@@ -14,6 +14,8 @@ pub enum UserError {
     PasswordMismatch,
     #[error("InvalidToken")]
     InvalidToken,
+    #[error("NotAdmin")]
+    NotAdmin,
 }
 
 #[derive(Debug, Serialize)]
@@ -29,6 +31,7 @@ impl IntoResponse for UserError {
             UserError::InvalidCredentials => (StatusCode::UNAUTHORIZED, self.to_string()),
             UserError::PasswordMismatch => (StatusCode::UNAUTHORIZED, self.to_string()),
             UserError::InvalidToken => (StatusCode::UNAUTHORIZED, self.to_string()),
+            UserError::NotAdmin => (StatusCode::FORBIDDEN, self.to_string()),
         };
 
         (

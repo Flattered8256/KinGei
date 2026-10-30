@@ -2,7 +2,7 @@ use sqlx::QueryBuilder;
 use uuid::Uuid;
 
 use crate::database::{Db, DbPool};
-use crate::model::user::User;
+use crate::model::user::{User, UserRole};
 
 #[derive(Debug)]
 pub struct UpdateUser {
@@ -21,12 +21,33 @@ impl UserRepository {
         Self { pool }
     }
 
-    pub async fn create(&self, user: User) -> Result<User, sqlx::Error> {
-        sqlx::query_as::<_, User>(
+    pub async fn create(&self, mut user: User) -> Result<User, sqlx::Error> {
+        let mut tx = self.pool.begin().await?;
+
+        #[cfg(feature = "sqlite")]
+        sqlx::query(r#"UPDATE "user" SET username = username WHERE 0"#)
+            .execute(&mut *tx)
+            .await?;
+
+        #[cfg(feature = "postgres")]
+        sqlx::query(r#"LOCK TABLE "user" IN EXCLUSIVE MODE"#)
+            .execute(&mut *tx)
+            .await?;
+
+        let count: i64 = sqlx::query_scalar(r#"SELECT COUNT(*) FROM "user""#)
+            .fetch_one(&mut *tx)
+            .await?;
+        user.role = if count == 0 {
+            UserRole::Admin
+        } else {
+            UserRole::Member
+        };
+
+        let created = sqlx::query_as::<_, User>(
             r#"
-            INSERT INTO "user"(id, username, email, created_at, password_hash)
-            VALUES ($1, $2, $3, $4, $5)
-            RETURNING id, username, email, created_at, password_hash, avatar
+            INSERT INTO "user"(id, username, email, created_at, password_hash, role)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING id, username, email, created_at, password_hash, avatar, role
             "#,
         )
         .bind(&user.id)
@@ -34,8 +55,12 @@ impl UserRepository {
         .bind(&user.email)
         .bind(&user.created_at)
         .bind(&user.password_hash)
-        .fetch_one(&self.pool)
-        .await
+        .bind(user.role)
+        .fetch_one(&mut *tx)
+        .await?;
+
+        tx.commit().await?;
+        Ok(created)
     }
 
     pub async fn delete(&self, id: Uuid) -> Result<Option<User>, sqlx::Error> {
@@ -43,7 +68,7 @@ impl UserRepository {
             r#"
             DELETE FROM "user"
             WHERE id = $1
-            RETURNING id, username, email, created_at, password_hash, avatar
+            RETURNING id, username, email, created_at, password_hash, avatar, role
             "#,
         )
         .bind(&id)
@@ -53,7 +78,7 @@ impl UserRepository {
     pub async fn list(&self) -> Result<Vec<User>, sqlx::Error> {
         sqlx::query_as::<_, User>(
             r#"
-            SELECT id, username, email, created_at, password_hash, avatar
+            SELECT id, username, email, created_at, password_hash, avatar, role
             FROM "user"
             "#,
         )
@@ -63,7 +88,7 @@ impl UserRepository {
     pub async fn find_by_email(&self, email: &str) -> Result<Option<User>, sqlx::Error> {
         sqlx::query_as::<_, User>(
             r#"
-            SELECT id, username, email, created_at, password_hash, avatar
+            SELECT id, username, email, created_at, password_hash, avatar, role
             FROM "user"
             WHERE email = $1
             "#,
@@ -76,7 +101,7 @@ impl UserRepository {
     pub async fn find_by_id(&self, id: Uuid) -> Result<Option<User>, sqlx::Error> {
         sqlx::query_as::<_, User>(
             r#"
-            SELECT id, username, email, created_at, password_hash, avatar
+            SELECT id, username, email, created_at, password_hash, avatar, role
             FROM "user"
             WHERE id = $1
             "#,
@@ -93,7 +118,7 @@ impl UserRepository {
 
         let mut builder = QueryBuilder::<Db>::new(
             r#"
-            SELECT id, username, email, created_at, password_hash, avatar
+            SELECT id, username, email, created_at, password_hash, avatar, role
             FROM "user"
             WHERE id IN (
             "#,
@@ -151,11 +176,64 @@ impl UserRepository {
 
         builder.push(" WHERE id = ");
         builder.push_bind(id);
-        builder.push(" RETURNING id, username, email, created_at, password_hash, avatar");
+        builder.push(" RETURNING id, username, email, created_at, password_hash, avatar, role");
 
         builder
             .build_query_as::<User>()
             .fetch_optional(&self.pool)
             .await
+    }
+}
+
+#[cfg(all(test, feature = "sqlite"))]
+mod tests {
+    use chrono::Utc;
+    use uuid::Uuid;
+
+    use super::*;
+    use crate::database::{DbPool, run_migrations};
+    use crate::model::user::UserRole;
+
+    #[tokio::test]
+    async fn first_user_is_admin_second_is_member() {
+        let pool = test_pool().await;
+        run_migrations(&pool).await;
+        let repo = UserRepository::new(pool);
+
+        let first = repo
+            .create(sample("alice", "alice@example.com"))
+            .await
+            .unwrap();
+        assert_eq!(first.role, UserRole::Admin);
+
+        let second = repo.create(sample("bob", "bob@example.com")).await.unwrap();
+        assert_eq!(second.role, UserRole::Member);
+    }
+
+    fn sample(username: &str, email: &str) -> User {
+        User {
+            id: Uuid::new_v4(),
+            username: username.to_string(),
+            email: email.to_string(),
+            created_at: Utc::now(),
+            password_hash: "hash".to_string(),
+            avatar: None,
+            role: UserRole::Member,
+        }
+    }
+
+    async fn test_pool() -> DbPool {
+        use std::str::FromStr;
+
+        use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+
+        let options = SqliteConnectOptions::from_str("sqlite::memory:")
+            .unwrap()
+            .create_if_missing(true);
+        SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(options)
+            .await
+            .unwrap()
     }
 }

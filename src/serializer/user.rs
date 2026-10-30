@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::model::user::User;
+use crate::model::user::{User, UserRole};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct UserResponse {
@@ -11,6 +11,7 @@ pub struct UserResponse {
     pub email: String,
     pub created_at: DateTime<Utc>,
     pub avatar: Option<i64>,
+    pub role: UserRole,
 }
 #[derive(Debug, Serialize)]
 pub struct LoginResponse {
@@ -66,6 +67,7 @@ impl From<User> for UserResponse {
             email: user.email,
             created_at: user.created_at,
             avatar: user.avatar,
+            role: user.role,
         }
     }
 }
