@@ -23,6 +23,8 @@ pub enum FriendError {
     RequestNotPending,
     #[error("NotFriends")]
     NotFriends,
+    #[error("AddFriendDisabled")]
+    AddFriendDisabled,
 }
 
 #[derive(Debug, Serialize)]
@@ -42,6 +44,7 @@ impl IntoResponse for FriendError {
             FriendError::NotRequestSender => (StatusCode::FORBIDDEN, self.to_string()),
             FriendError::RequestNotPending => (StatusCode::CONFLICT, self.to_string()),
             FriendError::NotFriends => (StatusCode::NOT_FOUND, self.to_string()),
+            FriendError::AddFriendDisabled => (StatusCode::FORBIDDEN, self.to_string()),
         };
 
         (

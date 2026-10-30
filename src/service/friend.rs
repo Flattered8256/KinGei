@@ -7,7 +7,9 @@ use crate::error::AppError;
 use crate::error::friend::FriendError;
 use crate::event::{ClientEvent, EventHub};
 use crate::model::friend::{FriendRequest, Status};
+use crate::model::user::UserRole;
 use crate::repository::friend::{FriendRepository, FriendRequestRepository};
+use crate::repository::instance::InstanceRepository;
 use crate::repository::user::UserRepository;
 use crate::serializer::friend::{FriendRequestResponse, FriendResponse, SendFriendRequest};
 use crate::serializer::user::UserResponse;
@@ -16,6 +18,7 @@ pub struct FriendService {
     friend_repo: Arc<FriendRepository>,
     request_repo: Arc<FriendRequestRepository>,
     user_repo: Arc<UserRepository>,
+    instance_repo: Arc<InstanceRepository>,
     event_hub: EventHub,
 }
 
@@ -24,12 +27,14 @@ impl FriendService {
         friend_repo: Arc<FriendRepository>,
         request_repo: Arc<FriendRequestRepository>,
         user_repo: Arc<UserRepository>,
+        instance_repo: Arc<InstanceRepository>,
         event_hub: EventHub,
     ) -> Self {
         Self {
             friend_repo,
             request_repo,
             user_repo,
+            instance_repo,
             event_hub,
         }
     }
@@ -43,6 +48,18 @@ impl FriendService {
 
         if sender_id == receiver_id {
             return Err(AppError::Friend(FriendError::CannotAddSelf));
+        }
+
+        let sender = self
+            .user_repo
+            .find_by_id(sender_id)
+            .await?
+            .ok_or(AppError::Friend(FriendError::UserNotFound))?;
+        if sender.role != UserRole::Admin {
+            let instance = self.instance_repo.get().await?;
+            if !instance.allow_add_friend {
+                return Err(AppError::Friend(FriendError::AddFriendDisabled));
+            }
         }
 
         self.user_repo
@@ -293,5 +310,122 @@ impl FriendService {
             .into_iter()
             .map(|user| (user.id, UserResponse::from(user)))
             .collect())
+    }
+}
+
+#[cfg(all(test, feature = "sqlite"))]
+mod tests {
+    use std::sync::Arc;
+
+    use chrono::Utc;
+    use uuid::Uuid;
+
+    use super::*;
+    use crate::database::{DbPool, run_migrations};
+    use crate::model::user::User;
+    use crate::repository::instance::UpdateInstance;
+    use crate::repository::user::UserRepository;
+
+    #[tokio::test]
+    async fn member_cannot_send_request_when_disabled() {
+        let (service, admin_id, member_id, instance_repo) = setup().await;
+        instance_repo
+            .update(UpdateInstance {
+                allow_add_friend: Some(false),
+                allow_create_group: None,
+            })
+            .await
+            .unwrap();
+
+        let err = service
+            .send_request(
+                member_id,
+                SendFriendRequest {
+                    receiver_id: admin_id,
+                },
+            )
+            .await
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            AppError::Friend(FriendError::AddFriendDisabled)
+        ));
+    }
+
+    #[tokio::test]
+    async fn admin_can_send_request_when_disabled() {
+        let (service, admin_id, member_id, instance_repo) = setup().await;
+        instance_repo
+            .update(UpdateInstance {
+                allow_add_friend: Some(false),
+                allow_create_group: None,
+            })
+            .await
+            .unwrap();
+
+        let created = service
+            .send_request(
+                admin_id,
+                SendFriendRequest {
+                    receiver_id: member_id,
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(created.sender.id, admin_id);
+        assert_eq!(created.receiver.id, member_id);
+    }
+
+    async fn setup() -> (FriendService, Uuid, Uuid, Arc<InstanceRepository>) {
+        let pool = test_pool().await;
+        run_migrations(&pool).await;
+
+        let user_repo = Arc::new(UserRepository::new(pool.clone()));
+        let instance_repo = Arc::new(InstanceRepository::new(pool.clone()));
+        let admin = user_repo
+            .create(sample("alice", "alice@example.com"))
+            .await
+            .unwrap();
+        let member = user_repo
+            .create(sample("bob", "bob@example.com"))
+            .await
+            .unwrap();
+
+        let service = FriendService::new(
+            Arc::new(FriendRepository::new(pool.clone())),
+            Arc::new(FriendRequestRepository::new(pool)),
+            user_repo,
+            instance_repo.clone(),
+            EventHub::new(),
+        );
+        (service, admin.id, member.id, instance_repo)
+    }
+
+    fn sample(username: &str, email: &str) -> User {
+        User {
+            id: Uuid::new_v4(),
+            username: username.to_string(),
+            email: email.to_string(),
+            created_at: Utc::now(),
+            password_hash: "hash".to_string(),
+            avatar: None,
+            role: UserRole::Member,
+        }
+    }
+
+    async fn test_pool() -> DbPool {
+        use std::str::FromStr;
+
+        use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+
+        let options = SqliteConnectOptions::from_str("sqlite::memory:")
+            .unwrap()
+            .create_if_missing(true)
+            .foreign_keys(true);
+        SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(options)
+            .await
+            .unwrap()
     }
 }

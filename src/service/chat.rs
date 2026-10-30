@@ -7,9 +7,11 @@ use crate::error::AppError;
 use crate::error::chat::ChatError;
 use crate::event::{ClientEvent, EventHub};
 use crate::model::chat::{Chat, ChatType};
+use crate::model::user::UserRole;
 use crate::repository::chat::ChatRepository;
 use crate::repository::file::FileRepository;
 use crate::repository::friend::FriendRepository;
+use crate::repository::instance::InstanceRepository;
 use crate::repository::message::MessageRepository;
 use crate::repository::user::UserRepository;
 use crate::serializer::chat::{
@@ -25,6 +27,7 @@ pub struct ChatService {
     user_repo: Arc<UserRepository>,
     file_repo: Arc<FileRepository>,
     message_repo: Arc<MessageRepository>,
+    instance_repo: Arc<InstanceRepository>,
     event_hub: EventHub,
 }
 
@@ -35,6 +38,7 @@ impl ChatService {
         user_repo: Arc<UserRepository>,
         file_repo: Arc<FileRepository>,
         message_repo: Arc<MessageRepository>,
+        instance_repo: Arc<InstanceRepository>,
         event_hub: EventHub,
     ) -> Self {
         Self {
@@ -43,6 +47,7 @@ impl ChatService {
             user_repo,
             file_repo,
             message_repo,
+            instance_repo,
             event_hub,
         }
     }
@@ -85,6 +90,18 @@ impl ChatService {
         let name = request.name.trim();
         if name.is_empty() {
             return Err(AppError::Chat(ChatError::EmptyName));
+        }
+
+        let actor = self
+            .user_repo
+            .find_by_id(user_id)
+            .await?
+            .ok_or(AppError::Chat(ChatError::UserNotFound))?;
+        if actor.role != UserRole::Admin {
+            let instance = self.instance_repo.get().await?;
+            if !instance.allow_create_group {
+                return Err(AppError::Chat(ChatError::CreateGroupDisabled));
+            }
         }
 
         let created = self.chat_repo.create_group(user_id, name).await?;
@@ -388,5 +405,124 @@ impl ChatService {
             .into_iter()
             .map(|user| (user.id, UserResponse::from(user)))
             .collect())
+    }
+}
+
+#[cfg(all(test, feature = "sqlite"))]
+mod tests {
+    use std::sync::Arc;
+
+    use chrono::Utc;
+    use uuid::Uuid;
+
+    use super::*;
+    use crate::database::{DbPool, run_migrations};
+    use crate::model::user::User;
+    use crate::repository::instance::UpdateInstance;
+    use crate::repository::user::UserRepository;
+
+    #[tokio::test]
+    async fn member_cannot_create_group_when_disabled() {
+        let (service, _admin_id, member_id, instance_repo) = setup().await;
+        instance_repo
+            .update(UpdateInstance {
+                allow_add_friend: None,
+                allow_create_group: Some(false),
+            })
+            .await
+            .unwrap();
+
+        let err = service
+            .create_group(
+                member_id,
+                CreateGroupRequest {
+                    name: "team".to_string(),
+                },
+            )
+            .await
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            AppError::Chat(ChatError::CreateGroupDisabled)
+        ));
+    }
+
+    #[tokio::test]
+    async fn admin_can_create_group_when_disabled() {
+        let (service, admin_id, _member_id, instance_repo) = setup().await;
+        instance_repo
+            .update(UpdateInstance {
+                allow_add_friend: None,
+                allow_create_group: Some(false),
+            })
+            .await
+            .unwrap();
+
+        let created = service
+            .create_group(
+                admin_id,
+                CreateGroupRequest {
+                    name: "team".to_string(),
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(created.name.as_deref(), Some("team"));
+        assert_eq!(created.owner_id, Some(admin_id));
+    }
+
+    async fn setup() -> (ChatService, Uuid, Uuid, Arc<InstanceRepository>) {
+        let pool = test_pool().await;
+        run_migrations(&pool).await;
+
+        let user_repo = Arc::new(UserRepository::new(pool.clone()));
+        let instance_repo = Arc::new(InstanceRepository::new(pool.clone()));
+        let admin = user_repo
+            .create(sample("alice", "alice@example.com"))
+            .await
+            .unwrap();
+        let member = user_repo
+            .create(sample("bob", "bob@example.com"))
+            .await
+            .unwrap();
+
+        let service = ChatService::new(
+            Arc::new(ChatRepository::new(pool.clone())),
+            Arc::new(FriendRepository::new(pool.clone())),
+            user_repo,
+            Arc::new(FileRepository::new(pool.clone())),
+            Arc::new(MessageRepository::new(pool)),
+            instance_repo.clone(),
+            EventHub::new(),
+        );
+        (service, admin.id, member.id, instance_repo)
+    }
+
+    fn sample(username: &str, email: &str) -> User {
+        User {
+            id: Uuid::new_v4(),
+            username: username.to_string(),
+            email: email.to_string(),
+            created_at: Utc::now(),
+            password_hash: "hash".to_string(),
+            avatar: None,
+            role: UserRole::Member,
+        }
+    }
+
+    async fn test_pool() -> DbPool {
+        use std::str::FromStr;
+
+        use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+
+        let options = SqliteConnectOptions::from_str("sqlite::memory:")
+            .unwrap()
+            .create_if_missing(true)
+            .foreign_keys(true);
+        SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(options)
+            .await
+            .unwrap()
     }
 }

@@ -2,10 +2,11 @@ use std::sync::Arc;
 
 use axum::{
     Router, middleware,
-    routing::{delete, get},
+    routing::{delete, get, patch},
 };
 
 use crate::handler::admin as handler;
+use crate::handler::instance;
 use crate::middleware::admin;
 use crate::middleware::auth;
 use crate::state::AppState;
@@ -14,6 +15,7 @@ pub fn protected_routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
     Router::new()
         .route("/user", get(handler::list_users))
         .route("/user/{id}", delete(handler::delete_user))
+        .route("/instance", patch(instance::update))
         .layer(middleware::from_fn_with_state(
             state,
             admin::admin_middleware,

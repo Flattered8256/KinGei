@@ -23,6 +23,8 @@ pub enum ChatError {
     AlreadyMember,
     #[error("EmptyName")]
     EmptyName,
+    #[error("CreateGroupDisabled")]
+    CreateGroupDisabled,
 }
 
 #[derive(Debug, Serialize)]
@@ -42,6 +44,7 @@ impl IntoResponse for ChatError {
             ChatError::CannotModifyDirect => (StatusCode::BAD_REQUEST, self.to_string()),
             ChatError::AlreadyMember => (StatusCode::CONFLICT, self.to_string()),
             ChatError::EmptyName => (StatusCode::BAD_REQUEST, self.to_string()),
+            ChatError::CreateGroupDisabled => (StatusCode::FORBIDDEN, self.to_string()),
         };
 
         (
