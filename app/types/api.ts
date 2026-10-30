@@ -8,6 +8,9 @@ export const API_ERROR_CODES = [
   'InvalidCredentials',
   'PasswordMismatch',
   'InvalidToken',
+  'NotAdmin',
+  'CannotDeleteSelf',
+  'CannotDeleteAdmin',
   'CannotAddSelf',
   'UserNotFound',
   'AlreadyFriends',
@@ -54,6 +57,11 @@ export interface Instance {
   allow_add_friend: boolean
   allow_create_group: boolean
   initializing: boolean
+}
+
+export interface UpdateInstanceRequest {
+  allow_add_friend?: boolean
+  allow_create_group?: boolean
 }
 
 export interface CreateUserRequest {

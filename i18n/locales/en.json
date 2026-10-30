@@ -5,6 +5,9 @@
     "InvalidCredentials": "Incorrect email or password",
     "PasswordMismatch": "Current password is incorrect",
     "InvalidToken": "Session expired, please sign in again",
+    "NotAdmin": "Admin access required",
+    "CannotDeleteSelf": "You cannot delete yourself",
+    "CannotDeleteAdmin": "Admins cannot be deleted",
     "CannotAddSelf": "You cannot add yourself",
     "UserNotFound": "User not found",
     "AlreadyFriends": "You are already friends",
@@ -42,6 +45,10 @@
       "Pending": "Pending",
       "Accept": "Accepted",
       "Reject": "Rejected"
+    },
+    "userRole": {
+      "Admin": "Admin",
+      "Member": "Member"
     }
   },
   "app": {
@@ -164,9 +171,13 @@
   },
   "settings": {
     "title": "Settings",
+    "general": "General",
+    "admin": "Admin",
     "account": "My account",
     "language": "Language",
     "appearance": "Appearance",
+    "site": "Site",
+    "users": "Users",
     "logout": "Log out",
     "username": "Username",
     "email": "Email",
@@ -178,6 +189,15 @@
     "themeDark": "Dark",
     "themeSystem": "System",
     "zh": "中文",
-    "en": "English"
+    "en": "English",
+    "siteHint": "When off, members cannot add friends or create groups. Existing friends and groups stay usable. Admins are not restricted.",
+    "allowAddFriend": "Allow adding friends",
+    "allowAddFriendHint": "Members can send friend requests to other users",
+    "allowCreateGroup": "Allow creating groups",
+    "allowCreateGroupHint": "Members can create new group chats",
+    "usersHint": "Manage members who can access this site.",
+    "removeUser": "Remove",
+    "removeUserConfirm": "Remove this user?",
+    "userRemoved": "User removed"
   }
 }

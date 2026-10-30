@@ -1,4 +1,5 @@
-import type { Instance } from '~/types/api'
+import type { Instance, UpdateInstanceRequest } from '~/types/api'
+import { updateInstance } from '~/utils/api/admin'
 import { getInstance } from '~/utils/api/instance'
 
 const DEFAULT_INSTANCE: Instance = {
@@ -34,10 +35,16 @@ export function useInstance() {
     return inflight
   }
 
+  async function updateFlags(body: UpdateInstanceRequest) {
+    return updateInstance(body)
+  }
+
   return {
     instance,
+    isAdmin,
     canAddFriend,
     canCreateGroup,
     refresh,
+    updateFlags,
   }
 }

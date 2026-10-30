@@ -53,6 +53,12 @@ export type { EventStreamConnection, EventStreamHandlers } from './event'
 export { getInstance } from './instance'
 
 export {
+  deleteAdminUser,
+  listAdminUsers,
+  updateInstance,
+} from './admin'
+
+export {
   completeFile,
   createFile,
   downloadFile,

@@ -12,6 +12,7 @@
   --color-primary-text: #ffffff;
   --color-text: #1f2937;
   --color-muted: #667085;
+  --color-section: #98a2b3;
   --color-bubble-own: #cff9fe;
   --color-bubble-other: #f3f4f6;
   --color-danger: #ef4444;
@@ -19,6 +20,10 @@
   --color-border: #e5e7eb;
   --color-unread: #ef4444;
   --color-logo: #22ccee;
+  --badge-admin-bg: #cff9fe;
+  --badge-admin-fg: #0e7090;
+  --badge-member-bg: #f2f4f7;
+  --badge-member-fg: #475467;
   --shadow-card: 0 18px 50px rgba(15, 23, 42, 0.08);
   --shadow-modal: 0 20px 60px rgba(15, 23, 42, 0.18);
   --radius-xl: 16px;
@@ -43,10 +48,15 @@
   --bg-input: #111827;
   --color-text: #ffffff;
   --color-muted: #e5e7eb;
+  --color-section: #98a2b3;
   --color-bubble-own: #155b75;
   --color-bubble-other: #374151;
   --color-border: #4b5563;
   --color-danger-bg: #3f1d1d;
+  --badge-admin-bg: #155b75;
+  --badge-admin-fg: #a5f3fc;
+  --badge-member-bg: #374151;
+  --badge-member-fg: #e5e7eb;
   --shadow-card: 0 18px 50px rgba(0, 0, 0, 0.35);
   --shadow-modal: 0 20px 60px rgba(0, 0, 0, 0.5);
 }
@@ -361,7 +371,7 @@ select.input {
 
 .list-section-label {
   padding: 8px 16px 4px;
-  color: var(--color-muted);
+  color: var(--color-section);
   font-size: 12px;
 }
 

@@ -5,6 +5,9 @@
     "InvalidCredentials": "邮箱或密码错误",
     "PasswordMismatch": "原密码不正确",
     "InvalidToken": "登录已过期，请重新登录",
+    "NotAdmin": "需要管理员权限",
+    "CannotDeleteSelf": "不能删除自己",
+    "CannotDeleteAdmin": "不能删除管理员",
     "CannotAddSelf": "不能添加自己",
     "UserNotFound": "用户不存在",
     "AlreadyFriends": "已经是好友",
@@ -42,6 +45,10 @@
       "Pending": "待处理",
       "Accept": "已接受",
       "Reject": "已拒绝"
+    },
+    "userRole": {
+      "Admin": "管理员",
+      "Member": "成员"
     }
   },
   "app": {
@@ -164,9 +171,13 @@
   },
   "settings": {
     "title": "设置",
+    "general": "通用",
+    "admin": "管理",
     "account": "我的账号",
     "language": "语言",
     "appearance": "外观",
+    "site": "站点",
+    "users": "用户",
     "logout": "退出登录",
     "username": "用户名",
     "email": "邮箱",
@@ -178,6 +189,15 @@
     "themeDark": "暗色",
     "themeSystem": "跟随系统",
     "zh": "中文",
-    "en": "English"
+    "en": "English",
+    "siteHint": "关闭后，成员不能添加好友或创建群聊。已有好友和群聊仍可使用。管理员不受限制。",
+    "allowAddFriend": "允许添加好友",
+    "allowAddFriendHint": "成员可以向其他用户发送好友申请",
+    "allowCreateGroup": "允许创建群聊",
+    "allowCreateGroupHint": "成员可以创建新的群聊",
+    "usersHint": "管理可以访问这个站点的成员。",
+    "removeUser": "移除",
+    "removeUserConfirm": "确定移除该用户？",
+    "userRemoved": "已移除用户"
   }
 }
