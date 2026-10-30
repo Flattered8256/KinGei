@@ -80,6 +80,7 @@ impl UserRepository {
             r#"
             SELECT id, username, email, created_at, password_hash, avatar, role
             FROM "user"
+            ORDER BY created_at ASC, id ASC
             "#,
         )
         .fetch_all(&self.pool)
@@ -208,6 +209,25 @@ mod tests {
 
         let second = repo.create(sample("bob", "bob@example.com")).await.unwrap();
         assert_eq!(second.role, UserRole::Member);
+    }
+
+    #[tokio::test]
+    async fn list_orders_by_created_at() {
+        let pool = test_pool().await;
+        run_migrations(&pool).await;
+        let repo = UserRepository::new(pool);
+
+        repo.create(sample("alice", "alice@example.com"))
+            .await
+            .unwrap();
+        repo.create(sample("bob", "bob@example.com")).await.unwrap();
+
+        let users = repo.list().await.unwrap();
+        assert_eq!(users.len(), 2);
+        assert_eq!(users[0].username, "alice");
+        assert_eq!(users[0].role, UserRole::Admin);
+        assert_eq!(users[1].username, "bob");
+        assert_eq!(users[1].role, UserRole::Member);
     }
 
     fn sample(username: &str, email: &str) -> User {

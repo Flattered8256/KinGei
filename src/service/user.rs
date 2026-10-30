@@ -158,6 +158,11 @@ impl UserService {
         })
     }
 
+    pub async fn list(&self) -> Result<Vec<UserResponse>, AppError> {
+        let users = self.repo.list().await?;
+        Ok(users.into_iter().map(UserResponse::from).collect())
+    }
+
     pub async fn require_admin(&self, user_id: Uuid) -> Result<(), AppError> {
         let user = self
             .repo

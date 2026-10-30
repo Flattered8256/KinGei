@@ -1,13 +1,15 @@
 use std::sync::Arc;
 
-use axum::{Router, middleware};
+use axum::{Router, middleware, routing::get};
 
+use crate::handler::admin as handler;
 use crate::middleware::admin;
 use crate::middleware::auth;
 use crate::state::AppState;
 
 pub fn protected_routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
     Router::new()
+        .route("/user", get(handler::list_users))
         .layer(middleware::from_fn_with_state(
             state,
             admin::admin_middleware,
