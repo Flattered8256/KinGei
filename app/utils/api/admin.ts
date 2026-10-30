@@ -1,4 +1,4 @@
-import type { Instance, UpdateInstanceRequest, User } from '~/types/api'
+import type { Instance, Invite, UpdateInstanceRequest, User } from '~/types/api'
 import { apiFetch, apiFetchVoid } from './http'
 
 export function listAdminUsers() {
@@ -15,5 +15,15 @@ export function updateInstance(body: UpdateInstanceRequest) {
   return apiFetch<Instance>('/admin/instance', {
     method: 'PATCH',
     body,
+  })
+}
+
+export function getInvite() {
+  return apiFetch<Invite>('/admin/invite')
+}
+
+export function regenerateInvite() {
+  return apiFetch<Invite>('/admin/invite', {
+    method: 'POST',
   })
 }

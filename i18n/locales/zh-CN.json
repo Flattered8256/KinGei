@@ -34,6 +34,7 @@
     "SizeMismatch": "文件大小与申请时不一致",
     "FileNotReady": "文件还不能使用",
     "InvalidImage": "请选择 JPEG、PNG、WebP 或 GIF 图片",
+    "InviteNotFound": "邀请码无效",
     "InternalServerError": "服务异常，请稍后重试"
   },
   "enum": {
@@ -108,7 +109,9 @@
     "noAccount": "没有账号？",
     "hasAccount": "已有账号？",
     "passwordMismatch": "两次输入的密码不一致",
-    "required": "请填写完整信息"
+    "required": "请填写完整信息",
+    "inviteCode": "邀请码",
+    "inviteCodePlaceholder": "输入邀请码"
   },
   "chat": {
     "searchPlaceholder": "搜索会话",
@@ -190,11 +193,18 @@
     "themeSystem": "跟随系统",
     "zh": "中文",
     "en": "English",
-    "siteHint": "关闭后，成员不能添加好友或创建群聊。已有好友和群聊仍可使用。管理员不受限制。",
     "allowAddFriend": "允许添加好友",
     "allowAddFriendHint": "成员可以向其他用户发送好友申请",
     "allowCreateGroup": "允许创建群聊",
     "allowCreateGroupHint": "成员可以创建新的群聊",
+    "inviteOnly": "仅邀请码注册",
+    "inviteOnlyHint": "开启后，新用户必须填写当前邀请码才能注册",
+    "inviteCode": "邀请码",
+    "inviteCodeEmpty": "尚未生成邀请码",
+    "inviteCodeGenerate": "生成邀请码",
+    "inviteCodeRegenerate": "重新生成",
+    "inviteCodeCopy": "复制",
+    "inviteCodeCopied": "已复制邀请码",
     "usersHint": "管理可以访问这个站点的成员。",
     "removeUser": "移除",
     "removeUserConfirm": "确定移除该用户？",

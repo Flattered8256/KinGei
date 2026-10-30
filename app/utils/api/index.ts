@@ -54,7 +54,9 @@ export { getInstance } from './instance'
 
 export {
   deleteAdminUser,
+  getInvite,
   listAdminUsers,
+  regenerateInvite,
   updateInstance,
 } from './admin'
 

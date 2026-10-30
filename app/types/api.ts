@@ -37,6 +37,7 @@ export const API_ERROR_CODES = [
   'SizeMismatch',
   'FileNotReady',
   'InvalidImage',
+  'InviteNotFound',
   'InternalServerError',
 ] as const
 
@@ -57,17 +58,24 @@ export interface Instance {
   allow_add_friend: boolean
   allow_create_group: boolean
   initializing: boolean
+  invite_only: boolean
 }
 
 export interface UpdateInstanceRequest {
   allow_add_friend?: boolean
   allow_create_group?: boolean
+  invite_only?: boolean
+}
+
+export interface Invite {
+  code: string
 }
 
 export interface CreateUserRequest {
   username: string
   email: string
   password: string
+  invite_code?: string
 }
 
 export interface LoginRequest {

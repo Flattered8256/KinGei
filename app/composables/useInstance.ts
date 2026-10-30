@@ -6,6 +6,7 @@ const DEFAULT_INSTANCE: Instance = {
   allow_add_friend: true,
   allow_create_group: true,
   initializing: false,
+  invite_only: false,
 }
 
 let inflight: Promise<void> | null = null

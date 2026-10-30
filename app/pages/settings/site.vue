@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { getInvite, regenerateInvite } from '~/utils/api/admin'
+import { isApiErrorCode } from '~/utils/api/error'
+
 definePageMeta({
   layout: 'app',
   middleware: ['auth', 'admin'],
@@ -9,9 +12,63 @@ const { isMobile } = useIsMobile()
 const { instance, updateFlags } = useInstance()
 const toast = useToast()
 
-type FlagKey = 'allow_add_friend' | 'allow_create_group'
+type FlagKey = 'allow_add_friend' | 'allow_create_group' | 'invite_only'
 
 let queue: Promise<void> = Promise.resolve()
+
+const code = ref<string | null>(null)
+const codeLoaded = ref(false)
+const pendingCode = ref(false)
+
+onMounted(() => {
+  void loadCode()
+})
+
+async function loadCode() {
+  try {
+    const invite = await getInvite()
+    code.value = invite.code
+  }
+  catch (err) {
+    if (isApiErrorCode(err, 'InviteNotFound')) {
+      code.value = null
+    }
+    else {
+      toast.error(err)
+    }
+  }
+  finally {
+    codeLoaded.value = true
+  }
+}
+
+async function generate() {
+  pendingCode.value = true
+  try {
+    const invite = await regenerateInvite()
+    code.value = invite.code
+    toast.success(t('settings.saved'))
+  }
+  catch (err) {
+    toast.error(err)
+  }
+  finally {
+    pendingCode.value = false
+  }
+}
+
+async function copyCode() {
+  if (!code.value) {
+    return
+  }
+  try {
+    await navigator.clipboard.writeText(code.value)
+    toast.success(t('settings.inviteCodeCopied'))
+  }
+  catch (err) {
+    toast.error(err)
+  }
+}
 
 function setFlag(key: FlagKey, value: boolean) {
   if (instance.value[key] === value) {
@@ -51,9 +108,6 @@ async function persist(key: FlagKey, sent: boolean) {
       </NuxtLink>
       <h1>{{ $t('settings.site') }}</h1>
     </header>
-    <p class="hint">
-      {{ $t('settings.siteHint') }}
-    </p>
     <div class="box">
       <div class="row">
         <div class="copy">
@@ -78,6 +132,64 @@ async function persist(key: FlagKey, sent: boolean) {
           @update:model-value="setFlag('allow_create_group', $event)"
         />
       </div>
+      <div class="divider" />
+      <div class="row">
+        <div class="copy">
+          <strong>{{ $t('settings.inviteOnly') }}</strong>
+          <span class="muted">{{ $t('settings.inviteOnlyHint') }}</span>
+        </div>
+        <KgSwitch
+          :model-value="instance.invite_only"
+          :aria-label="$t('settings.inviteOnly')"
+          @update:model-value="setFlag('invite_only', $event)"
+        />
+      </div>
+    </div>
+    <div class="box invite-box">
+      <strong>{{ $t('settings.inviteCode') }}</strong>
+      <div
+        v-if="codeLoaded"
+        class="invite-body"
+      >
+        <template v-if="code">
+          <p class="invite-code">
+            {{ code }}
+          </p>
+          <div class="invite-actions">
+            <button
+              class="btn btn-secondary"
+              type="button"
+              :disabled="pendingCode"
+              @click="copyCode"
+            >
+              {{ $t('settings.inviteCodeCopy') }}
+            </button>
+            <button
+              class="btn btn-secondary"
+              type="button"
+              :disabled="pendingCode"
+              @click="generate"
+            >
+              {{ $t('settings.inviteCodeRegenerate') }}
+            </button>
+          </div>
+        </template>
+        <template v-else>
+          <p class="muted">
+            {{ $t('settings.inviteCodeEmpty') }}
+          </p>
+          <div class="invite-actions">
+            <button
+              class="btn btn-secondary"
+              type="button"
+              :disabled="pendingCode"
+              @click="generate"
+            >
+              {{ $t('settings.inviteCodeGenerate') }}
+            </button>
+          </div>
+        </template>
+      </div>
     </div>
   </section>
 </template>
@@ -96,13 +208,6 @@ async function persist(key: FlagKey, sent: boolean) {
 
 h1 {
   font-size: 22px;
-}
-
-.hint {
-  max-width: 560px;
-  margin-bottom: 16px;
-  color: var(--color-muted);
-  font-size: 13px;
 }
 
 .box {
@@ -131,6 +236,37 @@ h1 {
 .divider {
   height: 1px;
   background: var(--color-border);
+}
+
+.invite-box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 8px;
+}
+
+.invite-box strong {
+  font-size: 14px;
+}
+
+.invite-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.invite-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+}
+
+.invite-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 @media (max-width: 899px) {

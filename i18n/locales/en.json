@@ -34,6 +34,7 @@
     "SizeMismatch": "File size does not match",
     "FileNotReady": "File is not ready",
     "InvalidImage": "Choose a JPEG, PNG, WebP, or GIF image",
+    "InviteNotFound": "Invalid invite code",
     "InternalServerError": "Something went wrong, please try again"
   },
   "enum": {
@@ -108,7 +109,9 @@
     "noAccount": "No account?",
     "hasAccount": "Already have an account?",
     "passwordMismatch": "Passwords do not match",
-    "required": "Please fill in all fields"
+    "required": "Please fill in all fields",
+    "inviteCode": "Invite code",
+    "inviteCodePlaceholder": "Enter invite code"
   },
   "chat": {
     "searchPlaceholder": "Search chats",
@@ -190,11 +193,18 @@
     "themeSystem": "System",
     "zh": "中文",
     "en": "English",
-    "siteHint": "When off, members cannot add friends or create groups. Existing friends and groups stay usable. Admins are not restricted.",
     "allowAddFriend": "Allow adding friends",
     "allowAddFriendHint": "Members can send friend requests to other users",
     "allowCreateGroup": "Allow creating groups",
     "allowCreateGroupHint": "Members can create new group chats",
+    "inviteOnly": "Invite-only registration",
+    "inviteOnlyHint": "When on, new users must enter the current invite code to register",
+    "inviteCode": "Invite code",
+    "inviteCodeEmpty": "No invite code yet",
+    "inviteCodeGenerate": "Generate invite code",
+    "inviteCodeRegenerate": "Regenerate",
+    "inviteCodeCopy": "Copy",
+    "inviteCodeCopied": "Invite code copied",
     "usersHint": "Manage members who can access this site.",
     "removeUser": "Remove",
     "removeUserConfirm": "Remove this user?",

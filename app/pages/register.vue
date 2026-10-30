@@ -8,15 +8,29 @@ const { t, locale, setLocale } = useI18n()
 const { register, login } = useAuth()
 const { instance, refresh: refreshInstance } = useInstance()
 const toast = useToast()
+const route = useRoute()
 
 const username = ref('')
 const email = ref('')
 const password = ref('')
 const confirm = ref('')
+const inviteCode = ref(readQueryCode())
 const pending = ref(false)
+
+const needInvite = computed(() => instance.value.invite_only && !instance.value.initializing)
+
+function readQueryCode() {
+  const raw = route.query.code
+  const value = Array.isArray(raw) ? raw[0] : raw
+  return typeof value === 'string' ? value.trim() : ''
+}
 
 async function submit() {
   if (!username.value.trim() || !email.value.trim() || !password.value || !confirm.value) {
+    toast.error(t('auth.required'))
+    return
+  }
+  if (needInvite.value && !inviteCode.value.trim()) {
     toast.error(t('auth.required'))
     return
   }
@@ -30,6 +44,7 @@ async function submit() {
       username: username.value.trim(),
       email: email.value.trim(),
       password: password.value,
+      ...(needInvite.value ? { invite_code: inviteCode.value.trim() } : {}),
     })
     await refreshInstance()
     await login({ email: email.value.trim(), password: password.value })
@@ -99,6 +114,21 @@ function toggleLocale() {
           type="password"
           autocomplete="new-password"
           :placeholder="$t('auth.confirmPlaceholder')"
+        >
+      </label>
+      <label
+        v-if="needInvite"
+        class="field"
+      >
+        <span class="field-label">{{ $t('auth.inviteCode') }}</span>
+        <input
+          v-model="inviteCode"
+          class="input invite-input"
+          autocomplete="off"
+          autocapitalize="characters"
+          spellcheck="false"
+          maxlength="8"
+          :placeholder="$t('auth.inviteCodePlaceholder')"
         >
       </label>
       <button
@@ -171,5 +201,11 @@ function toggleLocale() {
 .lang {
   color: var(--color-muted);
   font-size: 13px;
+}
+
+.invite-input {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 </style>
