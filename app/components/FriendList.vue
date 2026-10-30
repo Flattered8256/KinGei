@@ -4,6 +4,7 @@ import type { FriendRequest } from '~/types/api'
 const route = useRoute()
 const { t } = useI18n()
 const { open } = useAppActions()
+const { canAddFriend } = useInstance()
 const friends = useFriends()
 const chats = useChats()
 
@@ -57,6 +58,7 @@ const listsEmpty = computed(() =>
     <header>
       <h1>{{ $t('friends.title') }}</h1>
       <button
+        v-if="canAddFriend"
         type="button"
         class="icon-btn"
         :title="$t('friends.add')"

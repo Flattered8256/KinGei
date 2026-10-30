@@ -6,6 +6,7 @@ export function useAppSync() {
   const friends = useFriends()
   const messages = useMessages()
   const users = useUserDirectory()
+  const instance = useInstance()
   const router = useRouter()
   const ready = useState('app.ready', () => false)
 
@@ -30,7 +31,7 @@ export function useAppSync() {
     }
     users.remember(user.value)
     try {
-      await Promise.all([chats.refresh(), friends.refresh()])
+      await Promise.all([chats.refresh(), friends.refresh(), instance.refresh()])
     }
     finally {
       if (isAuthenticated.value) {

@@ -13,6 +13,8 @@ import { findUser } from '~/utils/api/user'
 
 export function useFriends() {
   const { user } = useAuth()
+  const apiI18n = useApiI18n()
+  const toast = useToast()
   const users = useUserDirectory()
 
   const friends = useState<Friend[]>('friends.list', () => [])
@@ -51,8 +53,8 @@ export function useFriends() {
       outgoing.value = pendingOnly(sent)
     }
     catch (err) {
-      error.value = useApiI18n().fromError(err)
-      useToast().error(err)
+      error.value = apiI18n.fromError(err)
+      toast.error(err)
     }
     finally {
       loading.value = false

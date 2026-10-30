@@ -50,6 +50,8 @@ export {
 export { connectEventStream } from './event'
 export type { EventStreamConnection, EventStreamHandlers } from './event'
 
+export { getInstance } from './instance'
+
 export {
   completeFile,
   createFile,

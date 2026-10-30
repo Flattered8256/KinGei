@@ -4,6 +4,7 @@ import type { User } from '~/types/api'
 const { t } = useI18n()
 const toast = useToast()
 const { modal, close } = useAppActions()
+const { canAddFriend, canCreateGroup } = useInstance()
 const chats = useChats()
 const friends = useFriends()
 const { user, updatePassword } = useAuth()
@@ -113,7 +114,7 @@ async function changePassword() {
 
 <template>
   <KgModal
-    :open="modal === 'group'"
+    :open="modal === 'group' && canCreateGroup"
     :title="$t('chat.createGroup')"
     @close="close"
   >
@@ -149,7 +150,7 @@ async function changePassword() {
   </KgModal>
 
   <KgModal
-    :open="modal === 'friend'"
+    :open="modal === 'friend' && canAddFriend"
     :title="$t('friends.add')"
     @close="close"
   >

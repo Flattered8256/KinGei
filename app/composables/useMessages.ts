@@ -12,6 +12,8 @@ const emptyThread: Thread = { items: [], hasMore: true }
 
 export function useMessages() {
   const { user } = useAuth()
+  const apiI18n = useApiI18n()
+  const toast = useToast()
   const chats = useChats()
 
   const currentId = useState<number | null>('messages.currentId', () => null)
@@ -179,8 +181,8 @@ export function useMessages() {
     }
     catch (err) {
       if (isCurrent(chatId)) {
-        error.value = useApiI18n().fromError(err)
-        useToast().error(err)
+        error.value = apiI18n.fromError(err)
+        toast.error(err)
       }
     }
     finally {
@@ -224,8 +226,8 @@ export function useMessages() {
     }
     catch (err) {
       if (isCurrent(chatId)) {
-        error.value = useApiI18n().fromError(err)
-        useToast().error(err)
+        error.value = apiI18n.fromError(err)
+        toast.error(err)
       }
     }
     finally {

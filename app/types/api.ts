@@ -17,12 +17,14 @@ export const API_ERROR_CODES = [
   'NotRequestSender',
   'RequestNotPending',
   'NotFriends',
+  'AddFriendDisabled',
   'ChatNotFound',
   'NotMember',
   'NotOwner',
   'CannotModifyDirect',
   'AlreadyMember',
   'EmptyName',
+  'CreateGroupDisabled',
   'EmptyContent',
   'MessageNotFound',
   'FileNotFound',
@@ -37,12 +39,20 @@ export const API_ERROR_CODES = [
 
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number]
 
+export type UserRole = 'Admin' | 'Member'
+
 export interface User {
   id: string
   username: string
   email: string
   created_at: string
   avatar: number | null
+  role: UserRole
+}
+
+export interface Instance {
+  allow_add_friend: boolean
+  allow_create_group: boolean
 }
 
 export interface CreateUserRequest {

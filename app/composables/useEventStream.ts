@@ -18,6 +18,7 @@ export function useSseStatus() {
 
 export function useEventStream(options: UseEventStreamOptions) {
   const { isAuthenticated } = useAuth()
+  const toast = useToast()
   const status = useSseStatus()
   const connected = computed(() => status.value === 'connected')
   let connection: EventStreamConnection | null = null
@@ -71,7 +72,6 @@ export function useEventStream(options: UseEventStreamOptions) {
   }
 
   if (import.meta.client) {
-    const toast = useToast()
     watch(status, (next) => {
       toast.sse(next)
     }, { immediate: true })

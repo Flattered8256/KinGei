@@ -4,6 +4,7 @@ import { formatChatTime, initials, messagePreviewText } from '~/utils/display'
 const { t, locale } = useI18n()
 const chats = useChats()
 const { open } = useAppActions()
+const { canCreateGroup } = useInstance()
 const route = useRoute()
 const query = ref('')
 const showSearch = ref(false)
@@ -128,7 +129,10 @@ function onClickOutsideMenu() {
         >
           <AppIcon name="search" :size="20" />
         </button>
-        <div class="plus-wrap">
+        <div
+          v-if="canCreateGroup"
+          class="plus-wrap"
+        >
           <button
             type="button"
             class="icon-btn"

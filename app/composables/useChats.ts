@@ -14,6 +14,9 @@ import { chatTitle, otherMember } from '~/utils/display'
 export function useChats() {
   const { user } = useAuth()
   const { t } = useI18n()
+  const apiI18n = useApiI18n()
+  const toast = useToast()
+  const route = useRoute()
   const users = useUserDirectory()
 
   const chats = useState<Chat[]>('chats.list', () => [])
@@ -79,8 +82,8 @@ export function useChats() {
       await Promise.all(list.map(chat => loadPreview(chat.id)))
     }
     catch (err) {
-      error.value = useApiI18n().fromError(err)
-      useToast().error(err)
+      error.value = apiI18n.fromError(err)
+      toast.error(err)
     }
     finally {
       loading.value = false
@@ -166,7 +169,7 @@ export function useChats() {
         const message = event.data
         previews.value = { ...previews.value, [message.chat_id]: message }
         const chat = chats.value.find(item => item.id === message.chat_id)
-        const viewing = import.meta.client && String(useRoute().params.id) === String(message.chat_id)
+        const viewing = import.meta.client && String(route.params.id) === String(message.chat_id)
         if (chat && message.sender_id !== myId.value && !viewing) {
           replaceChat({ ...chat, unread_count: chat.unread_count + 1 })
         }
