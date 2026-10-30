@@ -1,3 +1,4 @@
 /target
 chat.db
 .env
+chat.db-journal

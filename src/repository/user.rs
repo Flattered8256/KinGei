@@ -59,6 +59,13 @@ impl UserRepository {
         .fetch_one(&mut *tx)
         .await?;
 
+        if created.role == UserRole::Admin {
+            sqlx::query(r#"UPDATE instance SET initializing = $1 WHERE id = 1"#)
+                .bind(false)
+                .execute(&mut *tx)
+                .await?;
+        }
+
         tx.commit().await?;
         Ok(created)
     }
@@ -209,6 +216,28 @@ mod tests {
 
         let second = repo.create(sample("bob", "bob@example.com")).await.unwrap();
         assert_eq!(second.role, UserRole::Member);
+    }
+
+    #[tokio::test]
+    async fn first_user_clears_instance_initializing() {
+        let pool = test_pool().await;
+        run_migrations(&pool).await;
+        let users = UserRepository::new(pool.clone());
+        let instance = crate::repository::instance::InstanceRepository::new(pool);
+
+        assert!(instance.get().await.unwrap().initializing);
+
+        users
+            .create(sample("alice", "alice@example.com"))
+            .await
+            .unwrap();
+        assert!(!instance.get().await.unwrap().initializing);
+
+        users
+            .create(sample("bob", "bob@example.com"))
+            .await
+            .unwrap();
+        assert!(!instance.get().await.unwrap().initializing);
     }
 
     #[tokio::test]

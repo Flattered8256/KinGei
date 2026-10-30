@@ -21,7 +21,7 @@ impl InstanceRepository {
     pub async fn get(&self) -> Result<Instance, sqlx::Error> {
         sqlx::query_as::<_, Instance>(
             r#"
-            SELECT id, allow_add_friend, allow_create_group
+            SELECT id, allow_add_friend, allow_create_group, initializing
             FROM instance
             WHERE id = 1
             "#,
@@ -53,7 +53,9 @@ impl InstanceRepository {
             return self.get().await;
         }
 
-        builder.push(" WHERE id = 1 RETURNING id, allow_add_friend, allow_create_group");
+        builder.push(
+            " WHERE id = 1 RETURNING id, allow_add_friend, allow_create_group, initializing",
+        );
         builder
             .build_query_as::<Instance>()
             .fetch_one(&self.pool)
@@ -76,6 +78,7 @@ mod tests {
         assert_eq!(instance.id, 1);
         assert!(instance.allow_add_friend);
         assert!(instance.allow_create_group);
+        assert!(instance.initializing);
     }
 
     #[tokio::test]
@@ -93,10 +96,12 @@ mod tests {
             .unwrap();
         assert!(!updated.allow_add_friend);
         assert!(updated.allow_create_group);
+        assert!(updated.initializing);
 
         let current = repo.get().await.unwrap();
         assert!(!current.allow_add_friend);
         assert!(current.allow_create_group);
+        assert!(current.initializing);
     }
 
     #[tokio::test]
@@ -114,6 +119,7 @@ mod tests {
             .unwrap();
         assert!(!updated.allow_add_friend);
         assert!(!updated.allow_create_group);
+        assert!(updated.initializing);
     }
 
     async fn test_pool() -> DbPool {

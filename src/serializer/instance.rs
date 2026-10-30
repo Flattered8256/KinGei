@@ -6,6 +6,7 @@ use crate::model::instance::Instance;
 pub struct InstanceResponse {
     pub allow_add_friend: bool,
     pub allow_create_group: bool,
+    pub initializing: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -19,6 +20,7 @@ impl From<Instance> for InstanceResponse {
         Self {
             allow_add_friend: instance.allow_add_friend,
             allow_create_group: instance.allow_create_group,
+            initializing: instance.initializing,
         }
     }
 }
