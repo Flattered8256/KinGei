@@ -23,7 +23,7 @@ services:
       context: .
     environment:
       DATABASE_URL: sqlite:///data/kinGei.db
-      PORT: "3000"
+      PORT: ${PORT:-3000}
       STATIC_DIR: /app/public
       JWT_SECRET: ${JWT_SECRET}
       S3_ENDPOINT: http://kingei-garage:3900
@@ -34,14 +34,14 @@ services:
       S3_REGION: ${S3_REGION:-us-east-1}
       RUST_LOG: info
     ports:
-      - "3000:3000"
+      - "${PORT:-3000}:${PORT:-3000}"
     volumes:
       - ./KinGei-data/database/sqlite:/data
     depends_on:
       kingei-garage:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3000/api/health"]
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:${PORT:-3000}/api/health"]
       interval: 5s
       timeout: 5s
       retries: 12
