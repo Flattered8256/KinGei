@@ -1,5 +1,3 @@
-use std::env;
-
 use crate::error::AppError;
 use crate::error::user::UserError;
 use crate::utils::auth::{ACCESS_TOKEN_DURATION_MINUTES, verify_access_token};
@@ -52,21 +50,8 @@ fn clear_access_cookie() -> HeaderValue {
 }
 
 fn cookie_header(value: &str, max_age: i64) -> HeaderValue {
-    let same_site = cookie_same_site();
-    let mut buf = format!(
-        "{ACCESS_COOKIE}={value}; Path=/; Max-Age={max_age}; HttpOnly; SameSite={same_site}"
-    );
-    if same_site == "None" {
-        buf.push_str("; Secure");
-    }
+    let buf = format!("{ACCESS_COOKIE}={value}; Path=/; Max-Age={max_age}; HttpOnly; SameSite=Lax");
     HeaderValue::from_str(&buf).expect("access cookie is ascii")
-}
-
-fn cookie_same_site() -> &'static str {
-    match env::var("COOKIE_SAMESITE") {
-        Ok(value) if value.eq_ignore_ascii_case("none") => "None",
-        _ => "Lax",
-    }
 }
 
 fn bearer_token(headers: &HeaderMap) -> Option<&str> {

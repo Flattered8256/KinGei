@@ -15,7 +15,7 @@ use crate::state::AppState;
 
 /// 创建并组装所有应用路由
 pub fn create_router(state: Arc<AppState>) -> Router {
-    let mut app = Router::new()
+    Router::new()
         .route("/health", get(|| async { StatusCode::OK }))
         .nest(
             "/user",
@@ -30,9 +30,5 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .nest("/file", file::protected_routes())
         .nest("/instance", instance::public_routes())
         .nest("/admin", admin::protected_routes(state.clone()))
-        .with_state(state);
-    if let Some(cors) = crate::middleware::cors::layer() {
-        app = app.layer(cors);
-    }
-    app
+        .with_state(state)
 }

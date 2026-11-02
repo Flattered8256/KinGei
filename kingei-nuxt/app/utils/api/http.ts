@@ -15,10 +15,10 @@ type ApiFetchOptions = {
   headers?: HeadersInit
 }
 
+const API_BASE = '/api'
 const REFRESH_PATH = '/user/refresh'
 const SKIP_REFRESH_PATHS = ['/user/login', '/user/register', '/user/logout', REFRESH_PATH]
 
-let apiBase = '/api'
 let rawFetch: ReturnType<typeof $fetch.create> | null = null
 let refreshPromise: Promise<void> | null = null
 
@@ -28,10 +28,8 @@ function request<T>(path: string, options: ApiFetchOptions) {
 
 function getRawFetch() {
   if (!rawFetch) {
-    const config = useRuntimeConfig()
-    apiBase = String(config.public.apiBase)
     rawFetch = $fetch.create({
-      baseURL: apiBase,
+      baseURL: API_BASE,
       credentials: 'include',
       onRequest({ options }) {
         const token = getAccessToken()
@@ -107,7 +105,7 @@ async function doRefresh(): Promise<void> {
 
   try {
     const result = await $fetch<RefreshTokenResponse>(REFRESH_PATH, {
-      baseURL: apiBase,
+      baseURL: API_BASE,
       method: 'POST',
       credentials: 'include',
       body: { refresh_token: refreshToken },

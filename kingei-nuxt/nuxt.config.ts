@@ -20,9 +20,6 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     apiProxyTarget: 'http://127.0.0.1:8000',
-    public: {
-      apiBase: '/api',
-    },
   },
   i18n: {
     defaultLocale: 'zh-CN',

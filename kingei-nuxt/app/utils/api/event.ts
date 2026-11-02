@@ -23,7 +23,7 @@ export interface EventStreamConnection {
 }
 
 export function connectEventStream(handlers: EventStreamHandlers): EventStreamConnection {
-  const apiBase = String(useRuntimeConfig().public.apiBase)
+  const apiBase = '/api'
   let stopped = false
   let skipDelay = false
   let attemptAbort: AbortController | null = null

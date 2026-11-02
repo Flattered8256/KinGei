@@ -3,8 +3,7 @@ import { refreshSession } from '~/utils/api/http'
 
 export function useFileSrc(fileId: MaybeRefOrGetter<number | null | undefined>) {
   const bust = ref(0)
-  const config = useRuntimeConfig()
-  const apiBase = String(config.public.apiBase)
+  const apiBase = '/api'
 
   watch(
     () => toValue(fileId),

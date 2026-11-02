@@ -32,8 +32,6 @@ services:
       S3_SECRET_KEY: ${S3_SECRET_KEY}
       S3_BUCKET: ${S3_BUCKET}
       S3_REGION: ${S3_REGION:-us-east-1}
-      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-}
-      COOKIE_SAMESITE: ${COOKIE_SAMESITE:-Lax}
       RUST_LOG: info
     ports:
       - "3000:3000"
