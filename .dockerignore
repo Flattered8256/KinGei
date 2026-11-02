@@ -5,7 +5,7 @@
 **/.nuxt
 **/.output
 **/.data
-**/chat.db
+**/kinGei.db
 **/.env
 **/__pycache__
 KinGei-data

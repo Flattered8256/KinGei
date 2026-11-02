@@ -22,7 +22,7 @@ services:
     build:
       context: .
     environment:
-      DATABASE_URL: sqlite:///data/chat.db
+      DATABASE_URL: sqlite:///data/kinGei.db
       PORT: "3000"
       STATIC_DIR: /app/public
       JWT_SECRET: ${JWT_SECRET}

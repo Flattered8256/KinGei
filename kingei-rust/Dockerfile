@@ -24,7 +24,7 @@ COPY migrations ./migrations
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/app/target \
     cargo build --release --no-default-features --features ${DB_BACKEND} \
-    && cp /app/target/release/chat /app/chat
+    && cp /app/target/release/kinGei /app/kinGei
 
 FROM debian:bookworm-slim
 RUN apt-get update \
@@ -34,11 +34,11 @@ RUN apt-get update \
     && mkdir -p /data \
     && chown app:app /data
 WORKDIR /app
-COPY --from=builder /app/chat /app/chat
+COPY --from=builder /app/kinGei /app/kinGei
 COPY --from=web /src/.output/public /app/public
 RUN chown -R app:app /app
 USER app
 ENV PORT=3000
 ENV STATIC_DIR=/app/public
 EXPOSE 3000
-CMD ["./chat"]
+CMD ["./kinGei"]
