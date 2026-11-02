@@ -25,7 +25,7 @@ services:
       DATABASE_URL: sqlite:///data/kinGei.db
       PORT: ${PORT:-3000}
       STATIC_DIR: /app/public
-      JWT_SECRET: ${JWT_SECRET}
+      JWT_SECRET: ${JWT_SECRET:-}
       S3_ENDPOINT: http://kingei-garage:3900
       S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT}
       S3_ACCESS_KEY: ${S3_ACCESS_KEY}
@@ -37,6 +37,7 @@ services:
       - "${PORT:-3000}:${PORT:-3000}"
     volumes:
       - ./KinGei-data/database/sqlite:/data
+      - ./KinGei-data:/kingei-data
     depends_on:
       kingei-garage:
         condition: service_healthy

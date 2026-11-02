@@ -27,14 +27,17 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends ffmpeg ca-certificates curl \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --system --uid 1000 --home-dir /app --create-home app \
-    && mkdir -p /data \
-    && chown app:app /data
+    && mkdir -p /data /kingei-data \
+    && chown app:app /data /kingei-data
 WORKDIR /app
 COPY --from=builder /app/kinGei /app/kinGei
 COPY --from=web /src/.output/public /app/public
-RUN chown -R app:app /app
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh \
+    && chown -R app:app /app
 USER app
 ENV PORT=3000
 ENV STATIC_DIR=/app/public
 EXPOSE 3000
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["./kinGei"]
