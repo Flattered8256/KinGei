@@ -1,5 +1,9 @@
 import type { ClientEvent } from '~/types/api'
 
+export function useAppReady() {
+  return useState('app.ready', () => false)
+}
+
 export function useAppSync() {
   const { isAuthenticated, user } = useAuth()
   const chats = useChats()
@@ -8,7 +12,7 @@ export function useAppSync() {
   const users = useUserDirectory()
   const instance = useInstance()
   const router = useRouter()
-  const ready = useState('app.ready', () => false)
+  const ready = useAppReady()
 
   function ingest(event: ClientEvent) {
     chats.ingest(event)

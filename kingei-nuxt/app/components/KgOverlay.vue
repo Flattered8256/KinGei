@@ -4,10 +4,13 @@ withDefaults(defineProps<{
 }>(), {
   global: false,
 })
+
+const ready = useAppReady()
 </script>
 
 <template>
   <div
+    v-if="global || ready"
     class="overlay"
     :class="{ global }"
     role="status"
