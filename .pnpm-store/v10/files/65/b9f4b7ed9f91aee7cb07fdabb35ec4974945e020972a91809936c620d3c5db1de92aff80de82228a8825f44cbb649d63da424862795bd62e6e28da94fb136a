@@ -1,0 +1,223 @@
+import { isRef, unref } from "vue";
+import { useCookie, useRequestURL, useState } from "#imports";
+import { localeLoaders } from "#build/i18n-options.mjs";
+import { cloneDeep, fillMissing, getLocaleMessagesMergedCached, warnMissedMessageFunctions } from "./shared/messages.js";
+import { createPrerenderablePredicate, createRuntimeLoaderPredicate } from "./shared/delivery.js";
+import { createComposableContext } from "./composable-context.js";
+import { getComposer, getI18nTarget } from "./compatibility.js";
+import { canonicalDomainFromLocale, domainForHost, domainFromLocale } from "./shared/domain.js";
+import { isSupportedLocale } from "./shared/locales.js";
+import { resolveRootRedirect, useI18nDetection, useRuntimeI18n } from "./shared/utils.js";
+import { joinURL, parseURL } from "ufo";
+import { isFunction, isString } from "@intlify/shared";
+export const useLocaleConfigs = () => useState(
+  "i18n:cached-locale-configs",
+  () => void 0
+);
+export const useResolvedLocale = () => useState("i18n:resolved-locale", () => "");
+export function withConfiguredProtocol(url, baseUrl) {
+  const protocol = !isFunction(baseUrl) && parseURL(baseUrl).protocol;
+  return protocol ? { host: url.host, protocol } : url;
+}
+export function createBaseUrlGetter(opts) {
+  const { baseUrl, appBase, domains, getDomainForHost, getDomainFromLocale } = opts;
+  const base = isFunction(baseUrl) ? baseUrl : () => domains && getDomainForHost() || baseUrl || "";
+  return (locale) => joinURL(locale && getDomainFromLocale(locale) || base(), appBase);
+}
+function useI18nCookie({ cookieCrossOrigin, cookieDomain, cookieSecure, cookieKey }) {
+  const date = /* @__PURE__ */ new Date();
+  return useCookie(cookieKey || __DEFAULT_COOKIE_KEY__, {
+    path: "/",
+    readonly: false,
+    expires: new Date(date.setDate(date.getDate() + 365)),
+    sameSite: cookieCrossOrigin ? "none" : "lax",
+    domain: cookieDomain || void 0,
+    secure: cookieCrossOrigin || cookieSecure
+  });
+}
+export const isPrerenderable = createPrerenderablePredicate({
+  dynamic: __I18N_DYNAMIC_LOCALES__,
+  undeliverable: __I18N_UNDELIVERABLE_LOCALES__
+});
+export function createMessageInstaller(i18n) {
+  const byRef = /* @__PURE__ */ new Map();
+  const merge = i18n.mergeLocaleMessage.bind(i18n);
+  const set = i18n.setLocaleMessage.bind(i18n);
+  i18n.mergeLocaleMessage = ((locale, message) => {
+    if (byRef.delete(locale)) {
+      set(locale, cloneDeep(i18n.getLocaleMessage(locale)));
+    }
+    merge(locale, message);
+  });
+  i18n.setLocaleMessage = ((locale, message) => {
+    byRef.delete(locale);
+    set(locale, message);
+  });
+  return (locale, message) => {
+    if (byRef.get(locale) === message) {
+      return;
+    }
+    if (byRef.has(locale)) {
+      i18n.mergeLocaleMessage(locale, message);
+      return;
+    }
+    set(locale, fillMissing(message, i18n.getLocaleMessage(locale)));
+    byRef.set(locale, message);
+  };
+}
+export function createNuxtI18nContext(nuxt, vueI18n, defaultLocale, flatJson = false) {
+  const i18n = getI18nTarget(vueI18n);
+  const installMessages = import.meta.server ? createMessageInstaller(getComposer(vueI18n)) : void 0;
+  const runtimeI18n = useRuntimeI18n(nuxt);
+  const detectConfig = useI18nDetection(nuxt);
+  const serverLocaleConfigs = useLocaleConfigs();
+  const localeCookie = useI18nCookie(detectConfig);
+  const loadMap = /* @__PURE__ */ new Set();
+  const getLocaleConfig = (locale) => serverLocaleConfigs.value[locale];
+  if (import.meta.dev && isFunction(runtimeI18n.baseUrl)) {
+    console.warn("[nuxt-i18n] Configuring baseUrl as a function is deprecated and will be removed in v11.");
+  }
+  let url;
+  const requestUrl = () => url ??= withConfiguredProtocol(useRequestURL({ xForwardedHost: true }), runtimeI18n.baseUrl);
+  const getDomainFromLocale = (locale) => domainFromLocale(runtimeI18n.domainLocales, requestUrl(), locale);
+  const baseUrlOptions = {
+    baseUrl: isFunction(runtimeI18n.baseUrl) ? () => runtimeI18n.baseUrl(nuxt) : runtimeI18n.baseUrl,
+    appBase: nuxt.$config.app.baseURL,
+    domains: __I18N_DOMAINS__,
+    getDomainForHost: () => domainForHost(runtimeI18n.domainLocales, requestUrl())
+  };
+  const getBaseUrl = createBaseUrlGetter({ ...baseUrlOptions, getDomainFromLocale });
+  const getCanonicalBaseUrl = __I18N_DOMAINS__ ? createBaseUrlGetter({
+    ...baseUrlOptions,
+    getDomainFromLocale: (locale) => canonicalDomainFromLocale(runtimeI18n.domainLocales, requestUrl(), locale, runtimeI18n.defaultLocale)
+  }) : getBaseUrl;
+  const resolvedLocale = useResolvedLocale();
+  if (__I18N_SERVER_REDIRECT__ && import.meta.server && nuxt.ssrContext?.event?.context?.nuxtI18n?.detectLocale) {
+    resolvedLocale.value = nuxt.ssrContext.event.context.nuxtI18n.detectLocale;
+  }
+  const buildUsesRuntimeLoaders = createRuntimeLoaderPredicate({
+    ssr: __IS_SSR__,
+    ssg: __IS_SSG__,
+    prerender: !!import.meta.prerender,
+    dynamic: __I18N_DYNAMIC_LOCALES__,
+    undeliverable: __I18N_UNDELIVERABLE_LOCALES__
+  });
+  const cdnPrefix = (locale) => import.meta.client && __I18N_CDN__ && isPrerenderable(locale) ? nuxt.$config.app.cdnURL || "" : "";
+  const loadMessagesFromLoaders = async (locale) => {
+    if (locale in localeLoaders === false) {
+      return;
+    }
+    const loaded = await nuxt.runWithContext(() => getLocaleMessagesMergedCached(locale, localeLoaders[locale]));
+    const msg = flatJson ? cloneDeep(loaded) : loaded;
+    if (import.meta.dev && !buildUsesRuntimeLoaders(locale)) {
+      warnMissedMessageFunctions(locale, msg);
+    }
+    i18n.mergeLocaleMessage(locale, msg);
+  };
+  const loadMessagesFromServer = async (locale) => {
+    if (locale in localeLoaders === false) {
+      return;
+    }
+    const deliverable = (messages2) => Object.keys(messages2).filter((k) => !ctx.usesRuntimeLoaders(k));
+    const serverCtx = import.meta.server ? nuxt.ssrContext?.event?.context?.nuxtI18n : void 0;
+    if (serverCtx?.loadMessages && installMessages) {
+      const messages2 = await serverCtx.loadMessages(locale);
+      for (const k of deliverable(messages2)) {
+        installMessages(k, messages2[k]);
+      }
+      return;
+    }
+    const headers = getLocaleConfig(locale)?.cacheable ? {} : { "Cache-Control": "no-cache" };
+    const url2 = joinURL(cdnPrefix(locale), __I18N_SERVER_ROUTE__, __I18N_LOCALE_HASHES__[locale], locale, "messages.json");
+    const messages = await $fetch(url2, { headers });
+    for (const k of deliverable(messages)) {
+      i18n.mergeLocaleMessage(k, messages[k]);
+    }
+  };
+  const ctx = {
+    vueI18n,
+    initial: true,
+    preloaded: false,
+    config: runtimeI18n,
+    rootRedirect: resolveRootRedirect(runtimeI18n.rootRedirect),
+    redirectStatusCode: runtimeI18n.redirectStatusCode ?? 302,
+    // dev is forced onto the loaders regardless of the build's decision, so that edits to locale
+    // files take effect
+    usesRuntimeLoaders: (locale) => import.meta.dev || buildUsesRuntimeLoaders(locale),
+    getDefaultLocale: () => defaultLocale,
+    getLocale: () => unref(i18n.locale),
+    setLocale: async (locale) => {
+      const oldLocale = ctx.getLocale();
+      if (locale === oldLocale || !isSupportedLocale(locale)) {
+        return;
+      }
+      if (isRef(i18n.locale)) {
+        i18n.locale.value = locale;
+      } else {
+        i18n.locale = locale;
+      }
+      await nuxt.callHook("i18n:localeSwitched", { newLocale: locale, oldLocale });
+      resolvedLocale.value = locale;
+    },
+    setLocaleSuspend: async (locale) => {
+      if (!isSupportedLocale(locale)) {
+        return;
+      }
+      ctx.vueI18n.__pendingLocale = locale;
+      ctx.vueI18n.__pendingLocalePromise = new Promise((resolve) => {
+        ctx.vueI18n.__resolvePendingLocalePromise = async () => {
+          ctx.setCookieLocale(locale);
+          await ctx.setLocale(locale);
+          ctx.vueI18n.__pendingLocale = void 0;
+          resolve();
+        };
+      });
+      if (import.meta.server || nuxt.isHydrating || !ctx.config.skipSettingLocaleOnNavigate) {
+        await ctx.vueI18n.__resolvePendingLocalePromise?.();
+      }
+    },
+    // string locales carry no domain configuration, they normalize to the empty form
+    getLocales: () => unref(i18n.locales).map(
+      (x) => isString(x) ? { code: x, domains: [], defaultForDomains: [] } : x
+    ),
+    setCookieLocale: (locale) => {
+      if (detectConfig.useCookie && isSupportedLocale(locale)) {
+        localeCookie.value = locale;
+      }
+    },
+    getBaseUrl,
+    getCanonicalBaseUrl,
+    loadMessages: async (locale) => {
+      if (nuxt.isHydrating && loadMap.has(locale)) {
+        return;
+      }
+      try {
+        const fallbacks = getLocaleConfig(locale)?.fallbacks ?? [];
+        const chain = fallbacks.includes(locale) ? fallbacks : [...fallbacks, locale];
+        if (!chain.some((x) => ctx.usesRuntimeLoaders(x))) {
+          return await loadMessagesFromServer(locale);
+        }
+        for (const k of chain) {
+          try {
+            await (ctx.usesRuntimeLoaders(k) ? loadMessagesFromLoaders(k) : loadMessagesFromServer(k));
+          } catch (e) {
+            console.warn(`Failed to load messages for locale "${k}"`, e);
+          }
+        }
+      } catch (e) {
+        console.warn(`Failed to load messages for locale "${locale}"`, e);
+      } finally {
+        loadMap.add(locale);
+      }
+    },
+    composableCtx: void 0
+  };
+  ctx.composableCtx = createComposableContext(ctx, nuxt);
+  return ctx;
+}
+export function useNuxtI18nContext(nuxt) {
+  if (nuxt._nuxtI18n == null) {
+    throw new Error("Nuxt I18n context has not been set up yet.");
+  }
+  return nuxt._nuxtI18n;
+}

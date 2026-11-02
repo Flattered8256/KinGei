@@ -1,0 +1,2554 @@
+import { useLogger, resolvePath, tryUseNuxt, addTemplate, updateTemplates, useNuxt, addBuildPlugin, addVitePlugin, addWebpackPlugin, addServerTemplate, addServerImports, resolveModule, addServerPlugin, addServerHandler, findPath, createResolver, defineNuxtModule, addComponent, addImports, addImportsSources, addPlugin, useNitro, addTypeTemplate } from '@nuxt/kit';
+import defu$1, { defu } from 'defu';
+import { readFileSync, rmSync, mkdirSync, writeFileSync, existsSync } from 'node:fs';
+import { isArray, assign, isString, escapeHtml } from '@intlify/shared';
+import { parse as parse$1 } from '@vue/compiler-sfc';
+import { walk, parseAndWalk, ScopeTracker } from 'oxc-walker';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { parseSegment, toVueRouterSegment } from 'unrouting';
+import { createHash } from 'node:crypto';
+import { resolve, dirname, parse, relative, join as join$1, basename, isAbsolute } from 'pathe';
+import { parseSync } from 'oxc-parser';
+import { createRoutesContext, resolveOptions } from 'vue-router/unplugin';
+import MagicString from 'magic-string';
+import { createUnplugin } from 'unplugin';
+import { pathToFileURL, fileURLToPath } from 'node:url';
+import { parseURL, parseQuery } from 'ufo';
+import { findStaticImports, resolveModuleExportNames } from 'mlly';
+import { transformSync } from 'oxc-transform';
+import yamlPlugin from '@rollup/plugin-yaml';
+import json5Plugin from '@miyaneee/rollup-plugin-json5';
+import VueI18nPlugin from '@intlify/unplugin-vue-i18n';
+import { detectHtmlTag } from '@intlify/message-compiler';
+import { parseJSON5, parseYAML } from 'confbox';
+import { addDefinePlugin } from 'nuxt-define';
+import { genSafeVariableName, genString, genImport, genDynamicImport, genArrayFromRaw, genObjectFromRaw, genObjectFromValues } from 'knitwork';
+import { createPrerenderablePredicate } from '../dist/runtime/shared/delivery.js';
+
+const STRATEGY_PREFIX_EXCEPT_DEFAULT = "prefix_except_default";
+const DYNAMIC_PARAMS_KEY = "nuxtI18nInternal";
+const DEFAULT_COOKIE_KEY = "i18n_redirected";
+const SWITCH_LOCALE_PATH_LINK_IDENTIFIER = "nuxt-i18n-slp";
+const DEFAULT_CACHE_LIFETIME = 60 * 60 * 24;
+const DEFAULT_OPTIONS = {
+  restructureDir: "i18n",
+  experimental: {
+    localeDetector: "",
+    typedPages: true,
+    typedOptionsAndMessages: false,
+    alternateLinkCanonicalQueries: true,
+    devCache: false,
+    cacheLifetime: void 0,
+    stripMessagesPayload: false,
+    preload: false,
+    strictSeo: false,
+    nitroContextDetection: true,
+    httpCacheDuration: 10,
+    compactRoutes: false,
+    prerenderMessages: false,
+    optimizeMessageBundling: true
+  },
+  bundle: {
+    compositionOnly: true,
+    runtimeOnly: false,
+    fullInstall: true,
+    dropMessageCompiler: false
+  },
+  compilation: {
+    strictMessage: true,
+    escapeHtml: false
+  },
+  customBlocks: {
+    defaultSFCLang: "json",
+    globalSFCScope: false
+  },
+  vueI18n: "",
+  locales: [],
+  defaultLocale: "",
+  defaultDirection: "ltr",
+  routesNameSeparator: "___",
+  trailingSlash: false,
+  defaultLocaleRouteNameSuffix: "default",
+  strategy: STRATEGY_PREFIX_EXCEPT_DEFAULT,
+  langDir: "locales",
+  rootRedirect: void 0,
+  redirectStatusCode: 302,
+  detectBrowserLanguage: {
+    alwaysRedirect: false,
+    cookieCrossOrigin: false,
+    cookieDomain: null,
+    cookieKey: DEFAULT_COOKIE_KEY,
+    cookieSecure: false,
+    fallbackLocale: "",
+    redirectOn: "root",
+    useCookie: true
+  },
+  differentDomains: false,
+  baseUrl: "",
+  customRoutes: "page",
+  pages: {},
+  skipSettingLocaleOnNavigate: false,
+  types: "composition",
+  debug: false,
+  parallelPlugin: false,
+  multiDomainLocales: false,
+  hmr: true,
+  autoDeclare: true,
+  serverRoutePrefix: "/_i18n"
+};
+const TS_EXTENSIONS = [".ts", ".cts", ".mts"];
+const JS_EXTENSIONS = [".js", ".cjs", ".mjs"];
+const EXECUTABLE_EXTENSIONS = [...JS_EXTENSIONS, ...TS_EXTENSIONS];
+const EXECUTABLE_EXT_RE = /\.[c|m]?[j|t]s$/;
+
+function filterLocales(ctx) {
+  const onlyLocales = ctx.i18nLayers.map((layer) => layer.i18n.bundle?.onlyLocales).find((x) => x != null);
+  const include = toArray(onlyLocales ?? []).filter(isString);
+  if (!include.length) {
+    return ctx.options.locales;
+  }
+  return ctx.options.locales.filter((x) => include.includes(isString(x) ? x : x.code));
+}
+const INVALID_LOCALE_CODE_CHAR_RE = /[/\\?#%:\s]/;
+function validateDefaultLocale(defaultLocale, codes) {
+  if (defaultLocale && !codes.includes(defaultLocale)) {
+    logger.warn(
+      `\`defaultLocale: ${JSON.stringify(defaultLocale)}\` is not one of the configured locales (${codes.join(", ")}), so it cannot be served as the unprefixed locale.`
+    );
+  }
+}
+function validateLocaleCodes(codes) {
+  const invalid = codes.filter((code) => !code || INVALID_LOCALE_CODE_CHAR_RE.test(code));
+  if (invalid.length) {
+    throw new Error(
+      `[nuxt-i18n] Invalid locale code${invalid.length > 1 ? "s" : ""}: ${invalid.map((x) => JSON.stringify(x)).join(", ")}. Locale codes are used as URL path segments and must not be empty or contain \`/ \\ ? # % :\` or whitespace.`
+    );
+  }
+}
+function normalizeDomainLocale(locale) {
+  const domains = locale.domains?.length ? locale.domains : locale.domain ? [locale.domain] : [];
+  return assign({}, locale, {
+    domains,
+    defaultForDomains: locale.defaultForDomains ?? (locale.domainDefault ? domains : [])
+  });
+}
+function withImplicitDomainDefaults(locales) {
+  const toHost = (domain) => domain.replace(/^https?:\/\//i, "").toLowerCase();
+  const claimed = new Set(locales.flatMap((l) => l.defaultForDomains.map(toHost)));
+  const servedBy = /* @__PURE__ */ new Map();
+  for (const locale of locales) {
+    for (const domain of locale.domains) {
+      const host = toHost(domain);
+      if (claimed.has(host)) {
+        continue;
+      }
+      const entries = servedBy.get(host) ?? [];
+      entries.push({ locale, domain });
+      servedBy.set(host, entries);
+    }
+  }
+  const implicit = /* @__PURE__ */ new Map();
+  for (const entries of servedBy.values()) {
+    if (entries.length !== 1) {
+      continue;
+    }
+    const { locale, domain } = entries[0];
+    implicit.set(locale, [...implicit.get(locale) ?? [], domain]);
+  }
+  if (!implicit.size) {
+    return locales;
+  }
+  return locales.map(
+    (locale) => implicit.has(locale) ? { ...locale, defaultForDomains: [...locale.defaultForDomains, ...implicit.get(locale)] } : locale
+  );
+}
+function resolveLocales(srcDir, locales, vfs) {
+  const localesResolved = [];
+  for (const locale of locales) {
+    const resolved = assign({ meta: [] }, locale);
+    delete resolved.file;
+    delete resolved.files;
+    for (const f of getLocaleFiles(locale)) {
+      const path = resolve(srcDir, f.path);
+      const { type, serializable, appContext } = analyzeResource(path, vfs);
+      resolved.meta.push({
+        type,
+        serializable,
+        appContext,
+        path,
+        hash: getHash(path),
+        // a loader reaching for the Nuxt app reads per-request state, and the message cache is
+        // process-wide - caching it would serve one request's messages to the next
+        cache: !appContext && (f.cache ?? type !== "dynamic")
+      });
+    }
+    localesResolved.push(resolved);
+  }
+  return localesResolved;
+}
+function analyzeResource(path, vfs) {
+  if (!EXECUTABLE_EXT_RE.test(path)) {
+    return { type: "static", serializable: true, appContext: false };
+  }
+  const program = parseSync(path, vfs[path] ?? readFileSync(path, "utf-8")).program;
+  const scope = collectDeclarations(program);
+  const exported = resolveDefaultExport(scope);
+  const type = localeTypeOf(exported, scope);
+  const visible = visibleMessages(exported, scope);
+  return {
+    type,
+    // an unreadable shape is assumed to hold message functions, so the locale keeps its loaders
+    // instead of losing them to JSON (#3880) - a loader body stays optimistic, what it fetches
+    // never carried functions to begin with
+    serializable: type === "unknown" && visible.length === 0 ? false : !visible.some((x) => holds(x, scope, isMessageFunction)),
+    appContext: usesAppContext(program)
+  };
+}
+const APP_ONLY_COMPOSABLES = /* @__PURE__ */ new Set([
+  "useNuxtApp",
+  "tryUseNuxtApp",
+  "useState",
+  "useCookie",
+  "useRoute",
+  "useRouter",
+  "useRequestEvent",
+  "useRequestHeader",
+  "useRequestHeaders",
+  "useRequestURL",
+  "useRequestFetch",
+  "useAsyncData",
+  "useLazyAsyncData",
+  "useFetch",
+  "useLazyFetch",
+  "useNuxtData"
+]);
+const APP_MODULE_RE = /^#app(?:\/|$)/;
+function reachesApp(node) {
+  switch (node.type) {
+    case "ImportDeclaration":
+      return APP_MODULE_RE.test(node.source.value);
+    case "ImportExpression":
+      return node.source.type === "Literal" && isString(node.source.value) && APP_MODULE_RE.test(node.source.value);
+    case "CallExpression":
+      return node.callee.type === "Identifier" && APP_ONLY_COMPOSABLES.has(node.callee.name);
+  }
+  return false;
+}
+function usesAppContext(program) {
+  let found = false;
+  walk(program, {
+    enter(node) {
+      if (found) {
+        this.skip();
+        return;
+      }
+      if (reachesApp(node)) {
+        found = true;
+      }
+    }
+  });
+  return found;
+}
+function unwrapAssertion(node) {
+  switch (node.type) {
+    case "ParenthesizedExpression":
+    case "TSAsExpression":
+    case "TSSatisfiesExpression":
+    case "TSNonNullExpression":
+      return unwrapAssertion(node.expression);
+  }
+  return node;
+}
+function unwrap(node) {
+  const resolved = node != null ? unwrapAssertion(node) : void 0;
+  switch (resolved?.type) {
+    case "AwaitExpression":
+      return unwrap(resolved.argument);
+    case "SequenceExpression":
+      return unwrap(resolved.expressions.at(-1));
+  }
+  return resolved;
+}
+function collectDeclarations(program) {
+  const scope = { declared: /* @__PURE__ */ new Map() };
+  for (const node of program.body) {
+    if (node.type === "ExportDefaultDeclaration") {
+      scope.exported = node.declaration;
+      continue;
+    }
+    declare(scope, node.type === "ExportNamedDeclaration" ? node.declaration : node);
+  }
+  return scope;
+}
+function deref(node, scope, seen = /* @__PURE__ */ new Set()) {
+  const resolved = unwrap(node);
+  if (resolved?.type !== "Identifier") {
+    return resolved;
+  }
+  if (seen.has(resolved.name)) {
+    return void 0;
+  }
+  seen.add(resolved.name);
+  return deref(scope.declared.get(resolved.name), scope, seen);
+}
+const resolveDefaultExport = (scope) => deref(scope.exported, scope);
+function loaderFunction(node, scope) {
+  if (node?.type !== "CallExpression" || node.callee.type !== "Identifier") {
+    return;
+  }
+  const fnNode = deref(node.arguments[0], scope);
+  if (fnNode?.type === "FunctionExpression" || fnNode?.type === "ArrowFunctionExpression") {
+    return fnNode;
+  }
+}
+function localeTypeOf(exported, scope) {
+  const declared = unwrap(scope.exported);
+  if (declared?.type === "ObjectExpression") {
+    return isEmittable(declared) ? "static" : "unknown";
+  }
+  return loaderFunction(exported, scope) ? "dynamic" : "unknown";
+}
+function* statementsOf(statement) {
+  yield statement;
+  switch (statement.type) {
+    case "BlockStatement":
+      for (const s of statement.body) {
+        yield* statementsOf(s);
+      }
+      return;
+    case "IfStatement":
+      yield* statementsOf(statement.consequent);
+      if (statement.alternate) {
+        yield* statementsOf(statement.alternate);
+      }
+      return;
+    case "TryStatement":
+      yield* statementsOf(statement.block);
+      if (statement.handler) {
+        yield* statementsOf(statement.handler.body);
+      }
+      if (statement.finalizer) {
+        yield* statementsOf(statement.finalizer);
+      }
+      return;
+    case "SwitchStatement":
+      for (const c of statement.cases) {
+        for (const s of c.consequent) {
+          yield* statementsOf(s);
+        }
+      }
+      return;
+    case "ForStatement":
+    case "ForInStatement":
+    case "ForOfStatement":
+    case "WhileStatement":
+    case "DoWhileStatement":
+    case "LabeledStatement":
+      yield* statementsOf(statement.body);
+  }
+}
+function declare(scope, declaration) {
+  if (declaration?.type !== "VariableDeclaration") {
+    return;
+  }
+  for (const decl of declaration.declarations) {
+    if (decl.type !== "VariableDeclarator" || decl.init == null) {
+      continue;
+    }
+    if ("name" in decl.id === false) {
+      continue;
+    }
+    scope.declared.set(decl.id.name, decl.init);
+  }
+}
+function* objectsOf(node, scope, seen) {
+  const resolved = deref(node, scope);
+  if (resolved == null || seen.has(resolved)) {
+    return;
+  }
+  seen.add(resolved);
+  switch (resolved.type) {
+    case "ObjectExpression":
+      yield resolved;
+      return;
+    case "ConditionalExpression":
+      yield* objectsOf(resolved.consequent, scope, seen);
+      yield* objectsOf(resolved.alternate, scope, seen);
+      return;
+    case "LogicalExpression":
+      yield* objectsOf(resolved.left, scope, seen);
+      yield* objectsOf(resolved.right, scope, seen);
+  }
+}
+function visibleMessages(exported, scope) {
+  if (exported?.type === "ObjectExpression") {
+    return [exported];
+  }
+  const body = deref(loaderFunction(exported, scope)?.body, scope);
+  if (body?.type !== "BlockStatement") {
+    return [...objectsOf(body, scope, /* @__PURE__ */ new Set())];
+  }
+  const statements = [...statementsOf(body)];
+  const local = { declared: new Map(scope.declared) };
+  for (const statement of statements) {
+    declare(local, statement);
+  }
+  const objects = [];
+  for (const statement of statements) {
+    if (statement.type === "ReturnStatement") {
+      objects.push(...objectsOf(statement.argument, local, /* @__PURE__ */ new Set()));
+    }
+  }
+  return objects;
+}
+function holds(node, scope, test, seen = /* @__PURE__ */ new Set()) {
+  const resolved = deref(node, scope);
+  if (resolved == null || seen.has(resolved)) {
+    return false;
+  }
+  seen.add(resolved);
+  if (test(resolved)) {
+    return true;
+  }
+  switch (resolved.type) {
+    case "ObjectExpression":
+      return resolved.properties.some((x) => holds(x.type === "SpreadElement" ? x.argument : x.value, scope, test, seen));
+    case "ArrayExpression":
+      return resolved.elements.some((x) => x != null && holds(x.type === "SpreadElement" ? x.argument : x, scope, test, seen));
+  }
+  return false;
+}
+const isMessageFunction = (node) => node.type === "FunctionExpression" || node.type === "ArrowFunctionExpression";
+function isEmittable(input) {
+  const node = unwrapAssertion(input);
+  switch (node.type) {
+    case "Literal":
+      return !("regex" in node) && !("bigint" in node);
+    case "TemplateLiteral":
+      return node.expressions.length === 0;
+    case "ObjectExpression":
+      return node.properties.every(isEmittableProperty);
+    case "ArrayExpression":
+      return node.elements.every((x) => x != null && isEmittable(x));
+  }
+  return false;
+}
+function isEmittableProperty(node) {
+  if (node.type === "SpreadElement") {
+    return node.argument.type === "Identifier";
+  }
+  if (node.type !== "Property" || node.computed) {
+    return false;
+  }
+  const value = unwrapAssertion(node.value);
+  return isEmittable(value) || value.type === "Identifier" || isMessageFunction(value);
+}
+function resolveVueI18nConfigInfo(path, vfs) {
+  return { path, hash: getHash(path), ...analyzeResource(path, vfs) };
+}
+const getLocaleFiles = (locale) => {
+  return toArray(locale.file ?? locale.files).filter((x) => x != null).map((x) => isString(x) ? { path: x, cache: void 0 } : x);
+};
+function resolveRelativeLocales(locale, config) {
+  return getLocaleFiles(locale).map((file) => ({
+    path: resolve(config.langDir, file.path),
+    cache: file.cache
+  }));
+}
+const mergeConfigLocales = (configs) => {
+  const merged = /* @__PURE__ */ new Map();
+  for (const config of configs) {
+    for (const locale of config.locales ?? []) {
+      const current = isString(locale) ? { code: locale, language: locale } : assign({}, locale);
+      const files = isString(locale) ? [] : resolveRelativeLocales(current, config);
+      delete current.file;
+      delete current.files;
+      const existing = merged.get(current.code) ?? {
+        code: current.code,
+        language: current.language,
+        files: []
+      };
+      existing.files = [...files, ...existing.files];
+      merged.set(current.code, assign({}, current, existing));
+    }
+  }
+  return Array.from(merged.values());
+};
+function getHash(text) {
+  return createHash("sha256").update(text).digest("hex").substring(0, 8);
+}
+function computeLocaleHashes(localeInfo, vueI18nConfigPaths) {
+  const hasher = createHash("sha256");
+  const paths = [
+    ...localeInfo.flatMap((l) => l.meta.map((m) => m.path)),
+    ...vueI18nConfigPaths.map((c) => c.path)
+  ].sort();
+  for (const p of paths) {
+    hasher.update(readFileSync(p));
+  }
+  const digest = hasher.digest("hex").substring(0, 8);
+  const hashes = {};
+  for (const locale of localeInfo) {
+    hashes[locale.code] = digest;
+  }
+  return hashes;
+}
+function getLayerI18n(configLayer) {
+  const layerInlineOptions = (configLayer.config.modules || []).find(
+    (mod) => isArray(mod) && "@nuxtjs/i18n" === mod[0]
+  )?.[1];
+  if (configLayer.config.i18n) {
+    return defu(configLayer.config.i18n, layerInlineOptions);
+  }
+  return layerInlineOptions;
+}
+function toArray(value) {
+  return Array.isArray(value) ? value : [value];
+}
+const logger = useLogger("nuxt-i18n");
+
+const join = (...args) => args.filter(Boolean).join("");
+function joinPath(parent, path) {
+  const full = !parent || path.startsWith("/") ? path : (parent === "/" ? "" : parent) + (path ? "/" + path : "");
+  return full.replace(/\/+$/, "") || "/";
+}
+function handlePathNesting(localizedPath, parentLocalizedPath = "") {
+  if (!parentLocalizedPath || parentLocalizedPath === "/") {
+    return localizedPath;
+  }
+  if (localizedPath[0] !== "/") {
+    return localizedPath;
+  }
+  const index = localizedPath.indexOf(parentLocalizedPath);
+  if (index >= 0) {
+    return localizedPath.slice(localizedPath.indexOf(parentLocalizedPath) + parentLocalizedPath.length + 1);
+  }
+  return localizedPath;
+}
+function createHandleTrailingSlash(ctx) {
+  return (localizedPath, hasParent) => {
+    if (!localizedPath) {
+      return "";
+    }
+    const isChildWithRelativePath = hasParent && !localizedPath.startsWith("/");
+    return localizedPath.replace(/\/+$/, "") + (ctx.trailingSlash ? "/" : "") || (isChildWithRelativePath ? "" : "/");
+  };
+}
+function createLocalizeAliases(ctx) {
+  return (route, locale, options) => {
+    const aliases = toArray(route.alias).filter(Boolean);
+    return aliases.map((x) => {
+      const alias = ctx.handleTrailingSlash(x, !!options.parent);
+      const shouldPrefix = options.shouldPrefix(x, locale, options);
+      return shouldPrefix ? join("/", locale, alias) : alias;
+    });
+  };
+}
+function createLocalizeChildren(ctx) {
+  return (route, parentLocalized, locale, opts) => {
+    const localizeParams = {
+      ...opts,
+      parent: route,
+      locales: [locale],
+      parentLocalized,
+      parentPath: joinPath(opts.parentPath, route.path)
+    };
+    return route.children?.flatMap((child) => localizeSingleRoute(child, localizeParams, ctx)) ?? [];
+  };
+}
+function getLocalizedRoute(route, locale, localizedPath, options, ctx) {
+  const path = handlePathNesting(localizedPath, options.parentLocalized?.path);
+  const localized = { ...route };
+  localized.path = ctx.handleTrailingSlash(path, !!options.parent);
+  localized.name &&= ctx.localizeRouteName(localized, locale, options.defaultTree);
+  localized.alias &&= ctx.localizeAliases(localized, locale, options);
+  localized.children &&= ctx.localizeChildren(route, localized, locale, options);
+  return localized;
+}
+function localizeSingleRoute(route, options, ctx) {
+  const routeOptions = ctx.optionsResolver(route, options.locales);
+  ctx.onLocalize?.(route, routeOptions, options);
+  if (!routeOptions) {
+    return [route];
+  }
+  if (ctx.compactRoute && !options.defaultTree && options.parent == null && canCompactRoute(routeOptions, options.locales) && canCompactChildren(route.children, options.locales, ctx)) {
+    const compacted = ctx.compactRoute(route, routeOptions, options);
+    if (compacted) {
+      reportSkippedChildren(route, options, ctx);
+      return compacted;
+    }
+  }
+  const resultRoutes = [];
+  for (const locale of routeOptions.locales) {
+    const unprefixed = routeOptions.paths?.[locale] ?? route.path;
+    const prefixed = join("/", locale, unprefixed);
+    const usePrefix = options.shouldPrefix(unprefixed, locale, options);
+    const data = { route, prefixed, unprefixed, locale, usePrefix, ctx, options };
+    for (const localizer of ctx.localizers) {
+      if (!localizer.enabled(data)) {
+        continue;
+      }
+      resultRoutes.push(...localizer.localizer(data));
+    }
+  }
+  return resultRoutes;
+}
+function reportSkippedChildren(route, options, ctx) {
+  if (ctx.onLocalize == null || !route.children?.length) {
+    return;
+  }
+  const opts = { ...options, parentPath: joinPath(options.parentPath, route.path) };
+  for (const child of route.children) {
+    ctx.onLocalize(child, ctx.optionsResolver(child, options.locales), opts);
+    reportSkippedChildren(child, opts, ctx);
+  }
+}
+function createDefaultOptionsResolver(opts) {
+  return (route, locales) => {
+    if (route.redirect && !route.file) {
+      return void 0;
+    }
+    if (opts?.optionsResolver == null) {
+      return { locales, paths: {} };
+    }
+    return opts.optionsResolver(route, locales);
+  };
+}
+function createLocalizeRouteName(opts) {
+  const separator = opts.routesNameSeparator || "___";
+  const defaultSuffix = opts.defaultLocaleRouteNameSuffix || "default";
+  return (route, locale, isDefault) => {
+    if (route.name == null) {
+      return;
+    }
+    return !isDefault ? route.name + separator + locale : route.name + separator + locale + separator + defaultSuffix;
+  };
+}
+function createRouteContext(opts) {
+  const ctx = { localizers: [] };
+  ctx.trailingSlash = opts.trailingSlash ?? false;
+  ctx.onLocalize = opts.onLocalize;
+  ctx.isDefaultLocale = (locale) => opts.defaultLocales.includes(locale);
+  ctx.localizeRouteName = createLocalizeRouteName(opts);
+  ctx.optionsResolver = createDefaultOptionsResolver(opts);
+  ctx.localizeAliases = createLocalizeAliases(ctx);
+  ctx.localizeChildren = createLocalizeChildren(ctx);
+  ctx.handleTrailingSlash = createHandleTrailingSlash(ctx);
+  ctx.localizers.push({
+    enabled: () => true,
+    localizer: ({ prefixed, unprefixed, route, usePrefix, ctx: ctx2, locale, options }) => [
+      getLocalizedRoute(route, locale, usePrefix ? prefixed : unprefixed, options, ctx2)
+    ]
+  });
+  return ctx;
+}
+function canCompactRoute(routeOptions, allLocales) {
+  if (!routeOptions) {
+    return false;
+  }
+  if (routeOptions.locales.length !== allLocales.length) {
+    return false;
+  }
+  return Object.keys(routeOptions.paths).length === 0;
+}
+function canCompactChildren(children, allLocales, ctx) {
+  if (!children?.length) {
+    return true;
+  }
+  for (const child of children) {
+    const childOptions = ctx.optionsResolver(child, allLocales);
+    if (!canCompactRoute(childOptions, allLocales)) {
+      return false;
+    }
+    if (!canCompactChildren(child.children, allLocales, ctx)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function createRouteResourcesCollector() {
+  const pathToConfig = {};
+  const collect = (route, routeOptions, options) => {
+    const path = joinPath(options.parentPath, route.path);
+    if (routeOptions == null) {
+      if (route.meta?.i18n === false) {
+        const entry2 = pathToConfig[path] ??= {};
+        for (const locale of options.locales) {
+          entry2[locale] ??= false;
+        }
+      }
+      return;
+    }
+    const entry = pathToConfig[path] ??= {};
+    for (const locale of routeOptions.locales) {
+      const parentPath = options.parentPath ? pathToConfig[options.parentPath]?.[locale] || options.parentPath : void 0;
+      entry[locale] = joinPath(parentPath, routeOptions.paths[locale] ?? route.path);
+    }
+    for (const locale of options.locales) {
+      entry[locale] ??= false;
+    }
+  };
+  const toResources = () => {
+    const resources = { localizedPaths: [], pathToI18nConfig: {}, i18nPathToPath: {}, disabledPaths: [] };
+    for (const [path, entry] of Object.entries(pathToConfig)) {
+      const exceptions = {};
+      let hasIdentity = false;
+      let hasLocalized = false;
+      for (const [locale, localized] of Object.entries(entry)) {
+        if (localized === path) {
+          hasIdentity = hasLocalized = true;
+          continue;
+        }
+        exceptions[locale] = localized;
+        if (!localized) {
+          continue;
+        }
+        resources.i18nPathToPath[localized] = path;
+        hasLocalized = true;
+      }
+      if (!hasLocalized) {
+        resources.disabledPaths.push(path);
+        continue;
+      }
+      if (hasIdentity) {
+        resources.localizedPaths.push(path);
+      }
+      if (Object.keys(exceptions).length) {
+        resources.pathToI18nConfig[path] = exceptions;
+      }
+    }
+    return resources;
+  };
+  return { collect, toResources };
+}
+function createShouldPrefix(opts, ctx) {
+  if (opts.strategy === "no_prefix") {
+    return () => false;
+  }
+  return (path, locale, options) => {
+    if (options.defaultTree) {
+      return false;
+    }
+    if (options.parent != null && !path.startsWith("/")) {
+      return false;
+    }
+    if (ctx.isDefaultLocale(locale) && opts.strategy === "prefix_except_default") {
+      return false;
+    }
+    return true;
+  };
+}
+function shouldLocalizeRoutes(options) {
+  if (options.strategy !== "no_prefix") {
+    return true;
+  }
+  if (!options.differentDomains && !options.multiDomainLocales) {
+    return false;
+  }
+  const domains = /* @__PURE__ */ new Set();
+  for (const locale of options.locales) {
+    for (const domain of locale.domains) {
+      const host = domain.replace(/^https?:\/\//, "");
+      if (domains.has(host)) {
+        console.error(
+          `Cannot use \`strategy: no_prefix\` when using multiple locales on the same domain - found multiple entries with ${domain}. Routes stay unlocalized, so \`switchLocalePath\` and the \`hreflang\`/\`canonical\` tags resolve to nothing.`
+        );
+        return false;
+      }
+      domains.add(host);
+    }
+  }
+  return domains.size > 0;
+}
+function getDomainDefaultLocales(locales) {
+  return locales.filter((locale) => locale.defaultForDomains.length).map((locale) => locale.code);
+}
+const usesDefaultVariants = (strategy) => strategy === "prefix_except_default" || strategy === "prefix_and_default";
+function resolveDefaultTreeLocales(config, strategy) {
+  if (config.differentDomains || config.multiDomainLocales) {
+    return usesDefaultVariants(strategy) ? getDomainDefaultLocales(config.locales) : [];
+  }
+  return strategy === "prefix_and_default" && config.defaultLocale ? [config.defaultLocale] : [];
+}
+function resolveDefaultLocales(config, strategy) {
+  if ((config.differentDomains || config.multiDomainLocales) && usesDefaultVariants(strategy)) {
+    return [];
+  }
+  let defaultLocales = [config.defaultLocale ?? ""];
+  if (config.differentDomains) {
+    defaultLocales = defaultLocales.concat(getDomainDefaultLocales(config.locales));
+  }
+  return defaultLocales;
+}
+function localizeRoutes(routes, config) {
+  if (!shouldLocalizeRoutes(config)) {
+    return routes;
+  }
+  const strategy = config.strategy ?? "prefix_and_default";
+  const ctx = createRouteContext({
+    optionsResolver: config.optionsResolver,
+    trailingSlash: config.trailingSlash ?? false,
+    defaultLocales: resolveDefaultLocales(config, strategy),
+    routesNameSeparator: config.routesNameSeparator,
+    defaultLocaleRouteNameSuffix: config.defaultLocaleRouteNameSuffix,
+    onLocalize: config.onLocalize
+  });
+  if (config.compactRoutes && strategy !== "no_prefix" && !config.differentDomains && !config.multiDomainLocales) {
+    const defaultLocale = config.defaultLocale ?? "";
+    ctx.compactRoute = (route, routeOptions, params2) => {
+      if (route.path.includes(":locale")) {
+        return void 0;
+      }
+      const makeRegexRoute = (locales2) => {
+        const localePattern = locales2.join("|");
+        const regexPrefix = `/:locale(${localePattern})`;
+        const regexPath = route.path === "/" ? regexPrefix : regexPrefix + route.path;
+        const compacted = {
+          ...route,
+          path: ctx.handleTrailingSlash(regexPath, !!params2.parent),
+          meta: { ...route.meta ?? {}, __i18nCompact: true }
+        };
+        if (compacted.alias) {
+          const aliases = Array.isArray(compacted.alias) ? compacted.alias : [compacted.alias];
+          compacted.alias = aliases.map((a) => {
+            const aliasPath = regexPrefix + (a.startsWith("/") ? a : "/" + a);
+            return ctx.handleTrailingSlash(aliasPath, !!params2.parent);
+          });
+        }
+        return compacted;
+      };
+      if (strategy === "prefix_except_default" && defaultLocale) {
+        const result = [];
+        const unprefixed = { ...route };
+        unprefixed.name &&= ctx.localizeRouteName(unprefixed, defaultLocale, false);
+        unprefixed.children &&= ctx.localizeChildren(route, unprefixed, defaultLocale, params2);
+        result.push(unprefixed);
+        const nonDefault = routeOptions.locales.filter((l) => !ctx.isDefaultLocale(l));
+        if (nonDefault.length > 0) {
+          result.push(makeRegexRoute(nonDefault));
+        }
+        return result;
+      }
+      if (strategy === "prefix_and_default" && defaultLocale) {
+        const defaultTree = { ...route };
+        defaultTree.name &&= ctx.localizeRouteName(defaultTree, defaultLocale, true);
+        defaultTree.children &&= ctx.localizeChildren(route, defaultTree, defaultLocale, { ...params2, defaultTree: true });
+        return [defaultTree, makeRegexRoute(routeOptions.locales)];
+      }
+      return [makeRegexRoute(routeOptions.locales)];
+    };
+  }
+  const defaultTreeLocales = new Set(resolveDefaultTreeLocales(config, strategy));
+  if (defaultTreeLocales.size) {
+    ctx.localizers.unshift({
+      enabled: ({ locale, options }) => defaultTreeLocales.has(locale) && !options.defaultTree && options.parent == null,
+      localizer: ({ route, ctx: ctx2, locale, options }) => localizeSingleRoute(route, { ...options, locales: [locale], defaultTree: true }, ctx2)
+    });
+  }
+  const locales = config.locales.map((x) => x.code);
+  const params = { locales, defaultTree: false, shouldPrefix: createShouldPrefix(config, ctx) };
+  return routes.flatMap((route) => localizeSingleRoute(route, params, ctx));
+}
+
+const VIRTUAL_PREFIX_HEX = "\0";
+const NUXT_I18N_VIRTUAL_PREFIX = "#nuxt-i18n";
+function asI18nVirtual(val) {
+  return NUXT_I18N_VIRTUAL_PREFIX + "/" + val;
+}
+function isVue(id, opts = {}) {
+  const { search } = parseURL(decodeURIComponent(pathToFileURL(id).href));
+  if (id.endsWith(".vue") && !search) {
+    return true;
+  }
+  if (!search) {
+    return false;
+  }
+  const query = parseQuery(search);
+  if (query.nuxt_component) {
+    return false;
+  }
+  if (query.macro && (search === "?macro=true" || !opts.type || opts.type.includes("script"))) {
+    return true;
+  }
+  const type = "setup" in query ? "script" : query.type;
+  if (!("vue" in query) || opts.type && !opts.type.includes(type)) {
+    return false;
+  }
+  return true;
+}
+
+function transform(id, input, options) {
+  const oxcOptions = tryUseNuxt()?.options?.oxc?.transform?.options ?? {};
+  return transformSync(id, input, { ...oxcOptions, ...options });
+}
+const DEFINE_I18N_FN_RE = /\b(defineI18nLocale|defineI18nConfig)\s*\((.+)\)/gs;
+const ResourcePlugin = (options, ctx) => createUnplugin((_options, meta) => {
+  const i18nFileMetas = [...ctx.localeFileMetas, ...ctx.vueI18nConfigPaths];
+  const i18nPathSet = /* @__PURE__ */ new Set();
+  const i18nFileHashSet = /* @__PURE__ */ new Map();
+  for (const fileMeta of i18nFileMetas) {
+    if (i18nPathSet.has(fileMeta.path)) {
+      continue;
+    }
+    i18nPathSet.add(fileMeta.path);
+    i18nFileHashSet.set(asI18nVirtual(fileMeta.hash), fileMeta.path);
+  }
+  return {
+    name: "nuxtjs:i18n-resource",
+    enforce: "pre",
+    // resolve virtual hash to file path
+    resolveId(id) {
+      if (!id || id.startsWith(VIRTUAL_PREFIX_HEX)) {
+        return;
+      }
+      if (meta.framework === "vite" && i18nPathSet.has(id)) {
+        return id;
+      }
+      if (i18nFileHashSet.has(id)) {
+        return i18nFileHashSet.get(id);
+      }
+    },
+    transformInclude(id) {
+      if (!id || id.startsWith(VIRTUAL_PREFIX_HEX)) {
+        return false;
+      }
+      if (i18nPathSet.has(id)) {
+        return /\.[cm]?[jt]s$/.test(id);
+      }
+    },
+    /**
+     * Match and replace `defineI18nX(<content>)` with its `<content>`
+     */
+    transform: {
+      filter: {
+        id: {
+          include: [...i18nPathSet]
+        }
+      },
+      async handler(_code, id) {
+        let code = _code;
+        const staticImports = findStaticImports(_code);
+        for (const x of staticImports) {
+          if (x.specifier.startsWith("\0")) {
+            continue;
+          }
+          i18nPathSet.add(await resolvePath(resolve(dirname(id), x.specifier)));
+        }
+        if (/[cm]?ts$/.test(id)) {
+          code = transform(id, _code).code;
+        }
+        const s = new MagicString(code);
+        const matches = code.matchAll(DEFINE_I18N_FN_RE);
+        for (const match of matches) {
+          s.overwrite(match.index, match.index + match[0].length, match[2]);
+        }
+        if (s.hasChanged()) {
+          return {
+            code: s.toString(),
+            map: options.sourcemap && !/\.[cm]?ts$/.test(id) ? s.generateMap({ hires: true }) : null
+          };
+        }
+      }
+    }
+  };
+});
+
+class NuxtPageAnalyzeContext {
+  config;
+  pages = /* @__PURE__ */ new Map();
+  constructor(config) {
+    this.config = config || {};
+  }
+  addPage(page, path, name) {
+    this.pages.set(page.file, { path, name });
+  }
+}
+async function setupPages({ localeCodes, options, normalizedLocales }, nuxt) {
+  let routeResources = {
+    localizedPaths: [],
+    pathToI18nConfig: {},
+    i18nPathToPath: {},
+    disabledPaths: []
+  };
+  addTemplate({
+    filename: "i18n-route-resources.mjs",
+    write: true,
+    getContents: () => {
+      return `// Generated by @nuxtjs/i18n
+export const localizedPaths = ${JSON.stringify(routeResources.localizedPaths, null, 2)};
+export const pathToI18nConfig = ${JSON.stringify(routeResources.pathToI18nConfig, null, 2)};
+export const i18nPathToPath = ${JSON.stringify(routeResources.i18nPathToPath, null, 2)};
+export const disabledPaths = ${JSON.stringify(routeResources.disabledPaths, null, 2)};`;
+    }
+  });
+  if (!localeCodes.length) {
+    return;
+  }
+  const compactPrerenderRoutes = [];
+  nuxt.hook("nitro:init", (nitro) => {
+    if (!nuxt.options.nitro.static) {
+      return;
+    }
+    if (options.strategy === "prefix") {
+      nitro.options.prerender.ignore ??= [];
+      nitro.options.prerender.ignore.push(/^\/$/);
+    }
+    nitro.hooks.hook("prerender:routes", (routes) => {
+      if (options.strategy === "prefix") {
+        for (const locale of localeCodes) {
+          routes.add("/" + locale);
+        }
+      }
+      for (const route of compactPrerenderRoutes) {
+        routes.add(route);
+      }
+    });
+  });
+  const projectLayer = nuxt.options._layers[0];
+  const typedRouter = await setupExperimentalTypedRoutes(options, nuxt);
+  const stubFile = resolve(nuxt.options.appDir, "../pages/runtime/component-stub");
+  nuxt.options.experimental.extraPageMetaExtractionKeys ??= [];
+  nuxt.options.experimental.extraPageMetaExtractionKeys.push("i18n");
+  nuxt.hook(
+    nuxt.options.experimental.scanPageMeta === "after-resolve" ? "pages:resolved" : "pages:extend",
+    async (pages) => {
+      const ctx = new NuxtPageAnalyzeContext(options.pages);
+      for (const layer of nuxt.options._layers) {
+        const pagesDir = resolve(projectLayer.config.rootDir, layer.config.srcDir, layer.config.dir?.pages ?? "pages");
+        analyzeNuxtPages(ctx, pagesDir, pages);
+      }
+      if (typedRouter) {
+        await typedRouter.createContext(pages).scanPages(false);
+      }
+      normalizeRouteMeta(ctx, pages, localeCodes, options.customRoutes ?? "page", nuxt.vfs);
+      const resolver = createPureOptionsResolver(ctx, options.defaultLocale, options.customRoutes, stubFile);
+      const resources = createRouteResourcesCollector();
+      const localizationOptions = {
+        ...options,
+        locales: normalizedLocales,
+        optionsResolver: resolver,
+        compactRoutes: !!options.experimental?.compactRoutes,
+        onLocalize: resources.collect
+      };
+      const localizedPages = localizeRoutes(pages, localizationOptions);
+      const indexPage = pages.find((x) => x.path === "/");
+      if (options.strategy === "prefix" && indexPage != null) {
+        localizedPages.unshift(indexPage);
+      }
+      stripRouteMetaI18n(localizedPages);
+      routeResources = resources.toResources();
+      await updateTemplates({
+        filter: (template) => template.filename === "i18n-route-resources.mjs"
+      });
+      if (pages !== localizedPages) {
+        pages.length = 0;
+        pages.unshift(...localizedPages);
+      }
+      if (options.experimental?.compactRoutes && nuxt.options.nitro.static) {
+        compactPrerenderRoutes.push(...collectCompactPrerenderRoutes(localizedPages));
+      }
+    }
+  );
+}
+const compactRouteRE = /^\/:locale\(([^)]+)\)(.*)$/;
+const remainingParamRE = /:[A-Z_]/i;
+function collectCompactPrerenderRoutes(pages) {
+  const out = [];
+  const emit = (locales, rest) => {
+    if (remainingParamRE.test(rest)) {
+      return false;
+    }
+    for (const locale of locales) {
+      out.push("/" + locale + rest);
+    }
+    return true;
+  };
+  const walkChildren = (children, locales, parentRest) => {
+    if (!children?.length) {
+      return;
+    }
+    for (const child of children) {
+      if (child.path.startsWith("/")) {
+        continue;
+      }
+      if (child.path === "") {
+        walkChildren(child.children, locales, parentRest);
+        continue;
+      }
+      const rest = parentRest.replace(/\/$/, "") + "/" + child.path;
+      if (!emit(locales, rest)) {
+        continue;
+      }
+      walkChildren(child.children, locales, rest);
+    }
+  };
+  for (const route of pages) {
+    if (!route.meta?.__i18nCompact) {
+      continue;
+    }
+    const match = compactRouteRE.exec(route.path);
+    if (!match) {
+      continue;
+    }
+    const locales = match[1].split("|");
+    const rest = match[2];
+    if (!emit(locales, rest)) {
+      continue;
+    }
+    walkChildren(route.children, locales, rest);
+  }
+  return out;
+}
+const routeNamedMapTypeRE = /\bRouteNamedMap\b/g;
+const routeFileInfoMapTypeRE = /\b_RouteFileInfoMap\b/g;
+const declarationFile = "./types/typed-router-i18n.d.ts";
+async function setupExperimentalTypedRoutes(userOptions, nuxt) {
+  if (!nuxt.options.experimental.typedPages || userOptions.experimental?.typedPages === false) {
+    return void 0;
+  }
+  const dtsFile = resolve(nuxt.options.buildDir, declarationFile);
+  function createContext(pages) {
+    const typedRouteroptions = {
+      routesFolder: [],
+      dts: dtsFile,
+      logs: !!nuxt.options.debug,
+      watch: false,
+      beforeWriteFiles(rootPage) {
+        rootPage.children.forEach((child) => child.delete());
+        function addPage(parent, page) {
+          const route = parent.insert(page.path, page.file);
+          if (page.meta) {
+            route.addToMeta(page.meta);
+          }
+          if (page.alias) {
+            route.addAlias(Array.isArray(page.alias) ? page.alias : [page.alias]);
+          }
+          if (page.name) {
+            route.name = page.name;
+          }
+          if (page.children) {
+            page.children.forEach((child) => addPage(route, child));
+          }
+        }
+        for (const page of pages) {
+          addPage(rootPage, page);
+        }
+      }
+    };
+    const context = createRoutesContext(resolveOptions(typedRouteroptions));
+    const originalScanPages = context.scanPages.bind(context);
+    context.scanPages = async function(watchers = false) {
+      await mkdir(dirname(dtsFile), { recursive: true });
+      await originalScanPages(watchers);
+      const dtsContent = await readFile(dtsFile, "utf-8");
+      const renamed = dtsContent.replace(routeNamedMapTypeRE, "RouteNamedMapI18n").replace(routeFileInfoMapTypeRE, "_RouteFileInfoMapI18n");
+      if (renamed !== dtsContent) {
+        await writeFile(dtsFile, renamed);
+      }
+    };
+    return context;
+  }
+  addTemplate({
+    filename: resolve(nuxt.options.buildDir, "./types/i18n-generated-route-types.d.ts"),
+    getContents: () => {
+      return `// Generated by @nuxtjs/i18n
+import type { RouteNamedMapI18n } from 'vue-router/auto-routes'
+
+declare module 'vue-router' {
+  export interface TypesConfig {
+    RouteNamedMapI18n: RouteNamedMapI18n
+  }
+}
+
+export {}`;
+    }
+  });
+  nuxt.hook("prepare:types", ({ references }) => {
+    references.push({ path: declarationFile });
+    references.push({ types: "./types/i18n-generated-route-types.d.ts" });
+  });
+  await createContext(nuxt.apps.default?.pages ?? []).scanPages(false);
+  return { createContext };
+}
+function analyzePagePath(pagePath, parents = 0) {
+  const { dir, name } = parse(pagePath);
+  const analyzed = parents > 0 || dir !== "/" ? `${dir.slice(1, dir.length)}/${name}` : name;
+  return stripRouteGroups(analyzed);
+}
+function stripRouteGroups(path) {
+  return path.split("/").filter((s) => !/^\([^)]+\)$/.test(s)).join("/");
+}
+function analyzeNuxtPages(ctx, pagesDir, pages) {
+  if (pages == null || pages.length === 0) {
+    return;
+  }
+  for (const page of pages) {
+    if (page.file == null) {
+      continue;
+    }
+    const [, filePath] = page.file.split(pagesDir);
+    if (filePath == null) {
+      continue;
+    }
+    ctx.addPage(page, analyzePagePath(filePath), page.name ?? page.children?.find((x) => x.path.endsWith("/index"))?.name);
+    analyzeNuxtPages(ctx, pagesDir, page.children);
+  }
+}
+function createPureOptionsResolver(ctx, defaultLocale, customRoutes, stubFile) {
+  const cache = /* @__PURE__ */ new Map();
+  return (route, localeCodes) => {
+    if (stubFile && route.file?.replace(/\.\w+$/, "") === stubFile) {
+      return void 0;
+    }
+    const key = `${route.file ?? route.name ?? route.path}::${localeCodes.join(",")}`;
+    if (cache.has(key)) {
+      return cache.get(key);
+    }
+    const resolved = getRouteOptions(route, localeCodes, ctx, defaultLocale, customRoutes);
+    cache.set(key, resolved);
+    return resolved;
+  };
+}
+function resolveRoutePath(path) {
+  const tokens = parseSegment(path.slice(1));
+  return "/" + toVueRouterSegment(tokens);
+}
+function getConfigValue(ctx, route) {
+  const pageMeta = ctx.pages.get(route.file);
+  if (pageMeta == null) {
+    return void 0;
+  }
+  const valueByName = pageMeta?.name ? ctx.config?.[pageMeta.name] : void 0;
+  return valueByName ?? (pageMeta?.path != null ? ctx.config?.[pageMeta.path] : void 0);
+}
+function getRouteFromConfig(ctx, route, localeCodes) {
+  const resolved = getConfigValue(ctx, route);
+  if (!resolved) {
+    return resolved;
+  }
+  return {
+    paths: resolved ?? {},
+    locales: localeCodes.filter((locale) => resolved[locale] !== false)
+  };
+}
+function configValueToI18nRoute(value, localeCodes) {
+  if (value === false) {
+    return false;
+  }
+  const paths = {};
+  let hasDisabled = false;
+  for (const [locale, path] of Object.entries(value)) {
+    if (path === false) {
+      hasDisabled = true;
+    } else if (path != null) {
+      paths[locale] = path;
+    }
+  }
+  const route = { paths };
+  if (hasDisabled) {
+    route.locales = localeCodes.filter((locale) => value[locale] !== false);
+  }
+  return route;
+}
+function stripRouteMetaI18n(pages) {
+  for (const page of pages) {
+    if (typeof page.meta?.i18n === "object") {
+      delete page.meta.i18n;
+      if (Object.keys(page.meta).length === 0) {
+        delete page.meta;
+      }
+    }
+    if (page.children?.length) {
+      stripRouteMetaI18n(page.children);
+    }
+  }
+}
+function normalizeRouteMeta(ctx, pages, localeCodes, mode, vfs = {}) {
+  for (const page of pages) {
+    if (page.file != null) {
+      let value;
+      if (mode === "config") {
+        const raw = getConfigValue(ctx, page);
+        value = raw === void 0 ? void 0 : configValueToI18nRoute(raw, localeCodes);
+      } else if (mode === "page") {
+        value = getI18nRouteConfig(page.file, vfs);
+      }
+      if (page.meta?.i18n === void 0) {
+        if (value !== void 0) {
+          page.meta ??= {};
+          page.meta.i18n = value;
+        }
+      } else if (value !== void 0) {
+        const source = mode === "config" ? "a `pages` config entry" : "`defineI18nRoute()`";
+        logger.warn(
+          `Route \`${String(page.name || page.path)}\` has both \`i18n\` route meta and ${source} \u2014 the route meta value takes precedence.`
+        );
+      }
+    }
+    if (page.children?.length) {
+      normalizeRouteMeta(ctx, page.children, localeCodes, mode, vfs);
+    }
+  }
+}
+function getRouteFromResource(localeCodes, resolved) {
+  if (!resolved) {
+    return resolved;
+  }
+  return {
+    paths: resolved.paths ?? {},
+    locales: resolved?.locales || localeCodes
+  };
+}
+function getRouteOptions(route, localeCodes, ctx, defaultLocale, mode = "config") {
+  let resolvedOptions;
+  const metaValue = route.meta?.i18n;
+  if (metaValue !== void 0) {
+    resolvedOptions = getRouteFromResource(localeCodes, metaValue);
+  } else if (mode === "config") {
+    resolvedOptions = getRouteFromConfig(ctx, route, localeCodes);
+  } else if (mode === "page") {
+    resolvedOptions = getRouteFromResource(localeCodes, getI18nRouteConfig(route.file));
+  }
+  if (resolvedOptions === false) {
+    return void 0;
+  }
+  const locales = resolvedOptions?.locales || localeCodes;
+  const paths = {};
+  if (!resolvedOptions) {
+    return { locales, paths };
+  }
+  for (const locale of resolvedOptions.locales) {
+    if (isString(resolvedOptions.paths[locale])) {
+      paths[locale] = resolveRoutePath(resolvedOptions.paths[locale]);
+      continue;
+    }
+    if (isString(resolvedOptions.paths[defaultLocale])) {
+      paths[locale] = resolveRoutePath(resolvedOptions.paths[defaultLocale]);
+    }
+  }
+  return { locales, paths };
+}
+function getI18nRouteConfig(absolutePath, vfs = {}) {
+  let extract = void 0;
+  try {
+    const content = absolutePath in vfs ? vfs[absolutePath] : readFileSync(absolutePath, "utf-8");
+    if (!content.includes("defineI18nRoute")) {
+      return void 0;
+    }
+    const { descriptor } = parse$1(content);
+    const script = descriptor.scriptSetup || descriptor.script;
+    if (!script) {
+      return void 0;
+    }
+    const lang = typeof script.attrs.lang === "string" && /j|tsx/.test(script.attrs.lang) ? "tsx" : "ts";
+    let code = script.content;
+    parseAndWalk(script.content, absolutePath.replace(/\.\w+$/, "." + lang), (node) => {
+      if (extract != null) {
+        return;
+      }
+      if (node.type !== "CallExpression" || node.callee.type !== "Identifier" || node.callee.name !== "defineI18nRoute") {
+        return;
+      }
+      let routeArgument = node.arguments[0];
+      if (routeArgument == null) {
+        return;
+      }
+      if (typeof script.attrs.lang === "string" && /tsx?/.test(script.attrs.lang)) {
+        const transformed = transform("", script.content.slice(node.start, node.end).trim(), { lang });
+        code = transformed.code;
+        if (transformed.errors.length) {
+          for (const error of transformed.errors) {
+            console.warn(`Error while transforming \`defineI18nRoute()\`` + error.codeframe);
+          }
+          return;
+        }
+        routeArgument = parseSync("", transformed.code, { lang: "js" }).program.body[0].expression.arguments[0];
+      }
+      extract = evalAndValidateValue(code.slice(routeArgument.start, routeArgument.end).trim());
+    });
+  } catch (e) {
+    console.warn(`[nuxt-i18n] Couldn't read component data at ${absolutePath}: (${e.message})`);
+  }
+  return extract;
+}
+function evalValue(value) {
+  try {
+    return new Function(`return (${value})`)();
+  } catch {
+    console.error(`[nuxt-i18n] Cannot evaluate value: ${value}`);
+    return;
+  }
+}
+function evalAndValidateValue(value) {
+  const evaluated = evalValue(value);
+  if (evaluated == null) {
+    return;
+  }
+  if (typeof evaluated === "boolean" && evaluated === false) {
+    return evaluated;
+  }
+  if (Object.prototype.toString.call(evaluated) === "[object Object]") {
+    if (evaluated.locales) {
+      if (!Array.isArray(evaluated.locales) || evaluated.locales.some((locale) => typeof locale !== "string")) {
+        console.warn(`[nuxt-i18n] Invalid locale option used with \`defineI18nRoute\`: ${value}`);
+        return;
+      }
+    }
+    if (evaluated.paths && Object.prototype.toString.call(evaluated.paths) !== "[object Object]") {
+      console.warn(`[nuxt-i18n] Invalid paths option used with \`defineI18nRoute\`: ${value}`);
+      return;
+    }
+    return evaluated;
+  }
+  console.warn(`[nuxt-i18n] Invalid value passed to \`defineI18nRoute\`: ${value}`);
+}
+
+const I18N_MACRO_FN_RE = /\bdefineI18nRoute\s*\(\s*/;
+const TransformMacroPlugin = (options) => createUnplugin(() => {
+  return {
+    name: "nuxtjs:i18n-macros-transform",
+    enforce: "pre",
+    transformInclude(id) {
+      if (!id || id.startsWith(VIRTUAL_PREFIX_HEX)) {
+        return false;
+      }
+      return isVue(id, { type: ["script"] });
+    },
+    transform: {
+      filter: {
+        code: { include: I18N_MACRO_FN_RE }
+      },
+      handler(code) {
+        const parsed = parse$1(code, { sourceMap: false });
+        const script = parsed.descriptor.scriptSetup ?? parsed.descriptor.script;
+        if (!script) {
+          return;
+        }
+        const s = new MagicString(code);
+        const match = script.content.match(I18N_MACRO_FN_RE);
+        if (match?.[0]) {
+          const scriptString = new MagicString(script.content);
+          scriptString.overwrite(match.index, match.index + match[0].length, `false && /*#__PURE__*/ ${match[0]}`);
+          s.overwrite(script.loc.start.offset, script.loc.end.offset, scriptString.toString());
+        }
+        if (s.hasChanged()) {
+          return {
+            code: s.toString(),
+            map: options.sourcemap ? s.generateMap({ hires: true }) : void 0
+          };
+        }
+      }
+    }
+  };
+});
+
+const STATIC_RESOURCE_RE = /\.(?:json5?|ya?ml)$/;
+const BOM_RE = /^\uFEFF/;
+function parseResource(path) {
+  const raw = tryUseNuxt()?.vfs?.[path] ?? readFileSync(path, "utf8");
+  const content = raw.replace(BOM_RE, "");
+  try {
+    if (path.endsWith(".json5")) {
+      return parseJSON5(content);
+    }
+    if (/\.ya?ml$/.test(path)) {
+      return parseYAML(content);
+    }
+    return JSON.parse(content);
+  } catch (err) {
+    throw new Error(`Could not parse locale file (${path}): ${err.message}`, { cause: err });
+  }
+}
+const toRelative = (path) => relative(tryUseNuxt()?.options.rootDir ?? "", path);
+function resolveRawResourcePaths(paths) {
+  const raw = /* @__PURE__ */ new Set();
+  for (const path of new Set(paths)) {
+    if (!STATIC_RESOURCE_RE.test(path)) {
+      continue;
+    }
+    try {
+      parseResource(path);
+      raw.add(path);
+    } catch (err) {
+      logger.warn(`Leaving ${toRelative(path)} to the bundler: ${err.message}`);
+    }
+  }
+  return raw;
+}
+function validateMessages(value, options, path, keys) {
+  if (isString(value)) {
+    if (detectHtmlTag(value)) {
+      if (options.strictMessage) {
+        throw new Error(
+          `Detected HTML in '${value}' message at "${keys.join(".")}" (${path}). Recommend not using HTML messages to avoid XSS.`
+        );
+      }
+      if (options.strictMessage == null) {
+        options.htmlKeys.push(keys.join("."));
+      }
+      if (options.escapeHtml) {
+        return escapeHtml(value);
+      }
+    }
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return value.map((entry, i) => {
+      keys.push(String(i));
+      const validated = validateMessages(entry, options, path, keys);
+      keys.pop();
+      return validated;
+    });
+  }
+  if (value && typeof value === "object") {
+    const record = value;
+    for (const k of Object.keys(record)) {
+      keys.push(k);
+      record[k] = validateMessages(record[k], options, path, keys);
+      keys.pop();
+    }
+  }
+  return value;
+}
+const warnedPaths = /* @__PURE__ */ new Set();
+function warnHtmlMessages(path, keys) {
+  if (!keys.length) {
+    warnedPaths.delete(path);
+    return;
+  }
+  if (warnedPaths.has(path)) {
+    return;
+  }
+  warnedPaths.add(path);
+  logger.warn(
+    `Detected HTML in ${keys.length} message${keys.length > 1 ? "s" : ""} in ${toRelative(path)} (first: "${keys[0]}"). Set \`compilation.strictMessage\` to \`true\` to reject these, or to \`false\` to silence this warning.`
+  );
+}
+function readStaticResource(ctx, path) {
+  const htmlKeys = [];
+  const messages = validateMessages(parseResource(path), {
+    // these resources are not precompiled, so nothing checked them before `optimizeMessageBundling` -
+    // applying the `strictMessage` default here would reject messages that always built fine
+    strictMessage: ctx.rawOptions.compilation?.strictMessage,
+    escapeHtml: !!ctx.options.compilation.escapeHtml,
+    htmlKeys
+  }, path, []);
+  warnHtmlMessages(path, htmlKeys);
+  return JSON.stringify(messages);
+}
+
+const JSON_PARSE_VIRTUAL_PREFIX = "\0i18n-json-parse/";
+const JsonParseMessagesPlugin = (ctx) => createUnplugin(() => {
+  const virtualToPath = /* @__PURE__ */ new Map();
+  for (const fileMeta of ctx.localeFileMetas) {
+    if (ctx.rawResourcePaths.has(fileMeta.path)) {
+      virtualToPath.set(asI18nVirtual(fileMeta.hash), fileMeta.path);
+    }
+  }
+  return {
+    name: "nuxtjs:i18n-json-parse-messages",
+    enforce: "pre",
+    resolveId(id) {
+      if (virtualToPath.has(id)) {
+        return JSON_PARSE_VIRTUAL_PREFIX + id;
+      }
+    },
+    loadInclude(id) {
+      return id.startsWith(JSON_PARSE_VIRTUAL_PREFIX);
+    },
+    load(id) {
+      const path = virtualToPath.get(id.slice(JSON_PARSE_VIRTUAL_PREFIX.length));
+      this.addWatchFile(path);
+      const raw = readStaticResource(ctx, path);
+      return {
+        code: `export default /* @__PURE__ */ JSON.parse(${JSON.stringify(raw)})`,
+        map: { version: 3, sources: [], names: [], mappings: "" }
+      };
+    }
+  };
+});
+
+const TRANSLATION_FUNCTIONS = ["$t", "$rt", "$d", "$n", "$tm", "$te"];
+const TRANSLATION_FUNCTIONS_RE = /\$([tdn]|rt|tm|te)\s*\(\s*/;
+const TRANSLATION_FUNCTIONS_MAP = {
+  $t: "t: $t",
+  $rt: "rt: $rt",
+  $d: "d: $d",
+  $n: "n: $n",
+  $tm: "tm: $tm",
+  $te: "te: $te"
+};
+const QUERY_RE = /\?.*$/;
+function withoutQuery(id) {
+  return id.replace(QUERY_RE, "");
+}
+const TransformI18nFunctionPlugin = (options) => createUnplugin(() => {
+  return {
+    name: "nuxtjs:i18n-function-injection",
+    enforce: "pre",
+    transformInclude(id) {
+      return isVue(id, { type: ["script"] });
+    },
+    transform: {
+      filter: {
+        code: { include: TRANSLATION_FUNCTIONS_RE }
+      },
+      handler(code, id) {
+        const script = extractScriptSetupContent(code);
+        if (!script) {
+          return;
+        }
+        const filepath = withoutQuery(id).replace(/\.\w+$/, "." + script.loader);
+        const missing = collectMissingI18nFunctions(script.code, filepath);
+        if (!missing.size) {
+          return;
+        }
+        const assignments = [];
+        for (const entry of missing) {
+          assignments.push(TRANSLATION_FUNCTIONS_MAP[entry]);
+        }
+        const s = new MagicString(code);
+        s.appendLeft(script.start, `
+const { ${assignments.join(", ")} } = useI18n()
+`);
+        return {
+          code: s.toString(),
+          map: options.sourcemap ? s.generateMap({ hires: true }) : void 0
+        };
+      }
+    }
+  };
+});
+function collectMissingI18nFunctions(script, id) {
+  const scopeTracker = new ScopeTracker({ preserveExitedScopes: true });
+  const ast = parseAndWalk(script, id, { scopeTracker });
+  const missing = /* @__PURE__ */ new Set();
+  walk(ast.program, {
+    scopeTracker,
+    enter(node) {
+      if (node.type !== "CallExpression" || node.callee.type !== "Identifier") {
+        return;
+      }
+      const name = node.callee.name;
+      if (!name || !TRANSLATION_FUNCTIONS.includes(name) || scopeTracker.isDeclared(name)) {
+        return;
+      }
+      missing.add(name);
+    }
+  });
+  return missing;
+}
+const SFC_SCRIPT_COMPLEX_RE = /<script(?<attrs>[^>]*)>(?<content>[\s\S]*?)<\/script[^>]*>/i;
+function extractScriptSetupContent(sfc) {
+  const match = sfc.match(SFC_SCRIPT_COMPLEX_RE);
+  if (match?.groups?.content && match.groups.attrs && match.groups.attrs.includes("setup")) {
+    return {
+      code: match.groups.content.trim(),
+      loader: match.groups.attrs && /[tj]sx/.test(match.groups.attrs) ? "tsx" : "ts",
+      start: sfc.indexOf(match.groups.content)
+    };
+  }
+}
+
+const HeistPlugin = (options, ctx, nuxt = useNuxt()) => {
+  const shared = ctx.resolver.resolve(ctx.distDir, "runtime/shared/*");
+  const replacementName = `__nuxtMock`;
+  const replacementMock = `const ${replacementName} = { runWithContext: async (fn) => await fn() };`;
+  const resources = ["i18n-route-resources.mjs", "i18n-options.mjs"];
+  return createUnplugin(() => ({
+    name: "nuxtjs:i18n-heist",
+    enforce: "pre",
+    transform: {
+      filter: {
+        id: [shared, relative(nuxt.options.rootDir, shared)]
+      },
+      handler(code) {
+        const s = new MagicString(code);
+        if (code.includes("useRuntimeConfig()")) {
+          s.prepend('import { useRuntimeConfig } from "nitropack/runtime";\n');
+        }
+        s.replace(/import.+["']#app["'];?/, replacementMock);
+        s.replaceAll(/useNuxtApp\(\)/g, replacementName);
+        for (const resource of resources) {
+          s.replaceAll(new RegExp(`#build/${resource}`, "g"), `#internal/${resource}`);
+        }
+        return {
+          code: s.toString(),
+          map: options.sourcemap ? s.generateMap({ hires: true }) : void 0
+        };
+      }
+    }
+  }));
+};
+
+const version = "10.6.0";
+
+function extendBundler(ctx, nuxt) {
+  const pluginOptions = {
+    sourcemap: !!nuxt.options.sourcemap.server || !!nuxt.options.sourcemap.client
+  };
+  const resourcePlugin = ResourcePlugin(pluginOptions, ctx);
+  const jsonParsePlugin = ctx.options.experimental.optimizeMessageBundling ? JsonParseMessagesPlugin(ctx) : void 0;
+  addBuildPlugin(resourcePlugin);
+  nuxt.hook("nitro:config", async (cfg) => {
+    cfg.rollupConfig.plugins = await cfg.rollupConfig.plugins || [];
+    cfg.rollupConfig.plugins = toArray(cfg.rollupConfig.plugins);
+    if (jsonParsePlugin) {
+      cfg.rollupConfig.plugins.push(jsonParsePlugin.rollup());
+    }
+    cfg.rollupConfig.plugins.push(HeistPlugin(pluginOptions, ctx).rollup());
+    cfg.rollupConfig.plugins.push(resourcePlugin.rollup());
+  });
+  const localePaths = [...new Set(ctx.localeFileMetas.filter((m) => m.type === "static").map((m) => m.path))];
+  const vueI18nPluginOptions = {
+    ...ctx.options.bundle,
+    ...ctx.options.compilation,
+    ...ctx.options.customBlocks,
+    allowDynamic: true,
+    optimizeTranslationDirective: false,
+    include: localePaths.length ? localePaths : []
+  };
+  if (ctx.options.experimental.optimizeMessageBundling) {
+    const serverPluginOptions = {
+      ...vueI18nPluginOptions,
+      dropMessageCompiler: false,
+      runtimeOnly: false,
+      include: localePaths.filter((x) => !ctx.rawResourcePaths.has(x))
+    };
+    addVitePlugin(() => jsonParsePlugin.vite(), { client: false, prepend: true });
+    addVitePlugin(() => VueI18nPlugin.vite(vueI18nPluginOptions), { server: false });
+    addVitePlugin(() => VueI18nPlugin.vite(serverPluginOptions), { client: false });
+    addWebpackPlugin(() => VueI18nPlugin.webpack(vueI18nPluginOptions));
+  } else {
+    addBuildPlugin({
+      vite: () => VueI18nPlugin.vite(vueI18nPluginOptions),
+      webpack: () => VueI18nPlugin.webpack(vueI18nPluginOptions)
+    });
+  }
+  addBuildPlugin(TransformMacroPlugin(pluginOptions));
+  if (ctx.options.autoDeclare && nuxt.options.imports.autoImport !== false) {
+    addBuildPlugin(TransformI18nFunctionPlugin(pluginOptions));
+  }
+  nuxt.hook("nitro:init", async () => {
+    await addDefinePlugin(getDefineConfig(ctx));
+  });
+}
+function getDefineConfig(ctx, server = false, nuxt = useNuxt()) {
+  const { options, rawOptions, dynamicLocales, undeliverableLocales, localeFileMetas, localeHashes } = ctx;
+  const cacheLifetime = options.experimental.cacheLifetime ?? (localeFileMetas.some((m) => m.cache) ? DEFAULT_CACHE_LIFETIME : -1);
+  const isCacheEnabled = cacheLifetime >= 0 && (!nuxt.options.dev || !!options.experimental.devCache);
+  const stripMessagesPayload = rawOptions.experimental?.stripMessagesPayload ?? !!options.experimental.preload;
+  const common = {
+    __IS_SSR__: String(nuxt.options.ssr),
+    __IS_SSG__: String(ctx.staticDeploy),
+    __PARALLEL_PLUGIN__: String(options.parallelPlugin),
+    __DYNAMIC_PARAMS_KEY__: JSON.stringify(DYNAMIC_PARAMS_KEY),
+    __DEFAULT_COOKIE_KEY__: JSON.stringify(DEFAULT_COOKIE_KEY),
+    __NUXT_I18N_VERSION__: JSON.stringify(version),
+    __SWITCH_LOCALE_PATH_LINK_IDENTIFIER__: JSON.stringify(SWITCH_LOCALE_PATH_LINK_IDENTIFIER),
+    __I18N_STRATEGY__: JSON.stringify(options.strategy),
+    // gate for domain-based locale resolution
+    __I18N_DOMAINS__: String(options.differentDomains || options.multiDomainLocales),
+    __ROUTE_NAME_SEPARATOR__: JSON.stringify(options.routesNameSeparator),
+    __ROUTE_NAME_DEFAULT_SUFFIX__: JSON.stringify(options.defaultLocaleRouteNameSuffix),
+    __TRAILING_SLASH__: String(options.trailingSlash),
+    __DEFAULT_DIRECTION__: JSON.stringify(options.defaultDirection),
+    __I18N_CACHE__: String(isCacheEnabled),
+    __I18N_CACHE_LIFETIME__: JSON.stringify(cacheLifetime),
+    __I18N_HTTP_CACHE_DURATION__: JSON.stringify(options.experimental.httpCacheDuration ?? 10),
+    __I18N_DYNAMIC_LOCALES__: JSON.stringify(dynamicLocales),
+    __I18N_UNDELIVERABLE_LOCALES__: JSON.stringify(undeliverableLocales),
+    __I18N_STRIP_UNUSED__: JSON.stringify(stripMessagesPayload),
+    __I18N_PRELOAD__: JSON.stringify(!!options.experimental.preload),
+    __I18N_ROUTING__: JSON.stringify(nuxt.options.pages.toString() && options.strategy !== "no_prefix"),
+    // mirrors the build time gate in `localizeRoutes`, an ungated flag makes the runtime take
+    // compact route branches against a table that has none
+    __I18N_COMPACT_ROUTES__: String(
+      !!options.experimental?.compactRoutes && !options.differentDomains && !options.multiDomainLocales && options.strategy !== "no_prefix"
+    ),
+    __I18N_STRICT_SEO__: JSON.stringify(!!options.experimental.strictSeo),
+    __I18N_SERVER_ROUTE__: JSON.stringify(options.serverRoutePrefix),
+    // SSG already prerenders the messages routes (runtime `prerenderRoutes`), so they exist at the
+    // CDN origin there too — honor `app.cdnURL` for both that and the opt-in `prerenderMessages`.
+    __I18N_CDN__: String(!!nuxt.options.app.cdnURL && (!!options.experimental.prerenderMessages || ctx.staticDeploy)),
+    __I18N_LOCALE_HASHES__: JSON.stringify(localeHashes),
+    __I18N_SERVER_REDIRECT__: JSON.stringify(!!options.experimental.nitroContextDetection)
+  };
+  if (nuxt.options.ssr || !server) {
+    return {
+      ...common,
+      __VUE_I18N_LEGACY_API__: String(!(options.bundle?.compositionOnly ?? true)),
+      __VUE_I18N_FULL_INSTALL__: String(options.bundle?.fullInstall ?? true),
+      __INTLIFY_PROD_DEVTOOLS__: "false",
+      __INTLIFY_DROP_MESSAGE_COMPILER__: String(options.bundle?.dropMessageCompiler ?? false)
+    };
+  }
+  return common;
+}
+
+function stripLocaleFiles(locale) {
+  const stripped = assign({}, locale);
+  delete stripped.files;
+  delete stripped.file;
+  return stripped;
+}
+function simplifyLocaleOptions(ctx, _nuxt) {
+  const locales = ctx.options.locales ?? [];
+  if (!locales.some((x) => !isString(x))) {
+    return locales;
+  }
+  return withImplicitDomainDefaults(
+    locales.map((locale) => normalizeDomainLocale(isString(locale) ? { code: locale, language: locale } : locale))
+  ).map(stripLocaleFiles);
+}
+const STUB_LOADER = "() => Promise.resolve({})";
+function generateLoaderOptions(ctx) {
+  const importMapper = /* @__PURE__ */ new Map();
+  const localeLoaders = {};
+  const importStatements = /* @__PURE__ */ new Set();
+  for (const locale of ctx.localeInfo) {
+    localeLoaders[locale.code] ??= [];
+    for (const meta of locale.meta) {
+      if (!importMapper.has(meta.path)) {
+        const identifier = `locale_${genSafeVariableName(basename(meta.path))}_${meta.hash}`;
+        const key = genString(identifier);
+        const virtualId = asI18nVirtual(meta.hash);
+        if (!meta.appContext) {
+          importStatements.add(meta.assetKey ? genImport(resolve(ctx.runtimeDir, "server/utils/assets"), [{ name: "readI18nAsset" }]) : genImport(virtualId, identifier));
+        }
+        importMapper.set(meta.path, {
+          key,
+          virtualId,
+          cache: meta.cache ?? true,
+          load: genDynamicImport(virtualId, { comment: `webpackChunkName: ${key}` }),
+          loadServer: meta.appContext ? STUB_LOADER : meta.assetKey ? `() => readI18nAsset(${genString(meta.assetKey)})` : `() => Promise.resolve(${identifier})`
+        });
+      }
+      localeLoaders[locale.code].push(importMapper.get(meta.path));
+    }
+  }
+  const vueI18nConfigs = [];
+  for (let i = ctx.vueI18nConfigPaths.length - 1; i >= 0; i--) {
+    const config = ctx.vueI18nConfigPaths[i];
+    const identifier = `config_${genSafeVariableName(basename(config.path))}_${config.hash}`;
+    const key = genString(identifier);
+    const virtualId = asI18nVirtual(config.hash);
+    importStatements.add(genImport(virtualId, identifier));
+    vueI18nConfigs.push({
+      importer: genDynamicImport(virtualId, { comment: `webpackChunkName: ${key}` }),
+      importerServer: `() => Promise.resolve(${identifier})`,
+      virtualId
+    });
+  }
+  const normalizedLocales = ctx.normalizedLocales.map((x) => stripLocaleFiles(x));
+  return { localeLoaders, vueI18nConfigs, normalizedLocales, importStatements: Array.from(importStatements) };
+}
+const typedRouterAugmentations = `
+import type {
+  TypesConfig,
+  RouteMapGeneric,
+  RouteLocationAsRelativeGeneric,
+  RouteLocationAsPathGeneric,
+  RouteLocationAsRelativeTypedList,
+  RouteLocationAsStringTypedList,
+  RouteLocationAsPathTypedList,
+  RouteLocationResolvedGeneric,
+  RouteLocationResolvedTypedList,
+  RouteLocationNormalizedLoadedGeneric,
+} from 'vue-router'
+
+declare module 'vue-router' {
+  export type RouteMapI18n =
+    TypesConfig extends Record<'RouteNamedMapI18n', infer RouteNamedMap> ? RouteNamedMap : RouteMapGeneric
+
+  // Prefer named resolution for i18n
+  // The relative form indexes \`RouteLocationAsRelativeTypedList\` directly instead of using the
+  // \`RouteLocationAsRelativeI18n\` conditional alias so name/params narrowing works (#3962).
+  export type RouteLocationNamedI18n<Name extends keyof RouteMapI18n = keyof RouteMapI18n> =
+      | Name
+      | RouteLocationAsRelativeTypedList<RouteMapI18n>[Name]
+      | RouteLocationAsPathGeneric
+      /**
+       * Note: disabled route path string autocompletion, this can break depending on \`strategy\`
+       * this can be enabled again after route resolve has been improved.
+      */
+      // | RouteLocationAsStringI18n
+      // | RouteLocationAsPathI18n
+
+  export type RouteLocationRawI18n<Name extends keyof RouteMapI18n = keyof RouteMapI18n> =
+    RouteMapGeneric extends RouteMapI18n
+      ? RouteLocationAsStringI18n | RouteLocationAsRelativeGeneric | RouteLocationAsPathGeneric
+      :
+          // \`| (string & {})\` keeps autocompletion while allowing any string, the
+          // helper type vue-router v4 exported for this no longer exists in v5
+          | RouteLocationAsStringTypedList<RouteMapI18n>[Name] | (string & {})
+          | RouteLocationAsRelativeTypedList<RouteMapI18n>[Name]
+
+  export type RouteLocationResolvedI18n<Name extends keyof RouteMapI18n = keyof RouteMapI18n> =
+    RouteMapGeneric extends RouteMapI18n
+      ? RouteLocationResolvedGeneric
+      : RouteLocationResolvedTypedList<RouteMapI18n>[Name]
+
+  export interface RouteLocationNormalizedLoadedTypedI18n<
+    RouteMapI18n extends RouteMapGeneric = RouteMapGeneric,
+    Name extends keyof RouteMapI18n = keyof RouteMapI18n
+  > extends RouteLocationNormalizedLoadedGeneric {
+    name: Extract<Name, string | symbol>
+    params: RouteMapI18n[Name]['params']
+  }
+  export type RouteLocationNormalizedLoadedTypedListI18n<RouteMapOriginal extends RouteMapGeneric = RouteMapGeneric> = {
+    [N in keyof RouteMapOriginal]: RouteLocationNormalizedLoadedTypedI18n<RouteMapOriginal, N>
+  }
+  export type RouteLocationNormalizedLoadedI18n<Name extends keyof RouteMapI18n = keyof RouteMapI18n> =
+    RouteMapGeneric extends RouteMapI18n
+      ? RouteLocationNormalizedLoadedGeneric
+      : RouteLocationNormalizedLoadedTypedListI18n<RouteMapI18n>[Name]
+
+  export type RouteLocationAsStringI18n<Name extends keyof RouteMapI18n = keyof RouteMapI18n> =
+    RouteMapGeneric extends RouteMapI18n
+      ? string
+      : RouteLocationAsStringTypedList<RouteMapI18n>[Name] | (string & {})
+
+  export type RouteLocationAsRelativeI18n<Name extends keyof RouteMapI18n = keyof RouteMapI18n> =
+    RouteMapGeneric extends RouteMapI18n
+      ? RouteLocationAsRelativeGeneric
+      : RouteLocationAsRelativeTypedList<RouteMapI18n>[Name]
+
+  export type RouteLocationAsPathI18n<Name extends keyof RouteMapI18n = keyof RouteMapI18n> =
+    RouteMapGeneric extends RouteMapI18n ? RouteLocationAsPathGeneric : RouteLocationAsPathTypedList<RouteMapI18n>[Name]
+
+  /**
+   * Helper to generate a type safe version of the {@link RouteLocationAsRelative} type.
+   */
+  export interface RouteLocationAsRelativeTypedI18n<
+    RouteMapI18n extends RouteMapGeneric = RouteMapGeneric,
+    Name extends keyof RouteMapI18n = keyof RouteMapI18n
+  > extends RouteLocationAsRelativeGeneric {
+    name?: Extract<Name, string | symbol>
+    params?: RouteMapI18n[Name]['paramsRaw']
+  }
+}`;
+function generateI18nTypes(nuxt, ctx) {
+  const legacyTypes = ctx.options.types === "legacy";
+  const i18nType = legacyTypes ? "VueI18n" : "Composer";
+  const generatedLocales = simplifyLocaleOptions(ctx);
+  const resolvedLocaleType = isString(generatedLocales.at(0)) ? "Locale[]" : "LocaleObject[]";
+  const narrowedLocaleType = ctx.localeCodes.map((x) => JSON.stringify(x)).join(" | ") || "string";
+  const globalTranslationTypes = `
+declare global {
+  var $t: (${i18nType})['t']
+  var $rt: (${i18nType})['rt']
+  var $n: (${i18nType})['n']
+  var $d: (${i18nType})['d']
+  var $tm: (${i18nType})['tm']
+  var $te: (${i18nType})['te']
+}`;
+  return `// Generated by @nuxtjs/i18n
+import type { ${i18nType} } from 'vue-i18n'
+import type { ComposerCustomProperties } from '${relative(
+    join$1(nuxt.options.buildDir, "types"),
+    resolve(ctx.runtimeDir, "types.ts")
+  )}'
+import type { Strategies, Directions, LocaleObject } from '${relative(
+    join$1(nuxt.options.buildDir, "types"),
+    resolve(ctx.distDir, "types.d.mts")
+  )}'
+import type { I18nRoute } from '#i18n'
+
+declare module 'vue-i18n' {
+  interface ComposerCustom extends ComposerCustomProperties<${resolvedLocaleType}> {}
+  interface ExportedGlobalComposer extends ComposerCustomProperties<${resolvedLocaleType}> {}
+  interface VueI18n extends ComposerCustomProperties<${resolvedLocaleType}> {}
+}
+
+declare module '@intlify/core-base' {
+  // generated based on configured locales
+  interface GeneratedTypeConfig { 
+    locale: ${narrowedLocaleType}
+    legacy: ${legacyTypes}
+  }
+}
+
+interface I18nMeta {
+  i18n?: I18nRoute | false
+}
+
+declare module '#app' {
+  interface NuxtApp {
+    $i18n: ${i18nType}
+  }
+  interface PageMeta extends I18nMeta {}
+}
+
+
+declare module 'vue-router' {
+  interface RouteMeta extends I18nMeta {}
+}
+
+${typedRouterAugmentations}
+
+${ctx.options.autoDeclare && globalTranslationTypes || ""}
+
+export {}`;
+}
+
+const loadConfigsFn = `
+async function loadCfg(config) {
+  const nuxt = useNuxtApp()
+  const { default: resolver } = await config()
+  return typeof resolver === 'function' ? await nuxt.runWithContext(() => resolver()) : resolver
+}
+`;
+function genLocaleLoaderHMR(localeLoaders) {
+  const statements = [];
+  for (const locale in localeLoaders) {
+    for (let i = 0; i < localeLoaders[locale].length; i++) {
+      const loader = localeLoaders[locale][i];
+      statements.push(
+        [
+          `  import.meta.hot.accept("${loader.virtualId}", async mod => {`,
+          //   replace locale loader
+          `    localeLoaders["${locale}"][${i}].load = () => Promise.resolve(mod.default)`,
+          //   trigger locale messages reload for locale
+          `    await useNuxtApp()._nuxtI18n.dev.resetI18nProperties("${locale}")`,
+          `  })`
+        ].join("\n")
+      );
+    }
+  }
+  return statements.join("\n\n");
+}
+function genVueI18nConfigHMR(configs) {
+  const statements = [];
+  for (let i = 0; i < configs.length; i++) {
+    statements.push(
+      [
+        `  import.meta.hot.accept("${configs[i].virtualId}", async mod => {`,
+        //   load configs before replacing loader
+        `    const [oldData, newData] = await Promise.all([loadCfg(vueI18nConfigs[${i}]), loadCfg(() => Promise.resolve(mod))]);`,
+        //   replace config loader
+        `    vueI18nConfigs[${i}] = () => Promise.resolve(mod)`,
+        //   compare data - reload configs if _only_ replaceable properties have changed
+        `    if(useNuxtApp()._nuxtI18n.dev.deepEqual(oldData, newData, ['messages', 'numberFormats', 'datetimeFormats'])) {`,
+        `      return await useNuxtApp()._nuxtI18n.dev.resetI18nProperties()`,
+        `    }`,
+        //   communicate to vite plugin to trigger a page load
+        `    import.meta.hot.send('i18n:options-complex-invalidation', {})`,
+        `  })`
+      ].join("\n")
+    );
+  }
+  return statements.join("\n\n");
+}
+function generateTemplateNuxtI18nOptions(ctx, server = false, nuxt = useNuxt()) {
+  const opts = ctx.loaderOptions;
+  const codeHMR = nuxt.options.dev && ctx.options.hmr && [
+    `if(import.meta.hot) {`,
+    loadConfigsFn,
+    genLocaleLoaderHMR(opts.localeLoaders),
+    genVueI18nConfigHMR(opts.vueI18nConfigs),
+    "}"
+  ].join("\n\n");
+  const appLoad = (load, locale) => {
+    if (server || nuxt.options.dev || !nuxt.options.ssr) {
+      return load;
+    }
+    if (ctx.undeliverableLocales.includes(locale)) {
+      return load;
+    }
+    if (!ctx.dynamicLocales.includes(locale)) {
+      return STUB_LOADER;
+    }
+    return ctx.staticDeploy ? load : `import.meta.client ? ${STUB_LOADER} : ${load}`;
+  };
+  const localeLoaderEntries = {};
+  for (const locale in opts.localeLoaders) {
+    localeLoaderEntries[locale] = opts.localeLoaders[locale].map(({ key, load, loadServer, cache }) => ({ key, load: server ? loadServer : appLoad(load, locale), cache }));
+  }
+  return `// @ts-nocheck
+${server ? opts.importStatements.join("\n") : ""}
+export const localeCodes =  ${genArrayFromRaw(ctx.localeCodes.map((x) => genString(x)))}
+export const localeLoaders = ${genObjectFromRaw(localeLoaderEntries)}
+export const vueI18nConfigs = ${genArrayFromRaw(opts.vueI18nConfigs.map((x) => server ? x.importerServer : x.importer))}
+export const normalizedLocales = ${genArrayFromRaw(opts.normalizedLocales.map((x) => genObjectFromValues(x, "  ")))}
+${server ? "" : codeHMR || ""}
+`;
+}
+
+async function setupNitro(ctx, nuxt) {
+  addServerTemplate({
+    filename: "#internal/i18n-options.mjs",
+    getContents: () => generateTemplateNuxtI18nOptions(ctx, true)
+  });
+  const assetFiles = new Map(ctx.localeFileMetas.filter((meta) => meta.assetKey).map((meta) => [meta.assetKey, meta.path]));
+  if (assetFiles.size) {
+    const assetsDir = join$1(nuxt.options.buildDir, "i18n-assets");
+    nuxt.hook("nitro:config", (nitroConfig) => {
+      nitroConfig.serverAssets ||= [];
+      nitroConfig.serverAssets.push({ baseName: "i18n", dir: assetsDir });
+    });
+    nuxt.hook("nitro:build:before", () => {
+      rmSync(assetsDir, { recursive: true, force: true });
+      mkdirSync(assetsDir, { recursive: true });
+      for (const [assetKey, path] of assetFiles) {
+        writeFileSync(join$1(assetsDir, assetKey), readStaticResource(ctx, path));
+      }
+    });
+  }
+  addServerTemplate({
+    filename: "#internal/i18n-route-resources.mjs",
+    getContents: () => nuxt.vfs["#build/i18n-route-resources.mjs"] || ""
+  });
+  const localeDetector = await resolveLocaleDetectorPath(ctx, nuxt);
+  addServerTemplate({
+    filename: "#internal/i18n-locale-detector.mjs",
+    getContents: () => localeDetector.exists ? `export { default as localeDetector } from ${JSON.stringify(localeDetector.path)}` : `export const localeDetector = undefined`
+  });
+  const sharedComposables = ctx.resolver.resolve("runtime/composables/shared");
+  addServerImports([
+    { name: "defineI18nLocale", from: sharedComposables },
+    { name: "defineI18nConfig", from: sharedComposables },
+    { name: "defineI18nLocaleDetector", from: ctx.resolver.resolve("runtime/composables/server") }
+  ]);
+  const h3UtilsExports = await resolveModuleExportNames(resolveModule("@intlify/utils/h3"));
+  addServerImports([
+    { name: "useTranslation", from: "@intlify/h3" },
+    ...h3UtilsExports.map((name) => ({ name, from: "@intlify/utils/h3" }))
+  ]);
+  addServerPlugin(ctx.resolver.resolve("runtime/server/plugin"));
+  addServerHandler({
+    route: `${ctx.options.serverRoutePrefix}/:hash/:locale/messages.json`,
+    handler: ctx.resolver.resolve("./runtime/server/routes/messages")
+  });
+  nuxt.hook("nitro:config", async (nitroConfig) => {
+    nitroConfig.externals = defu(nitroConfig.externals ?? {}, { inline: [ctx.resolver.resolve("./runtime"), ...ctx.localeFilePaths] });
+    nitroConfig.alias["#i18n"] = ctx.resolver.resolve("./runtime/composables/index-server");
+    if (localeDetector.path) {
+      const relativeDetectorPath = relative(nuxt.options.buildDir, localeDetector.path);
+      nuxt.options.typescript.tsConfig.exclude ||= [];
+      nuxt.options.typescript.tsConfig.exclude.push(relativeDetectorPath);
+      nitroConfig.typescript = defu(nitroConfig.typescript ?? {}, { tsConfig: { include: [relativeDetectorPath] } });
+    }
+    nitroConfig.rollupConfig.plugins = await nitroConfig.rollupConfig.plugins || [];
+    nitroConfig.rollupConfig.plugins = toArray(nitroConfig.rollupConfig.plugins);
+    const localePathsByType = getResourcePathsGrouped(ctx.localeFileMetas);
+    if (localePathsByType.yaml.length > 0) {
+      nitroConfig.rollupConfig.plugins.push(yamlPlugin({ include: localePathsByType.yaml }));
+    }
+    if (localePathsByType.json5.length > 0) {
+      nitroConfig.rollupConfig.plugins.push(json5Plugin({ include: localePathsByType.json5 }));
+    }
+    nitroConfig.replace = Object.assign({}, nitroConfig.replace, getDefineConfig(ctx, true));
+  });
+}
+async function resolveLocaleDetectorPath(ctx, nuxt) {
+  const detector = ctx.i18nLayers.find((l) => !!l.i18nDetector)?.i18nDetector;
+  if (detector == null) {
+    return { path: "", exists: false };
+  }
+  const resolved = await resolvePath(detector, { cwd: nuxt.options.rootDir, extensions: EXECUTABLE_EXTENSIONS });
+  const exists = existsSync(resolved);
+  if (!exists) {
+    logger.warn(`localeDetector file '${resolved}' does not exist.`);
+  }
+  return { path: resolved, exists };
+}
+function getResourcePathsGrouped(fileMetas) {
+  return {
+    yaml: fileMetas.filter((meta) => /\.ya?ml$/.test(meta.path)).map((x) => x.path),
+    json5: fileMetas.filter((meta) => /\.json5?$/.test(meta.path)).map((x) => x.path)
+  };
+}
+
+function checkLayerOptions(ctx, nuxt) {
+  const project = nuxt.options._layers[0];
+  for (const { config: layer, i18n: layerI18n } of ctx.i18nLayers) {
+    const configLocation = project.config.rootDir === layer.config.rootDir ? "project" : "extended";
+    const layerHint = `In ${configLocation} layer (\`${resolve(project.config.rootDir, layer.configFile)}\`) -`;
+    try {
+      if (!layerI18n.langDir) {
+        continue;
+      }
+      if (isString(layerI18n.langDir) && isAbsolute(layerI18n.langDir)) {
+        logger.warn(
+          `${layerHint} \`langDir\` is set to an absolute path (\`${layerI18n.langDir}\`) but should be set a path relative to \`srcDir\` (\`${layer.config.srcDir}\`). Absolute paths will not work in production, see https://i18n.nuxtjs.org/docs/api/options#langdir for more details.`
+        );
+      }
+      for (const locale of layerI18n.locales ?? []) {
+        if (isString(locale)) {
+          throw new Error("When using the `langDir` option the `locales` must be a list of objects.");
+        }
+        if (locale.file || locale.files) {
+          continue;
+        }
+        throw new Error(
+          `All locales must have the \`file\` or \`files\` property set when using \`langDir\`.
+Found none in:
+${JSON.stringify(locale, null, 2)}.`
+        );
+      }
+    } catch (err) {
+      if (!(err instanceof Error)) {
+        throw err;
+      }
+      throw new Error(`[nuxt-i18n] ${layerHint} ${err.message}`, { cause: err });
+    }
+  }
+}
+async function applyLayerOptions(ctx, nuxt) {
+  const configs = [];
+  if (isAbsolute(ctx.options.langDir || "")) {
+    const config = { langDir: ctx.options.langDir, locales: [] };
+    for (const locale of ctx.options.locales) {
+      if (isString(locale) || !getLocaleFiles(locale)?.[0]?.path?.startsWith(config.langDir)) {
+        continue;
+      }
+      config.locales.push(locale);
+    }
+    configs.push(config);
+  }
+  for (const layer of ctx.i18nLayers) {
+    if (layer.i18n.locales == null) {
+      continue;
+    }
+    configs.push(assign({}, layer.i18n, { langDir: resolve(layer.i18nDir, layer.i18n.langDir ?? "locales"), locales: layer.i18n.locales }));
+  }
+  await nuxt.callHook("i18n:registerModule", ({ langDir, locales }) => langDir && locales && configs.push({ langDir, locales }));
+  return mergeConfigLocales(configs);
+}
+async function resolveLayerVueI18nConfigInfo(ctx, nuxt = useNuxt()) {
+  const res = [];
+  if (ctx.options.vueI18n && isAbsolute(ctx.options.vueI18n)) {
+    const resolved = await findPath(ctx.options.vueI18n, { extensions: EXECUTABLE_EXTENSIONS });
+    if (resolved) {
+      res.push(resolveVueI18nConfigInfo(resolved, nuxt.vfs));
+    }
+  }
+  for (const layer of ctx.i18nLayers) {
+    const resolved = await findPath(layer.i18n.vueI18n || "i18n.config", { cwd: layer.i18nDir, extensions: EXECUTABLE_EXTENSIONS });
+    if (!resolved) {
+      if (layer.i18n.vueI18n) {
+        logger.warn(`Vue I18n configuration file \`${layer.i18n.vueI18n}\` not found in \`${layer.i18nDir}\`. Skipping...`);
+      }
+      continue;
+    }
+    res.push(resolveVueI18nConfigInfo(resolved, nuxt.vfs));
+  }
+  return res;
+}
+
+const isDynamicMeta = (meta) => meta.type !== "static" && meta.cache === false;
+function resolveDeliveryLocales(localeInfo) {
+  return {
+    dynamicLocales: localeInfo.filter((x) => x.meta.some(isDynamicMeta)).map((x) => x.code),
+    // one list, because nothing downstream cares which of the two reasons applies
+    undeliverableLocales: localeInfo.filter((x) => x.meta.some((m) => !m.serializable || m.appContext)).map((x) => x.code)
+  };
+}
+const prerenderableLocales = (ctx) => ctx.localeCodes.filter(createPrerenderablePredicate({
+  dynamic: ctx.dynamicLocales,
+  undeliverable: ctx.undeliverableLocales
+}));
+const resolver = createResolver(import.meta.url);
+const distDir = dirname(fileURLToPath(import.meta.url));
+const runtimeDir = fileURLToPath(new URL("./runtime", import.meta.url));
+function createContext(userOptions, nuxt) {
+  const options = userOptions;
+  const rawOptions = nuxt.options.i18n || {};
+  const i18nLayers = [];
+  for (const l of nuxt.options._layers) {
+    const i18n = getLayerI18n(l);
+    if (!i18n) {
+      continue;
+    }
+    const i18nDir = resolve(l.config.rootDir, i18n.restructureDir ?? "i18n");
+    const i18nDetector = i18n.experimental?.localeDetector ? resolver.resolve(i18nDir, i18n.experimental.localeDetector) : void 0;
+    i18nLayers.push({ config: l, i18n, i18nDir, i18nDetector });
+  }
+  return { options, rawOptions, resolver, distDir, runtimeDir, i18nLayers };
+}
+async function resolveContext(ctx, nuxt) {
+  ctx.options.locales = await applyLayerOptions(ctx, nuxt);
+  ctx.options.locales = filterLocales(ctx);
+  const normalizedLocales = withImplicitDomainDefaults(
+    ctx.options.locales.map((x) => normalizeDomainLocale(isString(x) ? { code: x, language: x } : x))
+  );
+  const localeCodes = normalizedLocales.map((locale) => locale.code);
+  validateLocaleCodes(localeCodes);
+  validateDefaultLocale(ctx.options.defaultLocale, localeCodes);
+  const localeInfo = resolveLocales(nuxt.options.srcDir, normalizedLocales, nuxt.vfs);
+  const localeFileMetas = localeInfo.flatMap((x) => x.meta);
+  const vueI18nConfigPaths = await resolveLayerVueI18nConfigInfo(ctx);
+  const localeFilePaths = [...new Set(localeFileMetas.map((meta) => meta.path))];
+  const rawResourcePaths = ctx.options.experimental.optimizeMessageBundling ? resolveRawResourcePaths(localeFilePaths) : /* @__PURE__ */ new Set();
+  if (!nuxt.options.dev) {
+    for (const meta of localeFileMetas) {
+      if (rawResourcePaths.has(meta.path)) {
+        meta.assetKey = `${meta.hash}.json`;
+      }
+    }
+  }
+  const { dynamicLocales, undeliverableLocales } = resolveDeliveryLocales(localeInfo);
+  const resolved = assign(ctx, {
+    normalizedLocales,
+    localeCodes,
+    localeInfo,
+    localeFileMetas,
+    localeFilePaths,
+    rawResourcePaths,
+    vueI18nConfigPaths,
+    /**
+     * content-hash locale files now that all locales and configs are known,
+     * used to cache-bust per-locale message server routes without churning
+     * on every build
+     */
+    localeHashes: computeLocaleHashes(localeInfo, vueI18nConfigPaths),
+    dynamicLocales,
+    undeliverableLocales,
+    staticDeploy: !!nuxt.options.nitro.static
+  });
+  nuxt.hook("nitro:init", (nitro) => {
+    resolved.staticDeploy = !!nitro.options.static;
+  });
+  resolved.loaderOptions = generateLoaderOptions(resolved);
+  return resolved;
+}
+
+function prepareOptions(ctx, nuxt) {
+  const { options, rawOptions } = ctx;
+  checkLayerOptions(ctx, nuxt);
+  if (options.bundle.compositionOnly && options.types === "legacy") {
+    throw new Error(
+      `[nuxt-i18n] \`bundle.compositionOnly\` option and \`types\` option are conflicting: bundle.compositionOnly: ${options.bundle.compositionOnly}, types: ${JSON.stringify(options.types)}`
+    );
+  }
+  if (rawOptions.autoDeclare && nuxt.options.imports.autoImport === false) {
+    logger.warn(
+      "Disabling `autoImports` in Nuxt is not compatible with `autoDeclare`, either enable `autoImports` or disable `autoDeclare`."
+    );
+  }
+  const { strategy, defaultLocale, multiDomainLocales } = options;
+  if (strategy.endsWith("_default") && !defaultLocale && !multiDomainLocales) {
+    logger.warn(
+      `The \`${strategy}\` i18n strategy${rawOptions.strategy == null ? " (used by default)" : ""} needs \`defaultLocale\` to be set.`
+    );
+  }
+  if (multiDomainLocales) {
+    const hasDomainLocales = (options.locales || []).some(
+      (locale) => !isString(locale) && normalizeDomainLocale(locale).domains.length
+    );
+    if (!hasDomainLocales) {
+      logger.warn(
+        `Locale \`domains\` must be configured when \`multiDomainLocales\` is enabled.`
+      );
+    }
+  }
+  if (nuxt.options.experimental.scanPageMeta === false) {
+    logger.warn(
+      "Route localization features (e.g. custom name, prefixed aliases) require Nuxt's `experimental.scanPageMeta` to be enabled.\nThis feature will be enabled in future Nuxt versions (https://github.com/nuxt/nuxt/pull/27134), check out the docs for more details: https://nuxt.com/docs/guide/going-further/experimental-features#scanpagemeta"
+    );
+  }
+  if (options.experimental?.compactRoutes) {
+    const conflicts = [];
+    if (strategy === "no_prefix") {
+      conflicts.push('`strategy: "no_prefix"`');
+    }
+    if (options.differentDomains) {
+      conflicts.push("`differentDomains`");
+    }
+    if (multiDomainLocales) {
+      conflicts.push("`multiDomainLocales`");
+    }
+    if (conflicts.length) {
+      logger.warn(
+        `\`experimental.compactRoutes\` is enabled but has no effect due to incompatible option(s): ${conflicts.join(", ")}. Routes will fall back to per-locale duplication.`
+      );
+    }
+  }
+}
+
+async function prepareTypeGeneration({ resolver, options }, nuxt) {
+  if (options.experimental.typedOptionsAndMessages === false || !nuxt.options.dev) {
+    return;
+  }
+  const declarationFile = "./types/i18n-messages.d.ts";
+  const dtsFile = resolver.resolve(nuxt.options.buildDir, declarationFile);
+  addServerPlugin(resolver.resolve("runtime/server/type-generation"));
+  nuxt.options.nitro = defu$1(nuxt.options.nitro, {
+    externals: {
+      inline: [/#internal\/i18n-type-generation-options/]
+    },
+    virtual: {
+      "#internal/i18n-type-generation-options": () => `export const dtsFile = ${JSON.stringify(dtsFile)}`
+    }
+  });
+  await mkdir(dirname(dtsFile), { recursive: true });
+  nuxt.hook("prepare:types", ({ references }) => {
+    references.push({ path: declarationFile });
+  });
+}
+
+const module$1 = defineNuxtModule({
+  meta: {
+    name: "@nuxtjs/i18n",
+    configKey: "i18n",
+    compatibility: {
+      nuxt: ">=3.0.0-rc.11",
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore property removed in Nuxt 4
+      bridge: false
+    }
+  },
+  defaults: DEFAULT_OPTIONS,
+  async setup(i18nOptions, nuxt) {
+    const ctx = createContext(i18nOptions, nuxt);
+    prepareOptions(ctx, nuxt);
+    addComponent({
+      name: "NuxtLinkLocale",
+      filePath: ctx.resolver.resolve(ctx.runtimeDir, "components/NuxtLinkLocale")
+    });
+    addComponent({
+      name: "SwitchLocalePathLink",
+      filePath: ctx.resolver.resolve(ctx.runtimeDir, "components/SwitchLocalePathLink")
+    });
+    addImports({
+      name: "useI18n",
+      from: "vue-i18n"
+    });
+    addImportsSources({
+      from: ctx.resolver.resolve(ctx.runtimeDir, "composables/index"),
+      imports: [
+        "useRouteBaseName",
+        "useLocalePath",
+        "useLocaleRoute",
+        "useSwitchLocalePath",
+        "useLocaleHead",
+        "useBrowserLocale",
+        "useCookieLocale",
+        "useSetI18nParams",
+        "useI18nPreloadKeys",
+        "defineI18nRoute",
+        "defineI18nLocale",
+        "defineI18nConfig"
+      ]
+    });
+    const deps = [
+      "vue-i18n",
+      "@intlify/shared",
+      "@intlify/core",
+      "@intlify/core-base",
+      "@intlify/utils",
+      "@intlify/utils/h3",
+      "@intlify/message-compiler"
+    ];
+    for (const dep of deps) {
+      if (dep === "vue-i18n" || dep === "@intlify/core") {
+        continue;
+      }
+      nuxt.options.alias[dep] = resolveModule(dep);
+    }
+    const vueI18nRuntimeOnly = !nuxt.options.dev && !nuxt.options._prepare && ctx.options.bundle?.runtimeOnly;
+    nuxt.options.alias["vue-i18n"] = resolveModule(`vue-i18n/dist/vue-i18n${vueI18nRuntimeOnly ? ".runtime" : ""}`);
+    nuxt.options.alias["@intlify/core"] = resolveModule(`@intlify/core/dist/core.node`);
+    nuxt.options.build.transpile.push("@nuxtjs/i18n", ...deps);
+    nuxt.hook("prepare:types", ({ tsConfig, nodeTsConfig, sharedTsConfig }) => {
+      for (const cfg of [tsConfig, nodeTsConfig, sharedTsConfig]) {
+        delete cfg?.compilerOptions?.paths?.["@intlify/core"];
+      }
+    });
+    nuxt.options.alias["#i18n"] = ctx.resolver.resolve("./runtime/composables/index");
+    nuxt.options.alias["#i18n-kit"] = ctx.resolver.resolve("./runtime/kit");
+    nuxt.options.alias["#internal-i18n-types"] = ctx.resolver.resolve("./types");
+    nuxt.options.build.transpile.push("#i18n", "#i18n-kit", "#internal-i18n-types");
+    nuxt.options.vite.optimizeDeps ||= {};
+    nuxt.options.vite.optimizeDeps.exclude ||= [];
+    nuxt.options.vite.optimizeDeps.exclude.push(...deps);
+    nuxt.options.typescript.hoist ||= [];
+    nuxt.options.typescript.hoist.push(
+      ...deps.filter((dep) => !(dep in nuxt.options.alias))
+    );
+    nuxt.options.typescript.tsConfig.include ||= [];
+    nuxt.options.typescript.tsConfig.include.push(
+      ...ctx.i18nLayers.map((l) => relative(nuxt.options.buildDir, l.i18nDir + "/**/*"))
+    );
+    addPlugin(ctx.resolver.resolve("./runtime/plugins/i18n"));
+    if (nuxt.options.dev || nuxt.options._prepare) {
+      addPlugin(ctx.resolver.resolve("./runtime/plugins/dev"));
+    }
+    addPlugin(ctx.resolver.resolve("./runtime/plugins/preload"));
+    addPlugin(ctx.resolver.resolve("./runtime/plugins/route-locale-detect"));
+    addPlugin(ctx.resolver.resolve("./runtime/plugins/ssg-detect"));
+    addPlugin(ctx.resolver.resolve("./runtime/plugins/switch-locale-path-ssr"));
+    if (nuxt.options.dev && ctx.options.hmr) {
+      addVitePlugin({
+        name: "i18n:options-hmr",
+        configureServer(server) {
+          const reloadClient = () => server.ws.send({ type: "full-reload" });
+          server.ws.on("i18n:options-complex-invalidation", () => {
+            if (ctx.options.experimental.typedOptionsAndMessages) {
+              useNitro().hooks.hookOnce("dev:reload", reloadClient);
+              return;
+            }
+            reloadClient();
+          });
+        }
+      });
+    }
+    await prepareTypeGeneration(ctx, nuxt);
+    nuxt.hook("modules:done", async () => {
+      const resolved = await resolveContext(ctx, nuxt);
+      addTemplate({
+        filename: "i18n-options.mjs",
+        getContents: () => generateTemplateNuxtI18nOptions(resolved)
+      });
+      addTypeTemplate({
+        filename: "types/i18n-plugin.d.ts",
+        getContents: () => generateI18nTypes(nuxt, resolved)
+      });
+      nuxt.options.runtimeConfig.public.i18n = defu(nuxt.options.runtimeConfig.public.i18n, {
+        baseUrl: resolved.options.baseUrl,
+        defaultLocale: resolved.options.defaultLocale,
+        rootRedirect: resolved.options.rootRedirect,
+        redirectStatusCode: resolved.options.redirectStatusCode,
+        skipSettingLocaleOnNavigate: resolved.options.skipSettingLocaleOnNavigate,
+        locales: resolved.options.locales,
+        detectBrowserLanguage: resolved.options.detectBrowserLanguage ?? DEFAULT_OPTIONS.detectBrowserLanguage,
+        experimental: resolved.options.experimental,
+        domainLocales: Object.fromEntries(
+          resolved.options.locales.map((l) => {
+            if (typeof l === "string") {
+              return [l, { domain: "" }];
+            }
+            return [l.code, { domain: l.domain ?? "" }];
+          })
+        )
+      });
+      nuxt.options.runtimeConfig.public.i18n.locales = simplifyLocaleOptions(resolved);
+      if (resolved.options.experimental.prerenderMessages) {
+        const messagesRoutes = prerenderableLocales(resolved).map(
+          (locale) => `${resolved.options.serverRoutePrefix}/${resolved.localeHashes[locale]}/${locale}/messages.json`
+        );
+        nuxt.hook("nitro:config", (config) => {
+          config.prerender ??= {};
+          config.prerender.routes ??= [];
+          config.prerender.routes.push(...messagesRoutes);
+        });
+      }
+      nuxt.hook("build:manifest", (manifest) => {
+        const langPaths = resolved.localeFilePaths.map((x) => relative(nuxt.options.srcDir, x));
+        for (const key in manifest) {
+          if (langPaths.some((x) => key.startsWith(x))) {
+            manifest[key].prefetch = false;
+            manifest[key].preload = false;
+          }
+        }
+      });
+      await setupPages(resolved, nuxt);
+      extendBundler(resolved, nuxt);
+      await setupNitro(resolved, nuxt);
+    });
+  }
+});
+
+export { module$1 as default };

@@ -1,0 +1,1423 @@
+Object.defineProperty(exports, Symbol.toStringTag, {
+    value: "Module"
+});
+
+let e = require("solid-js/web"), t = require("solid-js");
+
+var r, n = [], {min: o, max: s, abs: i, floor: l} = Math, c = (e, t, r) => o(r, s(t, e)), u = e => e.sort((e, t) => e - t), a = setTimeout, f = clearTimeout, g = "function" == typeof queueMicrotask ? queueMicrotask : e => {
+    Promise.resolve().then(e);
+}, d = () => {
+    let e;
+    return [ new Promise(t => {
+        e = t;
+    }), e ];
+}, h = e => e.ownerDocument, p = e => e.defaultView, v = () => (null == r && (r = /iP(hone|od|ad)/.test(navigator.userAgent) || "MacIntel" === navigator.platform && navigator.maxTouchPoints > 0), 
+r), $ = e => s(e.l(), e.u()), w = (e, t, r, n) => {
+    const o = e.h(), s = t.p(o);
+    t.v(r, n) && e.$(6, t.p(o) - s);
+}, m = ({m: e, S: t, p: r, _: n, I: l, l: c, k: u, R: a, T: f}, g = 0) => {
+    let d = !!g, h = 1, p = 0, $ = 0, w = 0, m = 0, S = 0, x = 0, z = 0, y = 0, _ = null, I = [ 0, d ? s(g - 1, 0) : -1 ], b = !1;
+    const k = /* @__PURE__ */ new Set, R = () => w - $, T = () => R() + S + m, O = (e, t) => {
+        const o = r(e), s = n(e);
+        return 1 !== z && 0 === y ? o + s <= t : o < t && o + s < t + p;
+    }, M = e => {
+        e && (v() && 0 !== z || _ && 1 === y ? S += e : m += e);
+    }, C = () => {
+        const e = u();
+        if (2 === y) return e;
+        if (_ && 1 === y) return o(_[0], e);
+        const r = T();
+        let n = t(r);
+        for (;n > 0 && !O(n - 1, r); ) n--;
+        for (;n < e && O(n, r); ) n++;
+        return n;
+    };
+    return {
+        O: () => {
+            k.clear();
+        },
+        M: () => h,
+        m: (t = 200) => {
+            if (!b || d) return I;
+            let r, n;
+            if (x) [r, n] = I; else {
+                let i = s(0, T()), l = i + p;
+                f() || (t = s(0, t), 1 !== z && (i -= t), 2 !== z && (l += t)), [r, n] = I = e(s(0, i), s(0, l)), 
+                _ && (r = o(r, _[0]), n = s(n, _[1]));
+            }
+            return [ s(r, 0), o(n, u() - 1) ];
+        },
+        h: C,
+        p: e => r(e) - S,
+        C: () => w,
+        L: () => 0 !== z,
+        u: () => p,
+        W: () => $,
+        l: c,
+        q: () => (x = m, m = 0, [ x, 2 === y ]),
+        H: (e, t) => {
+            const r = [ e, t ];
+            return k.add(r), () => {
+                k.delete(r);
+            };
+        },
+        $: (t, n, o) => {
+            let s, f, g = 0;
+            switch (t) {
+              case 1:
+                {
+                    if (n === w && 0 === y) break;
+                    const e = x;
+                    x = 0;
+                    const t = n - w, r = i(t);
+                    e && r < i(e) + 1 || 0 !== y || (z = t < 0 ? 2 : 1), d && (d = !1), w = n, g = 4;
+                    const o = R();
+                    o >= -p && o <= c() && (g += 1, f = r > p);
+                    break;
+                }
+
+              case 2:
+                g = 8, 0 !== z && (s = !0, g += 1), z = 0, y = 0, _ = null;
+                break;
+
+              case 3:
+                if (n.length) {
+                    const e = C(), t = r(e);
+                    l(n, p), M(r(e) - t), g = 3, f = !0;
+                }
+                break;
+
+              case 4:
+                p !== n && (p || (b = f = !0), p = n, g = 3);
+                break;
+
+              case 5:
+                if (n !== u()) {
+                    if (o) {
+                        const e = c();
+                        a(n, !0), M(c() - e), y = 2;
+                    } else a(n);
+                    g = 1;
+                }
+                break;
+
+              case 6:
+                M(n), g = 1;
+                break;
+
+              case 7:
+                $ = n;
+                break;
+
+              case 8:
+                y = 1;
+                break;
+
+              case 9:
+                _ = e(n, n + p), g = 1;
+            }
+            g && (h = 1 + (2147483647 & h), s && S && (m += S, S = 0), k.forEach(([e, t]) => {
+                g & e && t(f);
+            }));
+        }
+    };
+}, S = (e, t, r) => {
+    const n = r ? "unshift" : "push";
+    for (let r = 0; r < t; r++) e[n](-1);
+    return e;
+}, x = (e, t, r, n = 0, o = t - 1) => {
+    let s = n;
+    for (;n <= o; ) {
+        const t = l((n + o) / 2);
+        e(t) <= r ? (s = t, n = t + 1) : o = t - 1;
+    }
+    return c(s, 0, t - 1);
+}, z = (e, t, r) => {
+    let n = r && r[1] || t || 40, s = -1, i = 0, l = !t, c = 0;
+    const a = r ? r[0].slice(0, e) : [];
+    S(a, e - a.length);
+    const f = S([], e + 1), g = e => {
+        const t = a[e];
+        return -1 === t ? n : t;
+    }, d = t => {
+        if (!e) return 0;
+        if (s >= t) return f[t];
+        s < 0 && (f[0] = 0, s = 0);
+        let r = s, n = f[r];
+        for (;r < t; ) n += g(r), f[++r] = n;
+        return s = t, n;
+    };
+    return {
+        m: (t, r) => {
+            let n, s;
+            return c = o(c, e - 1), d(c) <= t ? (s = x(d, e, r, c), n = x(d, e, t, c, s)) : (n = x(d, e, t, void 0, c), 
+            s = x(d, e, r, n)), c = n, [ n, s ];
+        },
+        S: t => x(d, e, t),
+        p: d,
+        _: g,
+        A: (e, t = -1) => a[e] === t,
+        I: (e, t) => {
+            for (const [t, r] of e) i += -1 === a[t] ? r : r - g(t), a[t] = r, s = o(t, s);
+            if (l && t && i > t) {
+                const e = [];
+                a.forEach(t => {
+                    -1 !== t && t && e.push(t);
+                }), s = -1, u(e);
+                const t = e.length, r = t / 2 | 0;
+                n = t % 2 == 0 ? (e[r - 1] + e[r]) / 2 : e[r], l = !1;
+            }
+        },
+        l: () => d(e),
+        k: () => e,
+        R: (t, r) => {
+            const n = t - e;
+            s = r ? -1 : o(t - 1, s), e = t, n > 0 ? (S(f, n), S(a, n, r)) : (f.splice(n), r ? a.splice(0, -n) : a.splice(n));
+        },
+        T: () => l,
+        B: () => [ a.slice(), n ]
+    };
+}, y = e => "number" == typeof e ? e : e.length, _ = (e, t) => "number" == typeof e ? t : e[t], I = (e, t, r = 0) => {
+    let n = y(e);
+    const i = "number" == typeof t, a = "auto" === t;
+    let f = (i ? t : 40) + r, g = -1, d = 0, h = a, p = 0, v = 0, $ = null;
+    const w = [], m = [], z = [], _ = e => a || !!z[e], I = () => {
+        w.length || S(w, n);
+    }, b = e => {
+        const t = w[e];
+        return -1 === t ? f : t;
+    }, k = e => {
+        if (!n) return 0;
+        if (!w.length) return e * f;
+        if (g >= e) return m[e];
+        g < 0 && (m[0] = 0, g = 0);
+        let t = g, r = m[t];
+        for (;t < e; ) r += b(t), m[++t] = r;
+        return g = e, r;
+    }, R = (e, t) => {
+        w[e] = t, g = o(e, g);
+    }, T = e => w.length ? x(k, n, e) : f ? c(l(e / f), 0, n - 1) : 0, O = () => o(p, n), M = () => s(n - v, O()), C = e => (w.length ? b(e) : f) - r;
+    return {
+        m: (e, t) => {
+            const o = k(O()), i = k(n) - k(M()), l = e + (o ? o - r : 0);
+            return [ T(l), T(s(l, t - (i ? i - r : 0))) ];
+        },
+        S: T,
+        p: k,
+        _: C,
+        I: (e, t) => {
+            for (const [t, n] of e) _(t) && (I(), d += -1 === w[t] ? n : n - C(t), R(t, n + r));
+            if (h && t && d > t) {
+                const e = [];
+                w.forEach(t => {
+                    -1 !== t && t && e.push(t);
+                }), g = -1, u(e);
+                const t = e.length, r = t / 2 | 0;
+                f = t % 2 == 0 ? (e[r - 1] + e[r]) / 2 : e[r], h = !1;
+            }
+        },
+        A: (e, t = -1) => {
+            const n = w.length ? w[e] : -1;
+            return -1 === t ? _(e) && -1 === n : n === t + r;
+        },
+        l: () => n ? k(n) - r : 0,
+        k: () => n,
+        R: e => {
+            const t = e - n;
+            g = o(e - 1, g), n = e, w.length && (t > 0 ? S(w, t) : w.splice(t));
+        },
+        T: () => h,
+        P: _,
+        j: (e = 0, t = 0) => {
+            p = e, v = t;
+        },
+        V: O,
+        J: M,
+        X: (e, t) => "number" == typeof t ? i ? t : null : i || a || "auto" === t ? null : e.map(e => null != e ? e[t] : null),
+        v: e => {
+            if (null == e) return !1;
+            if ("number" == typeof e) {
+                const t = e + r;
+                return t !== f && (f = t, !0);
+            }
+            if (e === $ && n === z.length) return !1;
+            $ = e, z.length = n, I();
+            let t = !1;
+            for (let o = 0; o < n; o++) {
+                const n = e[o], s = "number" != typeof n;
+                if (!s || !z[o]) {
+                    z[o] = s;
+                    const e = s ? -1 : n + r;
+                    w[o] !== e && (R(o, e), t = !0);
+                }
+            }
+            return t;
+        }
+    };
+}, b = /*#__PURE__*/ new WeakMap, k = (e, t, r) => {
+    const n = [];
+    for (const o of e) o >= t && o < r && n.push(o);
+    return u(n);
+}, R = (e, t, r) => {
+    if (t >= r) return -1;
+    let n = 0, o = e.length;
+    for (;n < o; ) {
+        const r = n + o >> 1;
+        e[r] <= t ? n = r + 1 : o = r;
+    }
+    return n - 1;
+}, T = (e, t, r, n, o) => {
+    const s = t.length;
+    for (;r < s && t[r] < n; r++) {
+        const n = t[r];
+        n > o && (e.push(n), o = n);
+    }
+    return r;
+}, O = (e, t, r, n, o, s) => {
+    const i = [];
+    for (let e = 0; e < r; e++) i.push(e);
+    const l = T(i, e, 0, n, r - 1);
+    for (let e = n; e <= o; e++) i.push(e);
+    T(i, e, l, s, o);
+    for (let e = s; e < t; e++) i.push(e);
+    return i;
+}, M = (e, t) => o(e.rowIndex + (e.rowSpan || 1), t), C = (e, t) => o(e.colIndex + (e.colSpan || 1), t), E = (e, t, r, n, s, i) => {
+    const l = t.length, c = n.length;
+    let u = "[l0]", a = 0, f = 0, g = 0;
+    for (;a < i; ) {
+        for (;g < c && n[g] <= a; ) g++;
+        const d = f < l ? t[f] : i;
+        let h, p;
+        if (d === a) {
+            h = a + 1;
+            const t = r[f];
+            p = null == t ? e._(a) + "px" : t ? s : "minmax(" + e._(a) + "px,auto)", f++;
+        } else h = o(d, g < c ? n[g] : i), p = "minmax(" + (e.p(h - 1) + e._(h - 1) - e.p(a)) + "px,auto)";
+        u += " " + p + " [l" + h + "]", a = h;
+    }
+    return u;
+}, L = e => {
+    let t = "";
+    for (const r in e) t += r.replace(/[A-Z]/g, e => "-" + e.toLowerCase()) + ":" + e[r] + ";";
+    return t;
+}, W = (e, t, r, n, o) => {
+    const s = {
+        display: "grid",
+        gridTemplateRows: "subgrid",
+        gridTemplateColumns: "subgrid",
+        gridColumn: "1/-1",
+        gridRow: "l" + e + "/l" + t
+    };
+    return null != r && (s.position = "sticky", s[n] = r + "px", s.zIndex = o), s;
+}, q = e => {
+    let t;
+    return {
+        Y(r) {
+            (t || (t = new (p(h(r)).ResizeObserver)(e))).observe(r);
+        },
+        D(e) {
+            t.unobserve(e);
+        },
+        G() {
+            t && t.disconnect();
+        }
+    };
+}, H = (e, t, r, n, o, s, i, l) => {
+    let c, u, d = 0, h = !1, p = !1, $ = !1, w = !1;
+    const m = Date.now, S = o ? "scrollLeft" : "scrollTop", x = o ? "left" : "top", z = e => s ? -e : e, y = () => z(n[S]), _ = (e, t) => {
+        n.scrollTo({
+            [x]: z(e),
+            behavior: t ? "smooth" : "instant"
+        });
+    }, I = () => {
+        if (h || p) return h = !1, void b();
+        $ = !1, e.$(2);
+    }, b = () => {
+        f(u), u = a(I, 150);
+    }, k = () => {
+        d = m(), $ && (w = !0), l && e.$(7, l()), e.$(1, y()), b();
+    }, R = t => {
+        if (h || !e.L() || t.ctrlKey) return;
+        const r = m() - d;
+        150 > r && 50 < r && (o ? t.deltaX : t.deltaY) && (h = !0);
+    }, T = () => {
+        p = !0, $ = w = !1;
+    }, O = () => {
+        p = !1, v() && ($ = !0);
+    };
+    return r.addEventListener("scroll", k), r.addEventListener("wheel", R, {
+        passive: !0
+    }), r.addEventListener("touchstart", T, {
+        passive: !0
+    }), r.addEventListener("touchend", O, {
+        passive: !0
+    }), r.addEventListener("touchcancel", O, {
+        passive: !0
+    }), {
+        Z: k,
+        G: () => {
+            r.removeEventListener("scroll", k), r.removeEventListener("wheel", R), r.removeEventListener("touchstart", T), 
+            r.removeEventListener("touchend", O), r.removeEventListener("touchcancel", O), f(u);
+        },
+        F: () => {
+            const [t, r] = e.q();
+            if (!t) return;
+            w && i && i(), w = !1;
+            const o = e.C(), s = o + t, l = e.W() + e.l() - e.u();
+            s <= 0 || s >= l || o >= l ? _(s) : n.scrollBy({
+                [x]: z(t),
+                behavior: "instant"
+            }), r && (c && c(), e.u() > e.l() && e.$(1, y()));
+        },
+        K: (r, n) => {
+            let o, s, i;
+            c && c();
+            const l = c = () => {
+                o = !0, f(s), i && i();
+            }, u = () => {
+                if (!o) {
+                    if (e.u() && (f(s), s = a(l, 150)), n) {
+                        for (let [r, n] = e.m(0); r <= n; r++) if (t.A(r)) return;
+                        l();
+                    }
+                    e.$(8), _(r(), n);
+                }
+            };
+            n && e.$(9, r()), (() => {
+                if (o) return;
+                let t;
+                i = e.H(2, () => {
+                    t || (t = !0, g(() => {
+                        t = !1, u();
+                    }));
+                }), u();
+            })();
+        }
+    };
+}, A = (e, t, r) => {
+    let n, o, s = d(), i = !0;
+    const l = /* @__PURE__ */ new WeakMap, c = q(s => {
+        const c = [];
+        for (const {target: u, contentRect: {width: a, height: f}} of s) if (u === n) a || f ? (i || o.Z(), 
+        i = !0, e.$(4, r ? a : f)) : i = !1; else if (u.offsetParent) {
+            const e = l.get(u);
+            if (null != e) {
+                const n = r ? a : f;
+                t.A(e, n) || c.push([ e, n ]);
+            }
+        }
+        e.$(3, c);
+    });
+    return {
+        N(i, l = i.parentElement) {
+            c.Y(n = l), o = H(e, t, l, l, r, r && "rtl" === getComputedStyle(l).direction, () => {
+                const e = r ? "overflowX" : "overflowY", t = l.style, n = t[e];
+                t[e] = "hidden", a(() => {
+                    t[e] = n;
+                });
+            }), s[1](!0);
+        },
+        O() {
+            c.G(), o && o.G(), s[1](!1), s = d();
+        },
+        U: (e, t) => (l.set(e, t), c.Y(e), () => {
+            l.delete(e), c.D(e);
+        }),
+        async ee(e, t) {
+            await s[0] && o.K(e, t);
+        },
+        te() {
+            o && o.F();
+        },
+        re: e.W
+    };
+}, B = (e, t) => {
+    e.ee(() => t);
+}, P = (e, t, r) => {
+    B(e, r + t.C());
+}, j = (e, t, r, n, {align: o, smooth: s, offset: i = 0} = {}) => {
+    if (n = c(n, 0, r.k() - 1), "nearest" === o) {
+        const e = t.p(n), s = t.C();
+        if (e < s) o = "start"; else {
+            if (!(e + r._(n) > s + t.u())) return;
+            o = "end";
+        }
+    }
+    e.ee(() => i + e.re() + t.p(n) + ("end" === o ? r._(n) - t.u() : "center" === o ? (r._(n) - t.u()) / 2 : 0), s);
+}, V = (e, t, r, n, i, l, u) => {
+    const a = r.k(), f = r.V(), g = r.J();
+    i = c(i, 0, a - 1);
+    const d = k(n, f, g), h = R(d, i, g), p = h < 0 ? -1 : d[h], v = () => r.p(f) + (p < 0 || p === i ? 0 : r.p(p + 1) - r.p(p)), $ = () => r.p(a) - r.p(g);
+    if ("nearest" === l) {
+        if (i < f || i >= g) return;
+        const e = v(), n = t.C() + e, c = t.u() - e - $(), u = r._(i);
+        let a = t.p(i);
+        if (p === i) {
+            const e = (h + 1 < d.length ? d[h + 1] : g) - 1;
+            a = s(a, o(n, t.p(e) + r._(e) - u));
+        }
+        if (a < n) l = "start"; else {
+            if (!(a + u > n + c)) return;
+            l = "end";
+        }
+    }
+    e.ee(u, () => {
+        const e = v(), n = r._(i) - (t.u() - e - $());
+        return t.p(i) - e + ("end" === l ? n : "center" === l ? n / 2 : 0);
+    });
+}, J = r => {
+    let n;
+    r = (0, t.mergeProps)({
+        ne: "div"
+    }, r), (0, t.createEffect)(() => {
+        n && (0, t.onCleanup)(r.oe(n, r.se));
+    });
+    const o = (0, t.createMemo)(() => {
+        const e = r.ie, t = r.le, n = r.ce, o = {
+            contain: "layout style",
+            position: t && n ? void 0 : "absolute",
+            [e ? "height" : "width"]: "100%",
+            [e ? "top" : "left"]: "0px",
+            [e ? "inset-inline-start" : "top"]: r.ue + "px",
+            visibility: !t || n ? void 0 : "hidden"
+        };
+        return e && (o.display = "inline-flex"), o;
+    });
+    return (0, e.createComponent)(e.Dynamic, {
+        get component() {
+            return r.ne;
+        },
+        get index() {
+            return (0, e.memo)(() => "string" == typeof r.ne)() ? void 0 : r.se;
+        },
+        ref(e) {
+            "function" == typeof n ? n(e) : n = e;
+        },
+        get style() {
+            return o();
+        },
+        get children() {
+            return r.ae;
+        }
+    });
+}, X = (e, t) => e[0] === t[0] && e[1] === t[1], Y = r => {
+    let n;
+    const {itemSize: o, horizontal: s = !1, cache: i, ssrCount: l} = r;
+    r = (0, t.mergeProps)({
+        as: "div"
+    }, r);
+    const [c, a] = (0, t.createSignal)(!!l), f = z(r.data.length, o, i), g = m(f, l), d = A(g, f, s), [h, p] = (0, 
+    t.createSignal)(g.M());
+    g.H(1, () => {
+        p(g.M());
+    }), g.H(4, () => {
+        r.onScroll?.(g.C());
+    }), g.H(8, () => {
+        r.onScrollEnd?.();
+    }), g.H(2, () => {
+        r.onResize?.();
+    });
+    const v = (0, t.createMemo)(e => {
+        h();
+        const t = g.m(r.bufferSize);
+        return e && X(e, t) ? e : t;
+    }), w = (0, t.createMemo)(() => h() && g.L()), S = (0, t.createMemo)(() => h() && g.l()), x = r.ref;
+    !e.isServer && x && (x({
+        get cache() {
+            return f.B();
+        },
+        get scrollOffset() {
+            return g.C();
+        },
+        get scrollSize() {
+            return $(g);
+        },
+        get viewportSize() {
+            return g.u();
+        },
+        findItemIndex: e => f.S(e - g.W()),
+        getItemOffset: g.p,
+        getItemSize: f._,
+        scrollToIndex: (e, t) => j(d, g, f, e, t),
+        scrollTo: e => B(d, e),
+        scrollBy: e => P(d, g, e)
+    }), (0, t.onCleanup)(() => x())), (0, t.onMount)(() => {
+        a(!1), d.N(n, r.scrollRef), (0, t.onCleanup)(() => {
+            g.O(), d.O();
+        });
+    }), (0, t.createComputed)((0, t.on)(() => r.startMargin || 0, e => {
+        g.$(7, e);
+    })), (0, t.createEffect)((0, t.on)(h, () => {
+        d.te();
+    }));
+    const y = (0, t.createMemo)(() => {
+        const e = r.data.length;
+        (0, t.untrack)(() => {
+            g.$(5, e, r.shift);
+        });
+        const n = [], o = [];
+        if (r.keepMounted) {
+            const t = new Set(r.keepMounted);
+            for (let [e, r] = v(); e <= r; e++) t.add(e);
+            u([ ...t ]).forEach(t => {
+                t < e && (n.push(r.data[t]), o.push(t));
+            });
+        } else for (let [e, t] = v(); e <= t; e++) n.push(r.data[e]), o.push(e);
+        return {
+            fe: n,
+            ge: o
+        };
+    });
+    return (0, e.createComponent)(e.Dynamic, {
+        get component() {
+            return r.as;
+        },
+        ref(e) {
+            "function" == typeof n ? n(e) : n = e;
+        },
+        get style() {
+            return {
+                contain: "size style",
+                "overflow-anchor": "none",
+                flex: "none",
+                position: "relative",
+                width: s ? S() + "px" : "100%",
+                height: s ? "100%" : S() + "px",
+                "pointer-events": w() ? "none" : void 0
+            };
+        },
+        get children() {
+            return (0, e.createComponent)(t.For, {
+                get each() {
+                    return y().fe;
+                },
+                children: (n, o) => ((n, o) => {
+                    const i = (0, t.createMemo)(() => (h(), g.p(o()))), l = (0, t.createMemo)(() => (h(), 
+                    f.A(o()))), u = (0, t.createMemo)(() => (0, t.untrack)(() => r.children(n, o)));
+                    return (0, e.createComponent)(J, {
+                        get ne() {
+                            return r.item;
+                        },
+                        get se() {
+                            return o();
+                        },
+                        get oe() {
+                            return d.U;
+                        },
+                        get ue() {
+                            return i();
+                        },
+                        get le() {
+                            return l();
+                        },
+                        get ae() {
+                            return u();
+                        },
+                        ie: s,
+                        get ce() {
+                            return c();
+                        }
+                    });
+                })(n, (0, t.createMemo)(() => y().ge[o()]))
+            });
+        }
+    });
+}, D = /*#__PURE__*/ /*#__PURE__*/ (0, e.template)("<div>"), G = /*#__PURE__*/ /*#__PURE__*/ (0, 
+e.template)('<div style="contain:size style;overflow-anchor:none;flex:none;position:relative">'), Z = /*#__PURE__*/ /*#__PURE__*/ (0, 
+e.template)("<div>"), F = /*#__PURE__*/ /*#__PURE__*/ (0, e.template)("<div role=row>"), K = /*#__PURE__*/ /*#__PURE__*/ (0, 
+e.template)("<div role=rowgroup>"), N = /*#__PURE__*/ /*#__PURE__*/ (0, e.template)("<div role=table><div>"), Q = r => {
+    let n;
+    const [o, s] = (0, t.createSignal)(void 0);
+    (0, t.createComputed)(() => s(r.de));
+    const i = (0, t.createMemo)(() => o().he), l = (0, t.createMemo)(() => o().pe), c = (0, 
+    t.createMemo)(() => r.ve), u = (0, t.createMemo)(() => r.$e), a = (0, t.createMemo)(() => {
+        const e = c(), n = u();
+        return (0, t.untrack)(() => r.ae(e, n, {
+            rowIndex: r.we,
+            colIndex: o().me
+        }));
+    });
+    (0, t.createEffect)((0, t.on)([ i, l ], ([e, o]) => {
+        !n || null == e && null == o || (0, t.onCleanup)(r.oe(n, e, o));
+    }));
+    const f = (0, t.createMemo)(() => L(o().Se));
+    return g = Z(), "function" == typeof (d = n) ? (0, e.use)(d, g) : n = g, (0, e.insert)(g, a), 
+    (0, e.effect)(t => {
+        var r = o().xe, n = o().me + 1, s = o().ze, i = o().ye, l = o()._e, c = f();
+        return r !== t.e && (0, e.setAttribute)(g, "role", t.e = r), n !== t.t && (0, e.setAttribute)(g, "aria-colindex", t.t = n), 
+        s !== t.a && (0, e.setAttribute)(g, "aria-rowspan", t.a = s), i !== t.o && (0, e.setAttribute)(g, "aria-colspan", t.o = i), 
+        l !== t.i && (0, e.setAttribute)(g, "aria-sort", t.i = l), t.n = (0, e.style)(g, c, t.n), 
+        t;
+    }, {
+        e: void 0,
+        t: void 0,
+        a: void 0,
+        o: void 0,
+        i: void 0,
+        n: void 0
+    }), g;
+    var g, d;
+}, U = r => {
+    const n = (0, t.createMemo)(() => r.de), o = (0, t.createMemo)(() => n().Ie.map(e => e.me)), s = (0, 
+    t.createMemo)(() => L(n().Se));
+    return i = F(), (0, e.insert)(i, (0, e.createComponent)(t.For, {
+        get each() {
+            return o();
+        },
+        children: (t, o) => (0, e.createComponent)(Q, {
+            get de() {
+                return n().Ie[o()];
+            },
+            get ae() {
+                return r.ae;
+            },
+            get ve() {
+                return r.ve;
+            },
+            get $e() {
+                return _(r.be, t);
+            },
+            get we() {
+                return n().ke;
+            },
+            get oe() {
+                return r.oe;
+            }
+        })
+    })), (0, e.effect)(t => {
+        var r = n().ke + 1, o = s();
+        return r !== t.e && (0, e.setAttribute)(i, "aria-rowindex", t.e = r), t.t = (0, 
+        e.style)(i, o, t.t), t;
+    }, {
+        e: void 0,
+        t: void 0
+    }), i;
+    var i;
+}, ee = r => {
+    const n = (0, t.createMemo)(() => r.de.Re.map(e => e.ke)), o = (0, t.createMemo)(() => L(r.de.Se));
+    return s = K(), (0, e.insert)(s, (0, e.createComponent)(t.For, {
+        get each() {
+            return n();
+        },
+        children: (t, n) => (0, e.createComponent)(U, {
+            get de() {
+                return r.de.Re[n()];
+            },
+            get ae() {
+                return r.ae;
+            },
+            get ve() {
+                return _(r.Te, t);
+            },
+            get be() {
+                return r.be;
+            },
+            get oe() {
+                return r.oe;
+            }
+        })
+    })), (0, e.effect)(t => (0, e.style)(s, o(), t)), s;
+    var s;
+}, te = /*#__PURE__*/ /*#__PURE__*/ (0, e.template)("<div>"), re = /*#__PURE__*/ /*#__PURE__*/ (0, 
+e.template)('<div><div style="contain:size style;overflow-anchor:none;flex:none;position:relative;width:100%">'), ne = (e, t) => t ? `calc(${100 * e}% + ${t}px)` : 100 * e + "%", oe = r => {
+    let n;
+    (0, t.createEffect)(() => {
+        n && (0, t.onCleanup)(r.oe(n, r.se));
+    });
+    const o = (0, t.createMemo)(() => ({
+        contain: "layout style",
+        position: "absolute",
+        top: r.ue + "px",
+        "inset-inline-start": r.Oe,
+        width: r.Me,
+        visibility: r.le ? "hidden" : void 0
+    }));
+    return s = te(), "function" == typeof (i = n) ? (0, e.use)(i, s) : n = s, (0, e.insert)(s, () => r.ae), 
+    (0, e.effect)(t => (0, e.style)(s, o(), t)), s;
+    var s, i;
+};
+
+exports.VGrid = r => {
+    let i;
+    const l = (0, t.mergeProps)({
+        gap: 0
+    }, r), {rows: f, cols: h, rowHeight: p, colWidth: v, gap: S} = l, [, x] = (0, t.splitProps)(r, [ "ref", "children", "rows", "cols", "rowHeight", "colWidth", "headerRows", "sectionRows", "footerRows", "headerCols", "footerCols", "spans", "keepMounted", "bufferSize", "gap", "ariaSort", "onVerticalScroll", "onHorizontalScroll", "onScrollEnd", "onResize", "style" ]), z = I(f, p, S), T = I(h, v, S), L = (0, 
+    t.createMemo)(() => z.X(r.rows, r.rowHeight)), A = (0, t.createMemo)(() => T.X(r.cols, r.colWidth)), B = (0, 
+    t.createMemo)(() => ((e = n) => {
+        const t = /* @__PURE__ */ new Map;
+        for (const r of e) {
+            const e = r.rowIndex + (r.rowSpan || 1);
+            for (let n = r.rowIndex; n < e; n++) {
+                const e = t.get(n);
+                e ? e.push(r) : t.set(n, [ r ]);
+            }
+        }
+        return t;
+    })(r.spans)), P = m(z), j = m(T), J = ((e, t, r, n) => {
+        let o, s, i, l = d(), c = !0;
+        const u = /* @__PURE__ */ new WeakMap, f = /* @__PURE__ */ new WeakMap, g = q(l => {
+            const a = [], g = [];
+            for (const {target: d, contentRect: {width: h, height: p}} of l) if (d === o) h || p ? (c || (s.Z(), 
+            i.Z()), c = !0, e.$(4, p), t.$(4, h)) : c = !1; else if (d.offsetParent) {
+                const e = u.get(d), t = f.get(d);
+                null == e || r.A(e, p) || a.push([ e, p ]), null == t || n.A(t, h) || g.push([ t, h ]);
+            }
+            e.$(3, a), t.$(3, g);
+        });
+        return {
+            async ee(e, t) {
+                await l[0] && (e ? i : s).K(t);
+            },
+            N(c, u = c.parentElement) {
+                g.Y(o = u);
+                const f = (e, t, r) => H(e, t, u, u, r, r && "rtl" === getComputedStyle(u).direction, () => {
+                    const e = r ? "overflowX" : "overflowY", t = u.style, n = t[e];
+                    t[e] = "hidden", a(() => {
+                        t[e] = n;
+                    });
+                });
+                s = f(e, r, !1), i = f(t, n, !0), l[1](!0);
+            },
+            O() {
+                g.G(), s && s.G(), i && i.G(), l[1](!1), l = d();
+            },
+            U: (e, t, r) => (null != t && u.set(e, t), null != r && f.set(e, r), g.Y(e), () => {
+                u.delete(e), f.delete(e), g.D(e);
+            }),
+            te() {
+                s && s.F(), i && i.F();
+            }
+        };
+    })(P, j, z, T), X = () => P.M() + j.M(), [Y, D] = (0, t.createSignal)(X()), G = () => D(X());
+    P.H(1, G), j.H(1, G);
+    let Z = !1;
+    P.H(4, () => {
+        Z = !0, r.onVerticalScroll && r.onVerticalScroll(P.C());
+    }), j.H(4, () => {
+        Z = !0, r.onHorizontalScroll && r.onHorizontalScroll(j.C());
+    });
+    const F = () => {
+        !Z || P.L() || j.L() || (Z = !1, r.onScrollEnd && r.onScrollEnd());
+    };
+    let K;
+    P.H(8, F), j.H(8, F);
+    const Q = () => {
+        K || (K = !0, g(() => {
+            K = !1, r.onResize && r.onResize();
+        }));
+    };
+    P.H(2, Q), j.H(2, Q), (0, t.createComputed)(() => {
+        z.j(r.headerRows, r.footerRows), T.j(r.headerCols, r.footerCols);
+        const e = y(r.rows), t = y(r.cols);
+        P.$(5, e), j.$(5, t), w(P, z, L()), w(j, T, A());
+    });
+    const te = (0, t.createMemo)(() => Y() && z.k()), re = (0, t.createMemo)(() => Y() && T.k()), ne = (0, 
+    t.createMemo)(() => (Y(), ((e, t, [r, i], [l, a], f, g = n, d = n, h) => {
+        const p = e.k(), v = t.k(), $ = e.V(), w = e.J(), m = t.V(), S = t.J();
+        r = c(r, $, w), i = o(i, w - 1), l = c(l, m, S), a = o(a, S - 1);
+        const x = k(g, $, w), z = s(m - 1, 0), y = [], _ = [], I = [];
+        for (const e of d) e.rowIndex < p && e.colIndex < v && (I.push(e), y.push(e.rowIndex));
+        const T = I.length, L = R(x, r, w), q = L < 0 ? -1 : x[L];
+        q >= 0 && y.push(q);
+        const H = O(u(y), p, $, r, i, w);
+        for (let e = 0; e < H.length; e++) for (const t of f.get(H[e]) || n) {
+            const {rowIndex: n, colIndex: c} = t, u = M(t, p), f = C(t, v);
+            if ((e < 1 || H[e - 1] < n) && c < v && (u - n > 1 || f - c > 1)) {
+                let e = (n < $ || s(n, r) < o(u, i + 1) || w < u || q >= n && q < u) && (c < m || s(c, l) < o(f, a + 1) || S < f);
+                for (let t = 0; !e && t < T; t++) {
+                    const r = I[t];
+                    e = r.rowIndex >= n && r.rowIndex < u && r.colIndex >= c && r.colIndex < f;
+                }
+                e && I.push(t);
+            }
+        }
+        for (const {rowIndex: e, colIndex: t} of I) {
+            const r = R(x, e, w);
+            y.push(e), r >= 0 && y.push(x[r]), _.push(t);
+        }
+        u(y), u(_);
+        const A = O(y, p, $, r, i, w), B = O(_, v, m, l, a, S), P = A.length, j = B.length, V = /* @__PURE__ */ new Map, J = [], X = [];
+        for (const e of I) {
+            const t = M(e, p), r = C(e, v);
+            J.push(t), X.push(r);
+            const n = B.indexOf(e.colIndex);
+            for (let o = A.indexOf(e.rowIndex); o < P && A[o] < t; o++) {
+                const t = A[o] * v;
+                for (let o = n; o < j && B[o] < r; o++) V.set(t + B[o], e);
+            }
+        }
+        const Y = [];
+        for (const e of B) Y.push(!t.P(e) && null);
+        const D = [], G = e.p($), Z = [];
+        let F = Z;
+        const K = b.get(e), N = /* @__PURE__ */ new Map;
+        for (const n of A) {
+            const o = n < $, c = n >= w, u = R(x, n, w), f = o ? 0 : c ? w : u < 0 ? -1 : x[u];
+            if (n === f) {
+                const e = o ? $ : c ? p : u + 1 < x.length ? x[u + 1] : w;
+                J.push(e);
+                const t = [];
+                Z.push({
+                    Ce: o ? -1 : c ? -2 : -3 - f,
+                    Re: t,
+                    Se: W(f, e, o || c ? 0 : null, c ? "bottom" : "top", 4)
+                }), F = t;
+            } else f < 0 && (F = Z);
+            const g = u >= 0 && n === f, d = o || c || n === q || n >= r && n <= i, y = g ? G : null, _ = n * v, I = K && K.get(n), b = I && I.Ie, k = [];
+            let T = 0, O = !e.P(n) && null, E = n + 1, L = !1;
+            for (let e = 0; e < j; e++) {
+                const r = B[e], i = r < m, c = r >= S, u = i || c || r >= l && r <= a, f = V.get(_ + r);
+                if (f ? f.rowIndex === n && f.colIndex === r : d && u) {
+                    const l = f ? M(f, p) : n + 1, u = f ? C(f, v) : r + 1, a = l - n, d = u - r, $ = a > 1, w = d > 1, m = $ || w;
+                    let S, x;
+                    E = s(E, l);
+                    const y = i ? t.p(r) : null, _ = c ? t.p(v) - t.p(u) : null;
+                    !1 !== O || $ || (S = n, O = !0), !1 !== Y[e] || w || (x = r, Y[e] = !0);
+                    const I = o ? "columnheader" : r === z && (i || g) ? "rowheader" : "cell", R = m ? a : void 0, W = m ? d : void 0, q = "cell" !== I && h && h.rowIndex === n && h.colIndex === r ? h.order : void 0;
+                    let H;
+                    if (b) {
+                        const e = b.length;
+                        for (;T < e && b[T].me < r; ) T++;
+                        T < e && b[T].me === r && (H = b[T]);
+                    }
+                    if (!H || H.ze !== R || H.ye !== W || H.Ee !== y || H.Le !== _ || H.he !== S || H.pe !== x || H.xe !== I || H._e !== q) {
+                        let e = "1/l" + r;
+                        m && (e += "/l" + l + "/l" + u);
+                        const t = {
+                            contain: "layout style",
+                            display: "grid",
+                            gridArea: e
+                        };
+                        $ && (t.height = "0px", t.minHeight = "100%", t.zIndex = 1), w && (t.width = "0px", 
+                        t.minWidth = "100%"), (i || c) && (t[i ? "insetInlineStart" : "insetInlineEnd"] = (i ? y : _) + "px", 
+                        t.position = "sticky", t.zIndex = 2), H = {
+                            me: r,
+                            ze: R,
+                            ye: W,
+                            he: S,
+                            pe: x,
+                            xe: I,
+                            _e: q,
+                            Se: t,
+                            Ee: y,
+                            Le: _
+                        }, L = !0;
+                    }
+                    k.push(H);
+                }
+            }
+            if (D.push(O), k.length) {
+                const e = I && !L && I.Ie.length === k.length && I.We === y ? I : {
+                    ke: n,
+                    Ie: k,
+                    Se: W(n, E, y, "top", 3),
+                    We: y
+                };
+                N.set(n, e), F.push(e);
+            }
+        }
+        return b.set(e, N), {
+            qe: E(e, A, D, u(J), "max-content", p),
+            He: E(t, B, Y, u(X), "minmax(max-content,auto)", v),
+            Ae: Z
+        };
+    })(z, T, P.m(r.bufferSize), j.m(r.bufferSize), B(), r.sectionRows, r.keepMounted, r.ariaSort))), oe = (0, 
+    t.createMemo)(() => ne().Ae.map(e => "Re" in e ? e.Ce : e.ke)), se = (0, t.createMemo)(() => Y() && (P.L() || j.L())), ie = (0, 
+    t.createMemo)(() => {
+        const {qe: e, He: t} = ne(), r = P.p(0), n = j.p(0);
+        return {
+            contain: "size style",
+            "overflow-anchor": "none",
+            flex: "none",
+            display: "grid",
+            "grid-template-rows": e,
+            "grid-template-columns": t,
+            gap: l.gap + "px",
+            "margin-top": r + "px",
+            "margin-inline-start": n + "px",
+            height: $(P) - r + "px",
+            "pointer-events": se() ? "none" : void 0
+        };
+    }), le = r.ref;
+    return !e.isServer && le && (le({
+        get verticalScrollOffset() {
+            return P.C();
+        },
+        get horizontalScrollOffset() {
+            return j.C();
+        },
+        get scrollHeight() {
+            return $(P);
+        },
+        get scrollWidth() {
+            return $(j);
+        },
+        get viewportHeight() {
+            return P.u();
+        },
+        get viewportWidth() {
+            return j.u();
+        },
+        findRowIndex: z.S,
+        findColIndex: T.S,
+        getRowOffset: P.p,
+        getColOffset: j.p,
+        getRowSize: z._,
+        getColSize: T._,
+        scrollToIndex: e => ((e, t, r, o, s, i = n, {rowIndex: l, colIndex: c, rowAlign: u, colAlign: a}) => {
+            null != l && V(e, t, o, i, l, u, !1), null != c && V(e, r, s, n, c, a, !0);
+        })(J, P, j, z, T, r.sectionRows, e),
+        scrollTo: ({vertical: e, horizontal: t}) => ((e, t, r) => {
+            null != t && e.ee(!1, () => t), null != r && e.ee(!0, () => r);
+        })(J, e, t),
+        scrollBy: ({vertical: e, horizontal: t}) => ((e, t, r, n, o) => {
+            if (null != n) {
+                const r = n + t.C();
+                e.ee(!1, () => r);
+            }
+            if (null != o) {
+                const t = o + r.C();
+                e.ee(!0, () => t);
+            }
+        })(J, P, j, e, t)
+    }), (0, t.onCleanup)(() => le())), (0, t.onMount)(() => {
+        J.N(i), (0, t.onCleanup)(() => {
+            P.O(), j.O(), J.O();
+        });
+    }), (0, t.createEffect)((0, t.on)(Y, () => {
+        J.te();
+    })), (() => {
+        var n = N(), o = n.firstChild;
+        (0, e.spread)(n, (0, e.mergeProps)({
+            get "aria-rowcount"() {
+                return te();
+            },
+            get "aria-colcount"() {
+                return re();
+            }
+        }, x, {
+            get style() {
+                return {
+                    overflow: "auto",
+                    contain: "strict",
+                    width: "100%",
+                    height: "100%",
+                    ...r.style
+                };
+            }
+        }), !1, !0);
+        var s = i;
+        return "function" == typeof s ? (0, e.use)(s, o) : i = o, (0, e.insert)(o, (0, e.createComponent)(t.For, {
+            get each() {
+                return oe();
+            },
+            children: (t, n) => t < 0 ? (0, e.createComponent)(ee, {
+                get de() {
+                    return ne().Ae[n()];
+                },
+                get ae() {
+                    return r.children;
+                },
+                get Te() {
+                    return r.rows;
+                },
+                get be() {
+                    return r.cols;
+                },
+                get oe() {
+                    return J.U;
+                }
+            }) : (0, e.createComponent)(U, {
+                get de() {
+                    return ne().Ae[n()];
+                },
+                get ae() {
+                    return r.children;
+                },
+                get ve() {
+                    return _(r.rows, t);
+                },
+                get be() {
+                    return r.cols;
+                },
+                get oe() {
+                    return J.U;
+                }
+            })
+        })), (0, e.effect)(t => (0, e.style)(o, ie(), t)), n;
+    })();
+}, exports.VList = r => {
+    const [n, o] = (0, t.splitProps)(r, [ "ref", "data", "children", "bufferSize", "itemSize", "ssrCount", "shift", "horizontal", "keepMounted", "cache", "item", "onScroll", "onScrollEnd", "onResize", "style" ]);
+    return s = D(), (0, e.spread)(s, (0, e.mergeProps)(o, {
+        get style() {
+            return {
+                display: "block",
+                [n.horizontal ? "overflow-x" : "overflow-y"]: "auto",
+                contain: "strict",
+                width: "100%",
+                height: "100%",
+                ...n.style
+            };
+        }
+    }), !1, !0), (0, e.insert)(s, (0, e.createComponent)(Y, {
+        ref(e) {
+            var t = n.ref;
+            "function" == typeof t ? t(e) : n.ref = e;
+        },
+        get data() {
+            return n.data;
+        },
+        get bufferSize() {
+            return n.bufferSize;
+        },
+        get itemSize() {
+            return n.itemSize;
+        },
+        get ssrCount() {
+            return n.ssrCount;
+        },
+        get shift() {
+            return n.shift;
+        },
+        get horizontal() {
+            return n.horizontal;
+        },
+        get keepMounted() {
+            return n.keepMounted;
+        },
+        get cache() {
+            return n.cache;
+        },
+        get item() {
+            return n.item;
+        },
+        get onScroll() {
+            return n.onScroll;
+        },
+        get onScrollEnd() {
+            return n.onScrollEnd;
+        },
+        get onResize() {
+            return n.onResize;
+        },
+        get children() {
+            return n.children;
+        }
+    })), s;
+    var s;
+}, exports.VMasonry = r => {
+    let n;
+    const {itemSize: i, cache: l} = r, [, c] = (0, t.splitProps)(r, [ "ref", "data", "children", "lanes", "gap", "itemSize", "bufferSize", "keepMounted", "cache", "onScroll", "onScrollEnd", "onResize", "style" ]), a = ((e, t, r = 0, n, i) => {
+        let l = s(t, 1), c = i && i[1] || n || 40, a = -1, f = n ? void 0 : /* @__PURE__ */ new Set, g = !n;
+        const d = i ? i[0].slice(0, e) : [];
+        S(d, e - d.length);
+        const h = [], p = [], v = [ 0 ], $ = e => {
+            const t = d[e];
+            return -1 === t ? c : t;
+        }, w = () => {
+            if (a >= e - 1) return;
+            const t = [], n = [];
+            for (let e = 0; e < l; e++) t.push(0), n.push(-1);
+            for (let e = a, o = l; e >= 0 && o; e--) {
+                const s = p[e];
+                -1 === n[s] && (n[s] = e, t[s] = h[e] + $(e) + r, o--);
+            }
+            for (;a < e - 1; ) {
+                const e = ++a;
+                let o = 0, i = 1 / 0, c = 1 / 0;
+                for (let e = 0; e < l; e++) {
+                    const r = t[e];
+                    (r < i || r === i && n[e] < c) && (o = e, i = r, c = n[e]);
+                }
+                const u = i + $(e);
+                h[e] = i, p[e] = o, t[o] = u + r, n[o] = e, v[e + 1] = s(v[e], u);
+            }
+        }, m = t => t >= e ? y() : (w(), h[t]), z = e => (w(), v[e]), y = () => z(e), _ = t => x(z, e + 1, t);
+        return {
+            m: (t, r) => {
+                const n = x(m, e, r);
+                return [ o(_(t), n), n ];
+            },
+            S: _,
+            p: m,
+            _: $,
+            A: (e, t = -1) => d[e] === t,
+            I: (e, t) => {
+                for (const [t, r] of e) d[t] = r, f && f.add(t), a = o(t - 1, a);
+                if (f && t) {
+                    const e = [];
+                    let n = 0;
+                    if (f.forEach(t => {
+                        const o = d[t];
+                        -1 !== o && o && (e.push(o), n += o + r);
+                    }), n > t * l) {
+                        u(e);
+                        const t = e.length, r = t / 2 | 0;
+                        c = t % 2 == 0 ? (e[r - 1] + e[r]) / 2 : e[r], a = -1, f = void 0, g = !1;
+                    }
+                }
+            },
+            l: y,
+            k: () => e,
+            R: t => {
+                const r = t - e;
+                a = o(t - 1, a), e = t, r > 0 ? S(d, r) : d.splice(r);
+            },
+            v: (e, t = 0) => ((e = s(e, 1)) !== l || t !== r) && (l = e, r = t, a = -1, f = n ? void 0 : /* @__PURE__ */ new Set, 
+            !0),
+            T: () => g,
+            B: () => [ d.slice(), c ],
+            Be: () => l,
+            Pe: () => r,
+            je: e => (w(), p[e])
+        };
+    })(r.data.length, r.lanes, r.gap, i, l), f = m(a), g = A(f, a, !1), [d, h] = (0, 
+    t.createSignal)(f.M());
+    f.H(1, () => {
+        h(f.M());
+    }), f.H(4, () => {
+        r.onScroll?.(f.C());
+    }), f.H(8, () => {
+        r.onScrollEnd?.();
+    }), f.H(2, () => {
+        r.onResize?.();
+    }), (0, t.createComputed)(() => {
+        w(f, a, r.lanes, r.gap);
+    });
+    const p = (0, t.createMemo)(e => {
+        d();
+        const t = f.m(r.bufferSize);
+        return e && X(e, t) ? e : t;
+    }), v = (0, t.createMemo)(() => d() && f.L()), z = (0, t.createMemo)(() => d() && f.l()), y = (0, 
+    t.createMemo)(() => d() && a.Be()), _ = (0, t.createMemo)(() => d() && a.Pe()), I = (0, 
+    t.createMemo)(() => ne(1 / y(), _() / y() - _())), b = r.ref;
+    !e.isServer && b && (b({
+        get cache() {
+            return a.B();
+        },
+        get scrollOffset() {
+            return f.C();
+        },
+        get scrollSize() {
+            return $(f);
+        },
+        get viewportSize() {
+            return f.u();
+        },
+        getItemOffset: f.p,
+        getItemSize: a._,
+        scrollToIndex: (e, t) => j(g, f, a, e, t),
+        scrollTo: e => B(g, e),
+        scrollBy: e => P(g, f, e)
+    }), (0, t.onCleanup)(() => b())), (0, t.onMount)(() => {
+        g.N(n), (0, t.onCleanup)(() => {
+            f.O(), g.O();
+        });
+    }), (0, t.createEffect)((0, t.on)(d, () => {
+        g.te();
+    }));
+    const k = (0, t.createMemo)(() => {
+        const e = r.data.length;
+        (0, t.untrack)(() => {
+            f.$(5, e);
+        });
+        const n = [], o = [];
+        if (r.keepMounted) {
+            const t = new Set(r.keepMounted);
+            for (let [e, r] = p(); e <= r; e++) t.add(e);
+            u([ ...t ]).forEach(t => {
+                t < e && (n.push(r.data[t]), o.push(t));
+            });
+        } else for (let [e, t] = p(); e <= t; e++) n.push(r.data[e]), o.push(e);
+        return {
+            fe: n,
+            ge: o
+        };
+    });
+    return (() => {
+        var o = re(), s = o.firstChild;
+        (0, e.spread)(o, (0, e.mergeProps)(c, {
+            get style() {
+                return {
+                    display: "block",
+                    "overflow-y": "auto",
+                    contain: "strict",
+                    width: "100%",
+                    height: "100%",
+                    ...r.style
+                };
+            }
+        }), !1, !0);
+        var i = n;
+        return "function" == typeof i ? (0, e.use)(i, s) : n = s, (0, e.insert)(s, (0, e.createComponent)(t.For, {
+            get each() {
+                return k().fe;
+            },
+            children: (n, o) => ((n, o) => {
+                const s = (0, t.createMemo)(() => (d(), f.p(o()))), i = (0, t.createMemo)(() => (d(), 
+                a.je(o()))), l = (0, t.createMemo)(() => (d(), a.A(o()))), c = (0, t.createMemo)(() => (0, 
+                t.untrack)(() => r.children(n, o)));
+                return (0, e.createComponent)(oe, {
+                    get se() {
+                        return o();
+                    },
+                    get oe() {
+                        return g.U;
+                    },
+                    get ue() {
+                        return s();
+                    },
+                    get Oe() {
+                        return ne(i() / y(), i() * _() / y());
+                    },
+                    get Me() {
+                        return I();
+                    },
+                    get le() {
+                        return l();
+                    },
+                    get ae() {
+                        return c();
+                    }
+                });
+            })(n, (0, t.createMemo)(() => k().ge[o()]))
+        })), (0, e.effect)(t => {
+            var r = z() + "px", n = v() ? "none" : void 0;
+            return r !== t.e && (0, e.setStyleProperty)(s, "height", t.e = r), n !== t.t && (0, 
+            e.setStyleProperty)(s, "pointer-events", t.t = n), t;
+        }, {
+            e: void 0,
+            t: void 0
+        }), o;
+    })();
+}, exports.Virtualizer = Y, exports.WindowVirtualizer = r => {
+    let n;
+    const {ref: o, data: s, children: i, itemSize: l, ssrCount: c, shift: u, horizontal: a = !1, cache: f, onScrollEnd: g} = r, [v, $] = (0, 
+    t.createSignal)(!!c), w = z(r.data.length, l, f), S = m(w, c), x = ((e, t, r) => {
+        let n, o, s, i, l, c = d();
+        const u = /* @__PURE__ */ new WeakMap, a = q(o => {
+            const s = [];
+            for (const {target: e, contentRect: {width: i, height: c}} of o) if (e === n) l && l(); else if (e.offsetParent) {
+                const n = u.get(e);
+                if (null != n) {
+                    const e = r ? i : c;
+                    t.A(n, e) || s.push([ n, e ]);
+                }
+            }
+            e.$(3, s);
+        });
+        return {
+            N(u) {
+                const f = h(u), g = p(f), d = n = f.scrollingElement, v = r && "rtl" === getComputedStyle(d).direction, $ = (e, t, r, n, o = 0) => {
+                    const s = n ? "offsetLeft" : "offsetTop", i = o + (v ? t.clientWidth - e[s] - e.offsetWidth : e[s]), l = e.offsetParent;
+                    return e !== r && l ? $(l, t, r, n, i) : i;
+                }, w = i = () => $(u, d, f.body, r), m = l = () => {
+                    e.$(4, d[r ? "clientWidth" : "clientHeight"]);
+                };
+                g.addEventListener("resize", m), a.Y(d), s = () => {
+                    g.removeEventListener("resize", m);
+                }, o = H(e, t, g, d, r, v, null, w), c[1](!0);
+            },
+            O() {
+                s && s(), a.G(), o && o.G(), c[1](!1), c = d();
+            },
+            U: (e, t) => (u.set(e, t), a.Y(e), () => {
+                u.delete(e), a.D(e);
+            }),
+            async ee(e, t) {
+                await c[0] && o.K(e, t);
+            },
+            te() {
+                o && o.F();
+            },
+            re: () => i()
+        };
+    })(S, w, a), [y, _] = (0, t.createSignal)(S.M());
+    S.H(1, () => {
+        _(S.M());
+    }), S.H(4, () => {
+        r.onScroll?.();
+    }), S.H(8, () => {
+        r.onScrollEnd?.();
+    }), S.H(2, () => {
+        r.onResize?.();
+    });
+    const I = (0, t.createMemo)(e => {
+        y();
+        const t = S.m(r.bufferSize);
+        return e && X(e, t) ? e : t;
+    }), b = (0, t.createMemo)(() => y() && S.L()), k = (0, t.createMemo)(() => y() && S.l()), R = r.ref;
+    !e.isServer && R && (R({
+        get cache() {
+            return w.B();
+        },
+        get scrollOffset() {
+            return S.C();
+        },
+        get viewportSize() {
+            return S.u();
+        },
+        findItemIndex: e => w.S(e - S.W()),
+        getItemOffset: S.p,
+        getItemSize: w._,
+        scrollToIndex: (e, t) => j(x, S, w, e, t)
+    }), (0, t.onCleanup)(() => R())), (0, t.onMount)(() => {
+        $(!1), x.N(n), (0, t.onCleanup)(() => {
+            S.O(), x.O();
+        });
+    }), (0, t.createEffect)((0, t.on)(y, () => {
+        x.te();
+    }));
+    const T = (0, t.createMemo)(() => {
+        const e = r.data.length;
+        (0, t.untrack)(() => {
+            S.$(5, e, r.shift);
+        });
+        const n = [];
+        for (let [e, t] = I(); e <= t; e++) n.push(r.data[e]);
+        return n;
+    });
+    return O = G(), "function" == typeof (M = n) ? (0, e.use)(M, O) : n = O, (0, e.insert)(O, (0, 
+    e.createComponent)(t.For, {
+        get each() {
+            return T();
+        },
+        children: (n, o) => {
+            const s = (0, t.createMemo)(() => I()[0] + o()), i = (0, t.createMemo)(() => (y(), 
+            S.p(s()))), l = (0, t.createMemo)(() => (y(), w.A(s()))), c = (0, t.createMemo)(() => (0, 
+            t.untrack)(() => r.children(n, s)));
+            return (0, e.createComponent)(J, {
+                get se() {
+                    return s();
+                },
+                get oe() {
+                    return x.U;
+                },
+                get ue() {
+                    return i();
+                },
+                get le() {
+                    return l();
+                },
+                get ae() {
+                    return c();
+                },
+                ie: a,
+                get ce() {
+                    return v();
+                }
+            });
+        }
+    })), (0, e.effect)(t => {
+        var r = a ? k() + "px" : "100%", n = a ? "100%" : k() + "px", o = b() ? "none" : void 0;
+        return r !== t.e && (0, e.setStyleProperty)(O, "width", t.e = r), n !== t.t && (0, 
+        e.setStyleProperty)(O, "height", t.t = n), o !== t.a && (0, e.setStyleProperty)(O, "pointer-events", t.a = o), 
+        t;
+    }, {
+        e: void 0,
+        t: void 0,
+        a: void 0
+    }), O;
+    var O, M;
+};
+//# sourceMappingURL=index.cjs.map

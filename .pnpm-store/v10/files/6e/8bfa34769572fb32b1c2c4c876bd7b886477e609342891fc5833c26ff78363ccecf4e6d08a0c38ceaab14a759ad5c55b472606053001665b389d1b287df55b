@@ -1,0 +1,2382 @@
+import * as e from "@angular/core";
+
+import { ApplicationRef as t, ChangeDetectionStrategy as i, DestroyRef as s, ElementRef as n, HostAttributeToken as r, InjectionToken as o, TemplateRef as l, afterNextRender as a, afterRenderEffect as c, computed as u, contentChild as p, effect as m, inject as d, input as h, output as f, signal as g, untracked as S, viewChild as y } from "@angular/core";
+
+import { NgTemplateOutlet as v } from "@angular/common";
+
+var z, N = [], {min: w, max: b, abs: $, floor: R} = Math, I = (e, t, i) => w(i, b(t, e)), P = e => e.sort((e, t) => e - t), x = setTimeout, q = clearTimeout, F = "function" == typeof queueMicrotask ? queueMicrotask : e => {
+    Promise.resolve().then(e);
+}, k = () => {
+    let e;
+    return [ new Promise(t => {
+        e = t;
+    }), e ];
+}, O = e => e.ownerDocument, C = e => e.defaultView, T = () => (null == z && (z = /iP(hone|od|ad)/.test(navigator.userAgent) || "MacIntel" === navigator.platform && navigator.maxTouchPoints > 0), 
+z), M = e => b(e.$getTotalSize(), e.$getViewportSize()), _ = (e, t, i, s) => {
+    const n = e.t(), r = t.$getItemOffset(n);
+    t.$relayout(i, s) && e.$update(6, t.$getItemOffset(n) - r);
+}, V = ({$getRange: e, $findIndex: t, $getItemOffset: i, $getItemSize: s, $setItemSizes: n, $getTotalSize: r, $getLength: o, $setLength: l, $isEstimating: a}, c = 0) => {
+    let u = !!c, p = 1, m = 0, d = 0, h = 0, f = 0, g = 0, S = 0, y = 0, v = 0, z = null, N = [ 0, u ? b(c - 1, 0) : -1 ], R = !1;
+    const I = /* @__PURE__ */ new Set, P = () => h - d, x = () => P() + g + f, q = (e, t) => {
+        const n = i(e), r = s(e);
+        return 1 !== y && 0 === v ? n + r <= t : n < t && n + r < t + m;
+    }, F = e => {
+        e && (T() && 0 !== y || z && 1 === v ? g += e : f += e);
+    }, k = () => {
+        const e = o();
+        if (2 === v) return e;
+        if (z && 1 === v) return w(z[0], e);
+        const i = x();
+        let s = t(i);
+        for (;s > 0 && !q(s - 1, i); ) s--;
+        for (;s < e && q(s, i); ) s++;
+        return s;
+    };
+    return {
+        $dispose: () => {
+            I.clear();
+        },
+        $getStateVersion: () => p,
+        $getRange: (t = 200) => {
+            if (!R || u) return N;
+            let i, s;
+            if (S) [i, s] = N; else {
+                let n = b(0, x()), r = n + m;
+                a() || (t = b(0, t), 1 !== y && (n -= t), 2 !== y && (r += t)), [i, s] = N = e(b(0, n), b(0, r)), 
+                z && (i = w(i, z[0]), s = b(s, z[1]));
+            }
+            return [ b(i, 0), w(s, o() - 1) ];
+        },
+        t: k,
+        $getItemOffset: e => i(e) - g,
+        $getScrollOffset: () => h,
+        $isScrolling: () => 0 !== y,
+        $getViewportSize: () => m,
+        $getStartSpacerSize: () => d,
+        $getTotalSize: r,
+        i: () => (S = f, f = 0, [ S, 2 === v ]),
+        $subscribe: (e, t) => {
+            const i = [ e, t ];
+            return I.add(i), () => {
+                I.delete(i);
+            };
+        },
+        $update: (t, s, a) => {
+            let c, N, w = 0;
+            switch (t) {
+              case 1:
+                {
+                    if (s === h && 0 === v) break;
+                    const e = S;
+                    S = 0;
+                    const t = s - h, i = $(t);
+                    e && i < $(e) + 1 || 0 !== v || (y = t < 0 ? 2 : 1), u && (u = !1), h = s, w = 4;
+                    const n = P();
+                    n >= -m && n <= r() && (w += 1, N = i > m);
+                    break;
+                }
+
+              case 2:
+                w = 8, 0 !== y && (c = !0, w += 1), y = 0, v = 0, z = null;
+                break;
+
+              case 3:
+                if (s.length) {
+                    const e = k(), t = i(e);
+                    n(s, m), F(i(e) - t), w = 3, N = !0;
+                }
+                break;
+
+              case 4:
+                m !== s && (m || (R = N = !0), m = s, w = 3);
+                break;
+
+              case 5:
+                if (s !== o()) {
+                    if (a) {
+                        const e = r();
+                        l(s, !0), F(r() - e), v = 2;
+                    } else l(s);
+                    w = 1;
+                }
+                break;
+
+              case 6:
+                F(s), w = 1;
+                break;
+
+              case 7:
+                d = s;
+                break;
+
+              case 8:
+                v = 1;
+                break;
+
+              case 9:
+                z = e(s, s + m), w = 1;
+            }
+            w && (p = 1 + (2147483647 & p), c && g && (f += g, g = 0), I.forEach(([e, t]) => {
+                w & e && t(N);
+            }));
+        }
+    };
+}, E = (e, t, i) => {
+    const s = i ? "unshift" : "push";
+    for (let i = 0; i < t; i++) e[s](-1);
+    return e;
+}, K = (e, t, i, s = 0, n = t - 1) => {
+    let r = s;
+    for (;s <= n; ) {
+        const t = R((s + n) / 2);
+        e(t) <= i ? (r = t, s = t + 1) : n = t - 1;
+    }
+    return I(r, 0, t - 1);
+}, L = (e, t, i) => {
+    let s = i && i[1] || t || 40, n = -1, r = 0, o = !t, l = 0;
+    const a = i ? i[0].slice(0, e) : [];
+    E(a, e - a.length);
+    const c = E([], e + 1), u = e => {
+        const t = a[e];
+        return -1 === t ? s : t;
+    }, p = t => {
+        if (!e) return 0;
+        if (n >= t) return c[t];
+        n < 0 && (c[0] = 0, n = 0);
+        let i = n, s = c[i];
+        for (;i < t; ) s += u(i), c[++i] = s;
+        return n = t, s;
+    };
+    return {
+        $getRange: (t, i) => {
+            let s, n;
+            return l = w(l, e - 1), p(l) <= t ? (n = K(p, e, i, l), s = K(p, e, t, l, n)) : (s = K(p, e, t, void 0, l), 
+            n = K(p, e, i, s)), l = s, [ s, n ];
+        },
+        $findIndex: t => K(p, e, t),
+        $getItemOffset: p,
+        $getItemSize: u,
+        $isSizeEqual: (e, t = -1) => a[e] === t,
+        $setItemSizes: (e, t) => {
+            for (const [t, i] of e) r += -1 === a[t] ? i : i - u(t), a[t] = i, n = w(t, n);
+            if (o && t && r > t) {
+                const e = [];
+                a.forEach(t => {
+                    -1 !== t && t && e.push(t);
+                }), n = -1, P(e);
+                const t = e.length, i = t / 2 | 0;
+                s = t % 2 == 0 ? (e[i - 1] + e[i]) / 2 : e[i], o = !1;
+            }
+        },
+        $getTotalSize: () => p(e),
+        $getLength: () => e,
+        $setLength: (t, i) => {
+            const s = t - e;
+            n = i ? -1 : w(t - 1, n), e = t, s > 0 ? (E(c, s), E(a, s, i)) : (c.splice(s), i ? a.splice(0, -s) : a.splice(s));
+        },
+        $isEstimating: () => o,
+        $snapshot: () => [ a.slice(), s ]
+    };
+}, D = e => "number" == typeof e ? e : e.length, G = (e, t) => "number" == typeof e ? t : e[t], W = (e, t, i = 0) => {
+    let s = D(e);
+    const n = "number" == typeof t, r = "auto" === t;
+    let o = (n ? t : 40) + i, l = -1, a = 0, c = r, u = 0, p = 0, m = null;
+    const d = [], h = [], f = [], g = e => r || !!f[e], S = () => {
+        d.length || E(d, s);
+    }, y = e => {
+        const t = d[e];
+        return -1 === t ? o : t;
+    }, v = e => {
+        if (!s) return 0;
+        if (!d.length) return e * o;
+        if (l >= e) return h[e];
+        l < 0 && (h[0] = 0, l = 0);
+        let t = l, i = h[t];
+        for (;t < e; ) i += y(t), h[++t] = i;
+        return l = e, i;
+    }, z = (e, t) => {
+        d[e] = t, l = w(e, l);
+    }, N = e => d.length ? K(v, s, e) : o ? I(R(e / o), 0, s - 1) : 0, $ = () => w(u, s), x = () => b(s - p, $()), q = e => (d.length ? y(e) : o) - i;
+    return {
+        $getRange: (e, t) => {
+            const n = v($()), r = v(s) - v(x()), o = e + (n ? n - i : 0);
+            return [ N(o), N(b(o, t - (r ? r - i : 0))) ];
+        },
+        $findIndex: N,
+        $getItemOffset: v,
+        $getItemSize: q,
+        $setItemSizes: (e, t) => {
+            for (const [t, s] of e) g(t) && (S(), a += -1 === d[t] ? s : s - q(t), z(t, s + i));
+            if (c && t && a > t) {
+                const e = [];
+                d.forEach(t => {
+                    -1 !== t && t && e.push(t);
+                }), l = -1, P(e);
+                const t = e.length, i = t / 2 | 0;
+                o = t % 2 == 0 ? (e[i - 1] + e[i]) / 2 : e[i], c = !1;
+            }
+        },
+        $isSizeEqual: (e, t = -1) => {
+            const s = d.length ? d[e] : -1;
+            return -1 === t ? g(e) && -1 === s : s === t + i;
+        },
+        $getTotalSize: () => s ? v(s) - i : 0,
+        $getLength: () => s,
+        $setLength: e => {
+            const t = e - s;
+            l = w(e - 1, l), s = e, d.length && (t > 0 ? E(d, t) : d.splice(t));
+        },
+        $isEstimating: () => c,
+        $isMeasurable: g,
+        $setPinned: (e = 0, t = 0) => {
+            u = e, p = t;
+        },
+        $getPinnedStart: $,
+        $getTrailStart: x,
+        $getSizes: (e, t) => "number" == typeof t ? n ? t : null : n || r || "auto" === t ? null : e.map(e => null != e ? e[t] : null),
+        $relayout: e => {
+            if (null == e) return !1;
+            if ("number" == typeof e) {
+                const t = e + i;
+                return t !== o && (o = t, !0);
+            }
+            if (e === m && s === f.length) return !1;
+            m = e, f.length = s, S();
+            let t = !1;
+            for (let n = 0; n < s; n++) {
+                const s = e[n], r = "number" != typeof s;
+                if (!r || !f[n]) {
+                    f[n] = r;
+                    const e = r ? -1 : s + i;
+                    d[n] !== e && (z(n, e), t = !0);
+                }
+            }
+            return t;
+        }
+    };
+}, B = /*#__PURE__*/ new WeakMap, H = (e, t, i) => {
+    const s = [];
+    for (const n of e) n >= t && n < i && s.push(n);
+    return P(s);
+}, j = (e, t, i) => {
+    if (t >= i) return -1;
+    let s = 0, n = e.length;
+    for (;s < n; ) {
+        const i = s + n >> 1;
+        e[i] <= t ? s = i + 1 : n = i;
+    }
+    return s - 1;
+}, A = (e, t, i, s, n) => {
+    const r = t.length;
+    for (;i < r && t[i] < s; i++) {
+        const s = t[i];
+        s > n && (e.push(s), n = s);
+    }
+    return i;
+}, Q = (e, t, i, s, n, r) => {
+    const o = [];
+    for (let e = 0; e < i; e++) o.push(e);
+    const l = A(o, e, 0, s, i - 1);
+    for (let e = s; e <= n; e++) o.push(e);
+    A(o, e, l, r, n);
+    for (let e = r; e < t; e++) o.push(e);
+    return o;
+}, J = (e, t) => w(e.rowIndex + (e.rowSpan || 1), t), X = (e, t) => w(e.colIndex + (e.colSpan || 1), t), Y = (e, t, i, s, n, r) => {
+    const o = t.length, l = s.length;
+    let a = "[l0]", c = 0, u = 0, p = 0;
+    for (;c < r; ) {
+        for (;p < l && s[p] <= c; ) p++;
+        const m = u < o ? t[u] : r;
+        let d, h;
+        if (m === c) {
+            d = c + 1;
+            const t = i[u];
+            h = null == t ? e.$getItemSize(c) + "px" : t ? n : "minmax(" + e.$getItemSize(c) + "px,auto)", 
+            u++;
+        } else d = w(m, p < l ? s[p] : r), h = "minmax(" + (e.$getItemOffset(d - 1) + e.$getItemSize(d - 1) - e.$getItemOffset(c)) + "px,auto)";
+        a += " " + h + " [l" + d + "]", c = d;
+    }
+    return a;
+}, U = (e, t, i, s, n) => {
+    const r = {
+        display: "grid",
+        gridTemplateRows: "subgrid",
+        gridTemplateColumns: "subgrid",
+        gridColumn: "1/-1",
+        gridRow: "l" + e + "/l" + t
+    };
+    return null != i && (r.position = "sticky", r[s] = i + "px", r.zIndex = n), r;
+}, Z = e => {
+    let t;
+    return {
+        o(i) {
+            (t || (t = new (C(O(i)).ResizeObserver)(e))).observe(i);
+        },
+        l(e) {
+            t.unobserve(e);
+        },
+        u() {
+            t && t.disconnect();
+        }
+    };
+}, ee = (e, t, i, s, n, r, o, l) => {
+    let a, c, u = 0, p = !1, m = !1, d = !1, h = !1;
+    const f = Date.now, g = n ? "scrollLeft" : "scrollTop", S = n ? "left" : "top", y = e => r ? -e : e, v = () => y(s[g]), z = (e, t) => {
+        s.scrollTo({
+            [S]: y(e),
+            behavior: t ? "smooth" : "instant"
+        });
+    }, N = () => {
+        if (p || m) return p = !1, void w();
+        d = !1, e.$update(2);
+    }, w = () => {
+        q(c), c = x(N, 150);
+    }, b = () => {
+        u = f(), d && (h = !0), l && e.$update(7, l()), e.$update(1, v()), w();
+    }, $ = t => {
+        if (p || !e.$isScrolling() || t.ctrlKey) return;
+        const i = f() - u;
+        150 > i && 50 < i && (n ? t.deltaX : t.deltaY) && (p = !0);
+    }, R = () => {
+        m = !0, d = h = !1;
+    }, I = () => {
+        m = !1, T() && (d = !0);
+    };
+    return i.addEventListener("scroll", b), i.addEventListener("wheel", $, {
+        passive: !0
+    }), i.addEventListener("touchstart", R, {
+        passive: !0
+    }), i.addEventListener("touchend", I, {
+        passive: !0
+    }), i.addEventListener("touchcancel", I, {
+        passive: !0
+    }), {
+        p: b,
+        u: () => {
+            i.removeEventListener("scroll", b), i.removeEventListener("wheel", $), i.removeEventListener("touchstart", R), 
+            i.removeEventListener("touchend", I), i.removeEventListener("touchcancel", I), q(c);
+        },
+        m: () => {
+            const [t, i] = e.i();
+            if (!t) return;
+            h && o && o(), h = !1;
+            const n = e.$getScrollOffset(), r = n + t, l = e.$getStartSpacerSize() + e.$getTotalSize() - e.$getViewportSize();
+            r <= 0 || r >= l || n >= l ? z(r) : s.scrollBy({
+                [S]: y(t),
+                behavior: "instant"
+            }), i && (a && a(), e.$getViewportSize() > e.$getTotalSize() && e.$update(1, v()));
+        },
+        h: (i, s) => {
+            let n, r, o;
+            a && a();
+            const l = a = () => {
+                n = !0, q(r), o && o();
+            }, c = () => {
+                if (!n) {
+                    if (e.$getViewportSize() && (q(r), r = x(l, 150)), s) {
+                        for (let [i, s] = e.$getRange(0); i <= s; i++) if (t.$isSizeEqual(i)) return;
+                        l();
+                    }
+                    e.$update(8), z(i(), s);
+                }
+            };
+            s && e.$update(9, i()), (() => {
+                if (n) return;
+                let t;
+                o = e.$subscribe(2, () => {
+                    t || (t = !0, F(() => {
+                        t = !1, c();
+                    }));
+                }), c();
+            })();
+        }
+    };
+}, te = (e, t, i) => {
+    let s, n, r = k(), o = !0;
+    const l = /* @__PURE__ */ new WeakMap, a = Z(r => {
+        const a = [];
+        for (const {target: c, contentRect: {width: u, height: p}} of r) if (c === s) u || p ? (o || n.p(), 
+        o = !0, e.$update(4, i ? u : p)) : o = !1; else if (c.offsetParent) {
+            const e = l.get(c);
+            if (null != e) {
+                const s = i ? u : p;
+                t.$isSizeEqual(e, s) || a.push([ e, s ]);
+            }
+        }
+        e.$update(3, a);
+    });
+    return {
+        $observe(o, l = o.parentElement) {
+            a.o(s = l), n = ee(e, t, l, l, i, i && "rtl" === getComputedStyle(l).direction, () => {
+                const e = i ? "overflowX" : "overflowY", t = l.style, s = t[e];
+                t[e] = "hidden", x(() => {
+                    t[e] = s;
+                });
+            }), r[1](!0);
+        },
+        $dispose() {
+            a.u(), n && n.u(), r[1](!1), r = k();
+        },
+        $observeItem: (e, t) => (l.set(e, t), a.o(e), () => {
+            l.delete(e), a.l(e);
+        }),
+        async $scroll(e, t) {
+            await r[0] && n.h(e, t);
+        },
+        $effect() {
+            n && n.m();
+        },
+        $getBaseOffset: e.$getStartSpacerSize
+    };
+}, ie = (e, t) => {
+    e.$scroll(() => t);
+}, se = (e, t, i) => {
+    ie(e, i + t.$getScrollOffset());
+}, ne = (e, t, i, s, {align: n, smooth: r, offset: o = 0} = {}) => {
+    if (s = I(s, 0, i.$getLength() - 1), "nearest" === n) {
+        const e = t.$getItemOffset(s), r = t.$getScrollOffset();
+        if (e < r) n = "start"; else {
+            if (!(e + i.$getItemSize(s) > r + t.$getViewportSize())) return;
+            n = "end";
+        }
+    }
+    e.$scroll(() => o + e.$getBaseOffset() + t.$getItemOffset(s) + ("end" === n ? i.$getItemSize(s) - t.$getViewportSize() : "center" === n ? (i.$getItemSize(s) - t.$getViewportSize()) / 2 : 0), r);
+}, re = (e, t, i, s, n, r, o) => {
+    const l = i.$getLength(), a = i.$getPinnedStart(), c = i.$getTrailStart();
+    n = I(n, 0, l - 1);
+    const u = H(s, a, c), p = j(u, n, c), m = p < 0 ? -1 : u[p], d = () => i.$getItemOffset(a) + (m < 0 || m === n ? 0 : i.$getItemOffset(m + 1) - i.$getItemOffset(m)), h = () => i.$getItemOffset(l) - i.$getItemOffset(c);
+    if ("nearest" === r) {
+        if (n < a || n >= c) return;
+        const e = d(), s = t.$getScrollOffset() + e, o = t.$getViewportSize() - e - h(), l = i.$getItemSize(n);
+        let f = t.$getItemOffset(n);
+        if (m === n) {
+            const e = (p + 1 < u.length ? u[p + 1] : c) - 1;
+            f = b(f, w(s, t.$getItemOffset(e) + i.$getItemSize(e) - l));
+        }
+        if (f < s) r = "start"; else {
+            if (!(f + l > s + o)) return;
+            r = "end";
+        }
+    }
+    e.$scroll(o, () => {
+        const e = d(), s = i.$getItemSize(n) - (t.$getViewportSize() - e - h());
+        return t.$getItemOffset(n) - e + ("end" === r ? s : "center" === r ? s / 2 : 0);
+    });
+}, oe = class t {
+    index=h.required();
+    offset=h.required();
+    hide=h.required();
+    horizontal=h.required();
+    isSSR=h(!1);
+    resizer=h.required();
+    attrs=h();
+    style=u(() => {
+        const e = this.horizontal(), t = this.hide(), i = this.isSSR(), s = {
+            contain: "layout style",
+            position: t && i ? void 0 : "absolute",
+            [e ? "height" : "width"]: "100%",
+            [e ? "top" : "left"]: "0px",
+            [e ? "inset-inline-start" : "top"]: this.offset() + "px",
+            visibility: !t || i ? void 0 : "hidden",
+            ...this.attrs()?.style
+        };
+        return e && (s.display = "inline-flex"), s;
+    });
+    constructor() {
+        const e = d(n).nativeElement;
+        let t;
+        c({
+            read: () => {
+                const i = this.index();
+                t && t(), t = S(this.resizer)(e, i);
+            }
+        });
+        let i = [];
+        m(() => {
+            const t = this.attrs();
+            for (const t of i) e.removeAttribute(t);
+            i = [];
+            for (const s in t) "style" !== s && "class" !== s && (e.setAttribute(s, t[s]), i.push(s));
+        }), d(s).onDestroy(() => {
+            t && t();
+        });
+    }
+    static ɵfac=/*@__PURE__*/ e.ɵɵngDeclareFactory({
+        minVersion: "12.0.0",
+        version: "22.1.7",
+        ngImport: e,
+        type: t,
+        deps: [],
+        target: e.ɵɵFactoryTarget.Directive
+    });
+    static ɵdir=/*@__PURE__*/ e.ɵɵngDeclareDirective({
+        minVersion: "17.1.0",
+        version: "22.1.7",
+        type: t,
+        isStandalone: !0,
+        selector: "div[virtuaListItem]",
+        inputs: {
+            index: {
+                classPropertyName: "index",
+                publicName: "index",
+                isSignal: !0,
+                isRequired: !0,
+                transformFunction: null
+            },
+            offset: {
+                classPropertyName: "offset",
+                publicName: "offset",
+                isSignal: !0,
+                isRequired: !0,
+                transformFunction: null
+            },
+            hide: {
+                classPropertyName: "hide",
+                publicName: "hide",
+                isSignal: !0,
+                isRequired: !0,
+                transformFunction: null
+            },
+            horizontal: {
+                classPropertyName: "horizontal",
+                publicName: "horizontal",
+                isSignal: !0,
+                isRequired: !0,
+                transformFunction: null
+            },
+            isSSR: {
+                classPropertyName: "isSSR",
+                publicName: "isSSR",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            },
+            resizer: {
+                classPropertyName: "resizer",
+                publicName: "resizer",
+                isSignal: !0,
+                isRequired: !0,
+                transformFunction: null
+            },
+            attrs: {
+                classPropertyName: "attrs",
+                publicName: "attrs",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            }
+        },
+        host: {
+            properties: {
+                style: "style()",
+                class: "attrs()?.class"
+            }
+        },
+        ngImport: e
+    });
+}, le = (e, t) => "_" + t, ae = /*#__PURE__*/ new o("virtua-item-template"), ce = class i {
+    data=h.required();
+    getKey=h(le);
+    itemProps=h();
+    bufferSize=h();
+    scrollRef=h();
+    itemSize=h();
+    ssrCount=h();
+    shift=h(!1);
+    horizontal=h(!1);
+    keepMounted=h();
+    cacheProp=h(void 0, {
+        alias: "cache"
+    });
+    startMargin=h(0);
+    scrolled=f();
+    scrollEnded=f();
+    resized=f();
+    contentTemplate=p(l);
+    S=d(ae, {
+        optional: !0
+    });
+    template=u(() => this.S?.() ?? this.contentTemplate());
+    v;
+    N;
+    driver;
+    $=d(n).nativeElement;
+    R=d(t);
+    I=g(void 0);
+    isSSR=g(!1);
+    P=u(() => {
+        this.I();
+        const e = this.data().length, [t, i] = this.v.$getRange(this.bufferSize()), s = this.keepMounted(), n = [];
+        if (s) {
+            const r = new Set(s);
+            for (let e = t; e <= i; e++) r.add(e);
+            for (const t of P([ ...r ])) t < e && n.push(t);
+        } else for (let e = t; e <= i; e++) n.push(e);
+        return n;
+    });
+    items=u(() => {
+        this.I();
+        const e = this.v, t = this.data(), i = this.getKey(), s = this.itemProps();
+        return this.P().map(n => {
+            const r = t[n];
+            return {
+                key: i(r, n),
+                index: n,
+                data: r,
+                offset: e.$getItemOffset(n),
+                hide: this.N.$isSizeEqual(n),
+                attrs: s?.({
+                    item: r,
+                    index: n
+                })
+            };
+        });
+    });
+    containerStyle=u(() => {
+        this.I();
+        const e = this.horizontal(), t = this.v.$getTotalSize();
+        return {
+            display: "block",
+            contain: "size style",
+            "overflow-anchor": "none",
+            flex: "none",
+            position: "relative",
+            width: e ? t + "px" : "100%",
+            height: e ? "100%" : t + "px",
+            "pointer-events": this.v.$isScrolling() ? "none" : void 0
+        };
+    });
+    constructor() {
+        m(() => {
+            const e = this.data().length;
+            this.v && this.v.$update(5, e, S(this.shift));
+        }), m(() => {
+            const e = this.startMargin();
+            this.v && this.v.$update(7, e);
+        }), a({
+            read: () => {
+                this.isSSR.set(!1), this.driver.$observe(this.$, this.scrollRef());
+            }
+        }), c({
+            read: () => {
+                this.I(), this.driver.$effect();
+            }
+        }), d(s).onDestroy(() => {
+            this.v?.$dispose(), this.driver?.$dispose();
+        });
+    }
+    ngOnInit() {
+        const e = this.itemSize(), t = this.ssrCount();
+        this.isSSR.set(!!t);
+        const i = this.N = L(this.data().length, e, this.cacheProp()), s = this.v = V(i, t);
+        this.driver = te(s, i, this.horizontal()), s.$subscribe(1, e => {
+            this.I.set(s.$getStateVersion()), e && this.R.tick();
+        }), s.$subscribe(4, () => {
+            this.scrolled.emit(s.$getScrollOffset());
+        }), s.$subscribe(8, () => {
+            this.scrollEnded.emit();
+        }), s.$subscribe(2, () => {
+            this.resized.emit();
+        }), this.I.set(s.$getStateVersion());
+    }
+    get cache() {
+        return this.N.$snapshot();
+    }
+    get scrollOffset() {
+        return this.v.$getScrollOffset();
+    }
+    get scrollSize() {
+        return M(this.v);
+    }
+    get viewportSize() {
+        return this.v.$getViewportSize();
+    }
+    findItemIndex(e) {
+        return this.N.$findIndex(e - this.v.$getStartSpacerSize());
+    }
+    getItemOffset(e) {
+        return this.v.$getItemOffset(e);
+    }
+    getItemSize(e) {
+        return this.N.$getItemSize(e);
+    }
+    scrollToIndex(e, t) {
+        ne(this.driver, this.v, this.N, e, t);
+    }
+    scrollTo(e) {
+        ie(this.driver, e);
+    }
+    scrollBy(e) {
+        se(this.driver, this.v, e);
+    }
+    static ɵfac=/*@__PURE__*/ e.ɵɵngDeclareFactory({
+        minVersion: "12.0.0",
+        version: "22.1.7",
+        ngImport: e,
+        type: i,
+        deps: [],
+        target: e.ɵɵFactoryTarget.Component
+    });
+    static ɵcmp=/*@__PURE__*/ e.ɵɵngDeclareComponent({
+        minVersion: "17.0.0",
+        version: "22.1.7",
+        type: i,
+        isStandalone: !0,
+        selector: "virtua-virtualizer, [virtuaVirtualizer]",
+        inputs: {
+            data: {
+                classPropertyName: "data",
+                publicName: "data",
+                isSignal: !0,
+                isRequired: !0,
+                transformFunction: null
+            },
+            getKey: {
+                classPropertyName: "getKey",
+                publicName: "getKey",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            },
+            itemProps: {
+                classPropertyName: "itemProps",
+                publicName: "itemProps",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            },
+            bufferSize: {
+                classPropertyName: "bufferSize",
+                publicName: "bufferSize",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            },
+            scrollRef: {
+                classPropertyName: "scrollRef",
+                publicName: "scrollRef",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            },
+            itemSize: {
+                classPropertyName: "itemSize",
+                publicName: "itemSize",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            },
+            ssrCount: {
+                classPropertyName: "ssrCount",
+                publicName: "ssrCount",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            },
+            shift: {
+                classPropertyName: "shift",
+                publicName: "shift",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            },
+            horizontal: {
+                classPropertyName: "horizontal",
+                publicName: "horizontal",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            },
+            keepMounted: {
+                classPropertyName: "keepMounted",
+                publicName: "keepMounted",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            },
+            cacheProp: {
+                classPropertyName: "cacheProp",
+                publicName: "cache",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            },
+            startMargin: {
+                classPropertyName: "startMargin",
+                publicName: "startMargin",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            }
+        },
+        outputs: {
+            scrolled: "scrolled",
+            scrollEnded: "scrollEnded",
+            resized: "resized"
+        },
+        host: {
+            properties: {
+                style: "containerStyle()"
+            }
+        },
+        queries: [ {
+            propertyName: "contentTemplate",
+            first: !0,
+            predicate: l,
+            emitDistinctChangesOnly: !1,
+            descendants: !0,
+            isSignal: !0
+        } ],
+        ngImport: e,
+        template: '\n    @for (item of items(); track item.key) {\n      <div\n        virtuaListItem\n        [index]="item.index"\n        [offset]="item.offset"\n        [hide]="item.hide"\n        [attrs]="item.attrs"\n        [horizontal]="horizontal()"\n        [isSSR]="isSSR()"\n        [resizer]="driver.$observeItem"\n      >\n        <ng-container\n          [ngTemplateOutlet]="template()"\n          [ngTemplateOutletContext]="{\n            $implicit: item.data,\n            index: item.index,\n          }"\n        />\n      </div>\n    }\n  ',
+        isInline: !0,
+        dependencies: [ {
+            kind: "directive",
+            type: e.forwardRef(() => oe),
+            selector: "div[virtuaListItem]",
+            inputs: [ "index", "offset", "hide", "horizontal", "isSSR", "resizer", "attrs" ]
+        }, {
+            kind: "directive",
+            type: e.forwardRef(() => v),
+            selector: "[ngTemplateOutlet]",
+            inputs: [ "ngTemplateOutletContext", "ngTemplateOutlet", "ngTemplateOutletInjector" ]
+        } ],
+        changeDetection: e.ChangeDetectionStrategy.OnPush
+    });
+};
+
+i.OnPush;
+
+var ue = class t {
+    data=h.required();
+    getKey=h(le);
+    itemProps=h();
+    bufferSize=h();
+    itemSize=h();
+    ssrCount=h();
+    shift=h(!1);
+    horizontal=h(!1);
+    keepMounted=h();
+    cacheProp=h(void 0, {
+        alias: "cache"
+    });
+    scrolled=f();
+    scrollEnded=f();
+    resized=f();
+    template=p.required(l);
+    virtualizer=y.required(ce);
+    $=d(n).nativeElement;
+    ngOnInit() {
+        const e = this.horizontal(), t = this.$;
+        t.setAttribute("style", `display:block;${e ? "overflow-x" : "overflow-y"}:auto;contain:strict;width:100%;height:100%;` + (t.getAttribute("style") || ""));
+    }
+    get cache() {
+        return this.virtualizer().cache;
+    }
+    get scrollOffset() {
+        return this.virtualizer().scrollOffset;
+    }
+    get scrollSize() {
+        return this.virtualizer().scrollSize;
+    }
+    get viewportSize() {
+        return this.virtualizer().viewportSize;
+    }
+    findItemIndex(e) {
+        return this.virtualizer().findItemIndex(e);
+    }
+    getItemOffset(e) {
+        return this.virtualizer().getItemOffset(e);
+    }
+    getItemSize(e) {
+        return this.virtualizer().getItemSize(e);
+    }
+    scrollToIndex(e, t) {
+        this.virtualizer().scrollToIndex(e, t);
+    }
+    scrollTo(e) {
+        this.virtualizer().scrollTo(e);
+    }
+    scrollBy(e) {
+        this.virtualizer().scrollBy(e);
+    }
+    static ɵfac=/*@__PURE__*/ e.ɵɵngDeclareFactory({
+        minVersion: "12.0.0",
+        version: "22.1.7",
+        ngImport: e,
+        type: t,
+        deps: [],
+        target: e.ɵɵFactoryTarget.Component
+    });
+    static ɵcmp=/*@__PURE__*/ e.ɵɵngDeclareComponent({
+        minVersion: "17.2.0",
+        version: "22.1.7",
+        type: t,
+        isStandalone: !0,
+        selector: "virtua-vlist",
+        inputs: {
+            data: {
+                classPropertyName: "data",
+                publicName: "data",
+                isSignal: !0,
+                isRequired: !0,
+                transformFunction: null
+            },
+            getKey: {
+                classPropertyName: "getKey",
+                publicName: "getKey",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            },
+            itemProps: {
+                classPropertyName: "itemProps",
+                publicName: "itemProps",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            },
+            bufferSize: {
+                classPropertyName: "bufferSize",
+                publicName: "bufferSize",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            },
+            itemSize: {
+                classPropertyName: "itemSize",
+                publicName: "itemSize",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            },
+            ssrCount: {
+                classPropertyName: "ssrCount",
+                publicName: "ssrCount",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            },
+            shift: {
+                classPropertyName: "shift",
+                publicName: "shift",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            },
+            horizontal: {
+                classPropertyName: "horizontal",
+                publicName: "horizontal",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            },
+            keepMounted: {
+                classPropertyName: "keepMounted",
+                publicName: "keepMounted",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            },
+            cacheProp: {
+                classPropertyName: "cacheProp",
+                publicName: "cache",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            }
+        },
+        outputs: {
+            scrolled: "scrolled",
+            scrollEnded: "scrollEnded",
+            resized: "resized"
+        },
+        queries: [ {
+            propertyName: "template",
+            first: !0,
+            predicate: l,
+            emitDistinctChangesOnly: !1,
+            descendants: !0,
+            isSignal: !0
+        } ],
+        viewQueries: [ {
+            propertyName: "virtualizer",
+            first: !0,
+            predicate: ce,
+            emitDistinctChangesOnly: !1,
+            descendants: !0,
+            isSignal: !0
+        } ],
+        ngImport: e,
+        template: '\n    <div\n      virtuaVirtualizer\n      [data]="data()"\n      [getKey]="getKey()"\n      [itemProps]="itemProps()"\n      [bufferSize]="bufferSize()"\n      [itemSize]="itemSize()"\n      [ssrCount]="ssrCount()"\n      [shift]="shift()"\n      [horizontal]="horizontal()"\n      [keepMounted]="keepMounted()"\n      [cache]="cacheProp()"\n      (scrolled)="scrolled.emit($event)"\n      (scrollEnded)="scrollEnded.emit()"\n      (resized)="resized.emit()"\n    ></div>\n  ',
+        isInline: !0,
+        dependencies: [ {
+            kind: "directive",
+            type: e.forwardRef(() => ce),
+            selector: "virtua-virtualizer",
+            inputs: [ "data", "getKey", "itemProps", "bufferSize", "scrollRef", "itemSize", "ssrCount", "shift", "horizontal", "keepMounted", "cache", "startMargin" ],
+            outputs: [ "scrolled", "scrollEnded", "resized" ]
+        } ],
+        viewProviders: [ {
+            provide: ae,
+            useFactory: () => d(t).template
+        } ],
+        changeDetection: e.ChangeDetectionStrategy.OnPush
+    });
+};
+
+i.OnPush;
+
+var pe = class i {
+    data=h.required();
+    getKey=h(le);
+    bufferSize=h();
+    itemSize=h();
+    ssrCount=h();
+    shift=h(!1);
+    horizontal=h(!1);
+    cacheProp=h(void 0, {
+        alias: "cache"
+    });
+    scrolled=f();
+    scrollEnded=f();
+    resized=f();
+    template=p.required(l);
+    v;
+    N;
+    driver;
+    $=d(n).nativeElement;
+    R=d(t);
+    I=g(void 0);
+    isSSR=g(!1);
+    items=u(() => {
+        this.I();
+        const e = this.v, t = this.data(), i = this.getKey(), [s, n] = e.$getRange(this.bufferSize()), r = [];
+        for (let o = s; o <= n; o++) {
+            const s = t[o];
+            r.push({
+                key: i(s, o),
+                index: o,
+                data: s,
+                offset: e.$getItemOffset(o),
+                hide: this.N.$isSizeEqual(o)
+            });
+        }
+        return r;
+    });
+    containerStyle=u(() => {
+        this.I();
+        const e = this.horizontal(), t = this.v.$getTotalSize();
+        return {
+            display: "block",
+            contain: "size style",
+            "overflow-anchor": "none",
+            flex: "none",
+            position: "relative",
+            width: e ? t + "px" : "100%",
+            height: e ? "100%" : t + "px",
+            "pointer-events": this.v.$isScrolling() ? "none" : void 0
+        };
+    });
+    constructor() {
+        m(() => {
+            const e = this.data().length;
+            this.v && this.v.$update(5, e, S(this.shift));
+        }), a({
+            read: () => {
+                this.isSSR.set(!1), this.driver.$observe(this.$);
+            }
+        }), c({
+            read: () => {
+                this.I(), this.driver.$effect();
+            }
+        }), d(s).onDestroy(() => {
+            this.v?.$dispose(), this.driver?.$dispose();
+        });
+    }
+    ngOnInit() {
+        const e = this.itemSize(), t = this.ssrCount();
+        this.isSSR.set(!!t);
+        const i = this.N = L(this.data().length, e, this.cacheProp()), s = this.v = V(i, t);
+        this.driver = ((e, t, i) => {
+            let s, n, r, o, l, a = k();
+            const c = /* @__PURE__ */ new WeakMap, u = Z(n => {
+                const r = [];
+                for (const {target: e, contentRect: {width: o, height: a}} of n) if (e === s) l && l(); else if (e.offsetParent) {
+                    const s = c.get(e);
+                    if (null != s) {
+                        const e = i ? o : a;
+                        t.$isSizeEqual(s, e) || r.push([ s, e ]);
+                    }
+                }
+                e.$update(3, r);
+            });
+            return {
+                $observe(c) {
+                    const p = O(c), m = C(p), d = s = p.scrollingElement, h = i && "rtl" === getComputedStyle(d).direction, f = (e, t, i, s, n = 0) => {
+                        const r = s ? "offsetLeft" : "offsetTop", o = n + (h ? t.clientWidth - e[r] - e.offsetWidth : e[r]), l = e.offsetParent;
+                        return e !== i && l ? f(l, t, i, s, o) : o;
+                    }, g = o = () => f(c, d, p.body, i), S = l = () => {
+                        e.$update(4, d[i ? "clientWidth" : "clientHeight"]);
+                    };
+                    m.addEventListener("resize", S), u.o(d), r = () => {
+                        m.removeEventListener("resize", S);
+                    }, n = ee(e, t, m, d, i, h, null, g), a[1](!0);
+                },
+                $dispose() {
+                    r && r(), u.u(), n && n.u(), a[1](!1), a = k();
+                },
+                $observeItem: (e, t) => (c.set(e, t), u.o(e), () => {
+                    c.delete(e), u.l(e);
+                }),
+                async $scroll(e, t) {
+                    await a[0] && n.h(e, t);
+                },
+                $effect() {
+                    n && n.m();
+                },
+                $getBaseOffset: () => o()
+            };
+        })(s, i, this.horizontal()), s.$subscribe(1, e => {
+            this.I.set(s.$getStateVersion()), e && this.R.tick();
+        }), s.$subscribe(4, () => {
+            this.scrolled.emit();
+        }), s.$subscribe(8, () => {
+            this.scrollEnded.emit();
+        }), s.$subscribe(2, () => {
+            this.resized.emit();
+        }), this.I.set(s.$getStateVersion());
+    }
+    get cache() {
+        return this.N.$snapshot();
+    }
+    get scrollOffset() {
+        return this.v.$getScrollOffset();
+    }
+    get viewportSize() {
+        return this.v.$getViewportSize();
+    }
+    findItemIndex(e) {
+        return this.N.$findIndex(e - this.v.$getStartSpacerSize());
+    }
+    getItemOffset(e) {
+        return this.v.$getItemOffset(e);
+    }
+    getItemSize(e) {
+        return this.N.$getItemSize(e);
+    }
+    scrollToIndex(e, t) {
+        ne(this.driver, this.v, this.N, e, t);
+    }
+    static ɵfac=/*@__PURE__*/ e.ɵɵngDeclareFactory({
+        minVersion: "12.0.0",
+        version: "22.1.7",
+        ngImport: e,
+        type: i,
+        deps: [],
+        target: e.ɵɵFactoryTarget.Component
+    });
+    static ɵcmp=/*@__PURE__*/ e.ɵɵngDeclareComponent({
+        minVersion: "17.0.0",
+        version: "22.1.7",
+        type: i,
+        isStandalone: !0,
+        selector: "virtua-window-virtualizer, [virtuaWindowVirtualizer]",
+        inputs: {
+            data: {
+                classPropertyName: "data",
+                publicName: "data",
+                isSignal: !0,
+                isRequired: !0,
+                transformFunction: null
+            },
+            getKey: {
+                classPropertyName: "getKey",
+                publicName: "getKey",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            },
+            bufferSize: {
+                classPropertyName: "bufferSize",
+                publicName: "bufferSize",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            },
+            itemSize: {
+                classPropertyName: "itemSize",
+                publicName: "itemSize",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            },
+            ssrCount: {
+                classPropertyName: "ssrCount",
+                publicName: "ssrCount",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            },
+            shift: {
+                classPropertyName: "shift",
+                publicName: "shift",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            },
+            horizontal: {
+                classPropertyName: "horizontal",
+                publicName: "horizontal",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            },
+            cacheProp: {
+                classPropertyName: "cacheProp",
+                publicName: "cache",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            }
+        },
+        outputs: {
+            scrolled: "scrolled",
+            scrollEnded: "scrollEnded",
+            resized: "resized"
+        },
+        host: {
+            properties: {
+                style: "containerStyle()"
+            }
+        },
+        queries: [ {
+            propertyName: "template",
+            first: !0,
+            predicate: l,
+            emitDistinctChangesOnly: !1,
+            descendants: !0,
+            isSignal: !0
+        } ],
+        ngImport: e,
+        template: '\n    @for (item of items(); track item.key) {\n      <div\n        virtuaListItem\n        [index]="item.index"\n        [offset]="item.offset"\n        [hide]="item.hide"\n        [horizontal]="horizontal()"\n        [isSSR]="isSSR()"\n        [resizer]="driver.$observeItem"\n      >\n        <ng-container\n          [ngTemplateOutlet]="template()"\n          [ngTemplateOutletContext]="{\n            $implicit: item.data,\n            index: item.index,\n          }"\n        />\n      </div>\n    }\n  ',
+        isInline: !0,
+        dependencies: [ {
+            kind: "directive",
+            type: e.forwardRef(() => oe),
+            selector: "div[virtuaListItem]",
+            inputs: [ "index", "offset", "hide", "horizontal", "isSSR", "resizer", "attrs" ]
+        }, {
+            kind: "directive",
+            type: e.forwardRef(() => v),
+            selector: "[ngTemplateOutlet]",
+            inputs: [ "ngTemplateOutletContext", "ngTemplateOutlet", "ngTemplateOutletInjector" ]
+        } ],
+        changeDetection: e.ChangeDetectionStrategy.OnPush
+    });
+};
+
+i.OnPush;
+
+var me = class t {
+    state=h.required();
+    resizer=h.required();
+    constructor() {
+        const e = d(n).nativeElement, t = u(() => this.state().$measureRow), i = u(() => this.state().$measureCol);
+        let r;
+        c({
+            read: () => {
+                const s = t(), n = i();
+                r && r(), r = null == s && null == n ? void 0 : S(this.resizer)(e, s, n);
+            }
+        }), d(s).onDestroy(() => {
+            r && r();
+        });
+    }
+    static ɵfac=/*@__PURE__*/ e.ɵɵngDeclareFactory({
+        minVersion: "12.0.0",
+        version: "22.1.7",
+        ngImport: e,
+        type: t,
+        deps: [],
+        target: e.ɵɵFactoryTarget.Directive
+    });
+    static ɵdir=/*@__PURE__*/ e.ɵɵngDeclareDirective({
+        minVersion: "17.1.0",
+        version: "22.1.7",
+        type: t,
+        isStandalone: !0,
+        selector: "div[virtuaGridCell]",
+        inputs: {
+            state: {
+                classPropertyName: "state",
+                publicName: "state",
+                isSignal: !0,
+                isRequired: !0,
+                transformFunction: null
+            },
+            resizer: {
+                classPropertyName: "resizer",
+                publicName: "resizer",
+                isSignal: !0,
+                isRequired: !0,
+                transformFunction: null
+            }
+        },
+        host: {
+            properties: {
+                style: "state().$style",
+                "attr.role": "state().$role",
+                "attr.aria-colindex": "state().$col + 1",
+                "attr.aria-rowspan": "state().$rowSpan",
+                "attr.aria-colspan": "state().$colSpan",
+                "attr.aria-sort": "state().$sort"
+            }
+        },
+        ngImport: e
+    });
+}, de = class t {
+    state=h.required();
+    template=h.required();
+    row=h.required();
+    cols=h.required();
+    resizer=h.required();
+    colItem(e) {
+        return G(this.cols(), e);
+    }
+    static ɵfac=/*@__PURE__*/ e.ɵɵngDeclareFactory({
+        minVersion: "12.0.0",
+        version: "22.1.7",
+        ngImport: e,
+        type: t,
+        deps: [],
+        target: e.ɵɵFactoryTarget.Component
+    });
+    static ɵcmp=/*@__PURE__*/ e.ɵɵngDeclareComponent({
+        minVersion: "17.0.0",
+        version: "22.1.7",
+        type: t,
+        isStandalone: !0,
+        selector: "div[virtuaGridRow]",
+        inputs: {
+            state: {
+                classPropertyName: "state",
+                publicName: "state",
+                isSignal: !0,
+                isRequired: !0,
+                transformFunction: null
+            },
+            template: {
+                classPropertyName: "template",
+                publicName: "template",
+                isSignal: !0,
+                isRequired: !0,
+                transformFunction: null
+            },
+            row: {
+                classPropertyName: "row",
+                publicName: "row",
+                isSignal: !0,
+                isRequired: !0,
+                transformFunction: null
+            },
+            cols: {
+                classPropertyName: "cols",
+                publicName: "cols",
+                isSignal: !0,
+                isRequired: !0,
+                transformFunction: null
+            },
+            resizer: {
+                classPropertyName: "resizer",
+                publicName: "resizer",
+                isSignal: !0,
+                isRequired: !0,
+                transformFunction: null
+            }
+        },
+        host: {
+            attributes: {
+                role: "row"
+            },
+            properties: {
+                "attr.aria-rowindex": "state().$row + 1",
+                style: "state().$style"
+            }
+        },
+        ngImport: e,
+        template: '\n    @for (cell of state().$cells; track cell.$col) {\n      <div virtuaGridCell [state]="cell" [resizer]="resizer()">\n        <ng-container\n          [ngTemplateOutlet]="template()"\n          [ngTemplateOutletContext]="{\n            $implicit: row(),\n            row: row(),\n            col: colItem(cell.$col),\n            cell: { rowIndex: state().$row, colIndex: cell.$col },\n          }"\n        />\n      </div>\n    }\n  ',
+        isInline: !0,
+        dependencies: [ {
+            kind: "directive",
+            type: e.forwardRef(() => me),
+            selector: "div[virtuaGridCell]",
+            inputs: [ "state", "resizer" ]
+        }, {
+            kind: "directive",
+            type: e.forwardRef(() => v),
+            selector: "[ngTemplateOutlet]",
+            inputs: [ "ngTemplateOutletContext", "ngTemplateOutlet", "ngTemplateOutletInjector" ]
+        } ],
+        changeDetection: e.ChangeDetectionStrategy.OnPush
+    });
+}, he = class t {
+    state=h.required();
+    template=h.required();
+    rows=h.required();
+    cols=h.required();
+    resizer=h.required();
+    rowItem(e) {
+        return G(this.rows(), e);
+    }
+    static ɵfac=/*@__PURE__*/ e.ɵɵngDeclareFactory({
+        minVersion: "12.0.0",
+        version: "22.1.7",
+        ngImport: e,
+        type: t,
+        deps: [],
+        target: e.ɵɵFactoryTarget.Component
+    });
+    static ɵcmp=/*@__PURE__*/ e.ɵɵngDeclareComponent({
+        minVersion: "17.0.0",
+        version: "22.1.7",
+        type: t,
+        isStandalone: !0,
+        selector: "div[virtuaGridRowGroup]",
+        inputs: {
+            state: {
+                classPropertyName: "state",
+                publicName: "state",
+                isSignal: !0,
+                isRequired: !0,
+                transformFunction: null
+            },
+            template: {
+                classPropertyName: "template",
+                publicName: "template",
+                isSignal: !0,
+                isRequired: !0,
+                transformFunction: null
+            },
+            rows: {
+                classPropertyName: "rows",
+                publicName: "rows",
+                isSignal: !0,
+                isRequired: !0,
+                transformFunction: null
+            },
+            cols: {
+                classPropertyName: "cols",
+                publicName: "cols",
+                isSignal: !0,
+                isRequired: !0,
+                transformFunction: null
+            },
+            resizer: {
+                classPropertyName: "resizer",
+                publicName: "resizer",
+                isSignal: !0,
+                isRequired: !0,
+                transformFunction: null
+            }
+        },
+        host: {
+            attributes: {
+                role: "rowgroup"
+            },
+            properties: {
+                style: "state().$style"
+            }
+        },
+        ngImport: e,
+        template: '\n    @for (row of state().$rows; track row.$row) {\n      <div\n        virtuaGridRow\n        [state]="row"\n        [template]="template()"\n        [row]="rowItem(row.$row)"\n        [cols]="cols()"\n        [resizer]="resizer()"\n      ></div>\n    }\n  ',
+        isInline: !0,
+        dependencies: [ {
+            kind: "directive",
+            type: e.forwardRef(() => de),
+            selector: "div[virtuaGridRow]",
+            inputs: [ "state", "template", "row", "cols", "resizer" ]
+        } ],
+        changeDetection: e.ChangeDetectionStrategy.OnPush
+    });
+}, fe = class i {
+    rows=h.required();
+    cols=h.required();
+    rowHeight=h.required();
+    colWidth=h.required();
+    headerRows=h();
+    sectionRows=h();
+    footerRows=h();
+    headerCols=h();
+    footerCols=h();
+    spans=h();
+    keepMounted=h();
+    bufferSize=h();
+    gap=h(0);
+    ariaSort=h();
+    verticalScrolled=f();
+    horizontalScrolled=f();
+    scrollEnded=f();
+    resized=f();
+    template=p.required(l);
+    container=y.required("container");
+    q;
+    F;
+    k;
+    O;
+    driver;
+    $=d(n).nativeElement;
+    R=d(t);
+    I=g(void 0);
+    ariaRowCount=d(new r("aria-rowcount"), {
+        optional: !0
+    });
+    ariaColCount=d(new r("aria-colcount"), {
+        optional: !0
+    });
+    rowCount=u(() => this.I() && this.k.$getLength());
+    colCount=u(() => this.I() && this.O.$getLength());
+    C=u(() => this.k.$getSizes(this.rows(), this.rowHeight()));
+    T=u(() => this.O.$getSizes(this.cols(), this.colWidth()));
+    M=u(() => ((e = N) => {
+        const t = /* @__PURE__ */ new Map;
+        for (const i of e) {
+            const e = i.rowIndex + (i.rowSpan || 1);
+            for (let s = i.rowIndex; s < e; s++) {
+                const e = t.get(s);
+                e ? e.push(i) : t.set(s, [ i ]);
+            }
+        }
+        return t;
+    })(this.spans()));
+    plan=u(() => (this.I(), ((e, t, [i, s], [n, r], o, l = N, a = N, c) => {
+        const u = e.$getLength(), p = t.$getLength(), m = e.$getPinnedStart(), d = e.$getTrailStart(), h = t.$getPinnedStart(), f = t.$getTrailStart();
+        i = I(i, m, d), s = w(s, d - 1), n = I(n, h, f), r = w(r, f - 1);
+        const g = H(l, m, d), S = b(h - 1, 0), y = [], v = [], z = [];
+        for (const e of a) e.rowIndex < u && e.colIndex < p && (z.push(e), y.push(e.rowIndex));
+        const $ = z.length, R = j(g, i, d), x = R < 0 ? -1 : g[R];
+        x >= 0 && y.push(x);
+        const q = Q(P(y), u, m, i, s, d);
+        for (let e = 0; e < q.length; e++) for (const t of o.get(q[e]) || N) {
+            const {rowIndex: o, colIndex: l} = t, a = J(t, u), c = X(t, p);
+            if ((e < 1 || q[e - 1] < o) && l < p && (a - o > 1 || c - l > 1)) {
+                let e = (o < m || b(o, i) < w(a, s + 1) || d < a || x >= o && x < a) && (l < h || b(l, n) < w(c, r + 1) || f < c);
+                for (let t = 0; !e && t < $; t++) {
+                    const i = z[t];
+                    e = i.rowIndex >= o && i.rowIndex < a && i.colIndex >= l && i.colIndex < c;
+                }
+                e && z.push(t);
+            }
+        }
+        for (const {rowIndex: e, colIndex: t} of z) {
+            const i = j(g, e, d);
+            y.push(e), i >= 0 && y.push(g[i]), v.push(t);
+        }
+        P(y), P(v);
+        const F = Q(y, u, m, i, s, d), k = Q(v, p, h, n, r, f), O = F.length, C = k.length, T = /* @__PURE__ */ new Map, M = [], _ = [];
+        for (const e of z) {
+            const t = J(e, u), i = X(e, p);
+            M.push(t), _.push(i);
+            const s = k.indexOf(e.colIndex);
+            for (let n = F.indexOf(e.rowIndex); n < O && F[n] < t; n++) {
+                const t = F[n] * p;
+                for (let n = s; n < C && k[n] < i; n++) T.set(t + k[n], e);
+            }
+        }
+        const V = [];
+        for (const e of k) V.push(!t.$isMeasurable(e) && null);
+        const E = [], K = e.$getItemOffset(m), L = [];
+        let D = L;
+        const G = B.get(e), W = /* @__PURE__ */ new Map;
+        for (const o of F) {
+            const l = o < m, a = o >= d, y = j(g, o, d), v = l ? 0 : a ? d : y < 0 ? -1 : g[y];
+            if (o === v) {
+                const e = l ? m : a ? u : y + 1 < g.length ? g[y + 1] : d;
+                M.push(e);
+                const t = [];
+                L.push({
+                    $key: l ? -1 : a ? -2 : -3 - v,
+                    $rows: t,
+                    $style: U(v, e, l || a ? 0 : null, a ? "bottom" : "top", 4)
+                }), D = t;
+            } else v < 0 && (D = L);
+            const z = y >= 0 && o === v, N = l || a || o === x || o >= i && o <= s, w = z ? K : null, $ = o * p, R = G && G.get(o), I = R && R.$cells, P = [];
+            let q = 0, F = !e.$isMeasurable(o) && null, O = o + 1, _ = !1;
+            for (let e = 0; e < C; e++) {
+                const i = k[e], s = i < h, a = i >= f, m = s || a || i >= n && i <= r, d = T.get($ + i);
+                if (d ? d.rowIndex === o && d.colIndex === i : N && m) {
+                    const n = d ? J(d, u) : o + 1, r = d ? X(d, p) : i + 1, m = n - o, h = r - i, f = m > 1, g = h > 1, y = f || g;
+                    let v, N;
+                    O = b(O, n);
+                    const w = s ? t.$getItemOffset(i) : null, $ = a ? t.$getItemOffset(p) - t.$getItemOffset(r) : null;
+                    !1 !== F || f || (v = o, F = !0), !1 !== V[e] || g || (N = i, V[e] = !0);
+                    const R = l ? "columnheader" : i === S && (s || z) ? "rowheader" : "cell", x = y ? m : void 0, k = y ? h : void 0, C = "cell" !== R && c && c.rowIndex === o && c.colIndex === i ? c.order : void 0;
+                    let T;
+                    if (I) {
+                        const e = I.length;
+                        for (;q < e && I[q].$col < i; ) q++;
+                        q < e && I[q].$col === i && (T = I[q]);
+                    }
+                    if (!T || T.$rowSpan !== x || T.$colSpan !== k || T.$start !== w || T.$end !== $ || T.$measureRow !== v || T.$measureCol !== N || T.$role !== R || T.$sort !== C) {
+                        let e = "1/l" + i;
+                        y && (e += "/l" + n + "/l" + r);
+                        const t = {
+                            contain: "layout style",
+                            display: "grid",
+                            gridArea: e
+                        };
+                        f && (t.height = "0px", t.minHeight = "100%", t.zIndex = 1), g && (t.width = "0px", 
+                        t.minWidth = "100%"), (s || a) && (t[s ? "insetInlineStart" : "insetInlineEnd"] = (s ? w : $) + "px", 
+                        t.position = "sticky", t.zIndex = 2), T = {
+                            $col: i,
+                            $rowSpan: x,
+                            $colSpan: k,
+                            $measureRow: v,
+                            $measureCol: N,
+                            $role: R,
+                            $sort: C,
+                            $style: t,
+                            $start: w,
+                            $end: $
+                        }, _ = !0;
+                    }
+                    P.push(T);
+                }
+            }
+            if (E.push(F), P.length) {
+                const e = R && !_ && R.$cells.length === P.length && R.$top === w ? R : {
+                    $row: o,
+                    $cells: P,
+                    $style: U(o, O, w, "top", 3),
+                    $top: w
+                };
+                W.set(o, e), D.push(e);
+            }
+        }
+        return B.set(e, W), {
+            $rowTemplate: Y(e, F, E, P(M), "max-content", u),
+            $colTemplate: Y(t, k, V, P(_), "minmax(max-content,auto)", p),
+            $groups: L
+        };
+    })(this.k, this.O, this.q.$getRange(this.bufferSize()), this.F.$getRange(this.bufferSize()), this.M(), this.sectionRows(), this.keepMounted(), this.ariaSort())));
+    rowItem(e) {
+        return G(this.rows(), e);
+    }
+    containerStyle=u(() => {
+        this.I();
+        const {$rowTemplate: e, $colTemplate: t} = this.plan(), i = this.q.$getItemOffset(0), s = this.F.$getItemOffset(0);
+        return {
+            contain: "size style",
+            "overflow-anchor": "none",
+            flex: "none",
+            display: "grid",
+            "grid-template-rows": e,
+            "grid-template-columns": t,
+            gap: this.gap() + "px",
+            "margin-top": i + "px",
+            "margin-inline-start": s + "px",
+            height: M(this.q) - i + "px",
+            "pointer-events": this.q.$isScrolling() || this.F.$isScrolling() ? "none" : void 0
+        };
+    });
+    constructor() {
+        m(() => {
+            const e = this.rows(), t = this.cols(), i = this.headerRows(), s = this.footerRows(), n = this.headerCols(), r = this.footerCols();
+            if (!this.q) return;
+            const o = this.C(), l = this.T();
+            S(() => {
+                this.k.$setPinned(i, s), this.O.$setPinned(n, r);
+                const a = D(e), c = D(t);
+                this.q.$update(5, a), this.F.$update(5, c), _(this.q, this.k, o), _(this.F, this.O, l);
+            });
+        }), a({
+            read: () => {
+                this.driver.$observe(this.container().nativeElement);
+            }
+        }), c({
+            read: () => {
+                this.I(), this.driver.$effect();
+            }
+        }), d(s).onDestroy(() => {
+            this.q?.$dispose(), this.F?.$dispose(), this.driver?.$dispose();
+        });
+    }
+    ngOnInit() {
+        const e = this.$;
+        e.setAttribute("style", "display:block;overflow:auto;contain:strict;width:100%;height:100%;" + (e.getAttribute("style") || ""));
+        const t = this.gap(), i = this.k = W(this.rows(), this.rowHeight(), t), s = this.O = W(this.cols(), this.colWidth(), t), n = this.q = V(i), r = this.F = V(s);
+        this.driver = ((e, t, i, s) => {
+            let n, r, o, l = k(), a = !0;
+            const c = /* @__PURE__ */ new WeakMap, u = /* @__PURE__ */ new WeakMap, p = Z(l => {
+                const p = [], m = [];
+                for (const {target: d, contentRect: {width: h, height: f}} of l) if (d === n) h || f ? (a || (r.p(), 
+                o.p()), a = !0, e.$update(4, f), t.$update(4, h)) : a = !1; else if (d.offsetParent) {
+                    const e = c.get(d), t = u.get(d);
+                    null == e || i.$isSizeEqual(e, f) || p.push([ e, f ]), null == t || s.$isSizeEqual(t, h) || m.push([ t, h ]);
+                }
+                e.$update(3, p), t.$update(3, m);
+            });
+            return {
+                async $scroll(e, t) {
+                    await l[0] && (e ? o : r).h(t);
+                },
+                $observe(a, c = a.parentElement) {
+                    p.o(n = c);
+                    const u = (e, t, i) => ee(e, t, c, c, i, i && "rtl" === getComputedStyle(c).direction, () => {
+                        const e = i ? "overflowX" : "overflowY", t = c.style, s = t[e];
+                        t[e] = "hidden", x(() => {
+                            t[e] = s;
+                        });
+                    });
+                    r = u(e, i, !1), o = u(t, s, !0), l[1](!0);
+                },
+                $dispose() {
+                    p.u(), r && r.u(), o && o.u(), l[1](!1), l = k();
+                },
+                $observeItem: (e, t, i) => (null != t && c.set(e, t), null != i && u.set(e, i), 
+                p.o(e), () => {
+                    c.delete(e), u.delete(e), p.l(e);
+                }),
+                $effect() {
+                    r && r.m(), o && o.m();
+                }
+            };
+        })(n, r, i, s);
+        const o = e => {
+            this.I.set(n.$getStateVersion() + r.$getStateVersion()), e && this.R.tick();
+        };
+        n.$subscribe(1, o), r.$subscribe(1, o);
+        let l = !1;
+        n.$subscribe(4, () => {
+            l = !0, this.verticalScrolled.emit(n.$getScrollOffset());
+        }), r.$subscribe(4, () => {
+            l = !0, this.horizontalScrolled.emit(r.$getScrollOffset());
+        });
+        const a = () => {
+            !l || n.$isScrolling() || r.$isScrolling() || (l = !1, this.scrollEnded.emit());
+        };
+        let c;
+        n.$subscribe(8, a), r.$subscribe(8, a);
+        const u = () => {
+            c || (c = !0, F(() => {
+                c = !1, this.resized.emit();
+            }));
+        };
+        n.$subscribe(2, u), r.$subscribe(2, u), o();
+    }
+    get verticalScrollOffset() {
+        return this.q.$getScrollOffset();
+    }
+    get horizontalScrollOffset() {
+        return this.F.$getScrollOffset();
+    }
+    get scrollHeight() {
+        return M(this.q);
+    }
+    get scrollWidth() {
+        return M(this.F);
+    }
+    get viewportHeight() {
+        return this.q.$getViewportSize();
+    }
+    get viewportWidth() {
+        return this.F.$getViewportSize();
+    }
+    findRowIndex(e) {
+        return this.k.$findIndex(e);
+    }
+    findColIndex(e) {
+        return this.O.$findIndex(e);
+    }
+    getRowOffset(e) {
+        return this.q.$getItemOffset(e);
+    }
+    getColOffset(e) {
+        return this.F.$getItemOffset(e);
+    }
+    getRowSize(e) {
+        return this.k.$getItemSize(e);
+    }
+    getColSize(e) {
+        return this.O.$getItemSize(e);
+    }
+    scrollToIndex(e) {
+        ((e, t, i, s, n, r = N, {rowIndex: o, colIndex: l, rowAlign: a, colAlign: c}) => {
+            null != o && re(e, t, s, r, o, a, !1), null != l && re(e, i, n, N, l, c, !0);
+        })(this.driver, this.q, this.F, this.k, this.O, this.sectionRows(), e);
+    }
+    scrollTo({vertical: e, horizontal: t}) {
+        ((e, t, i) => {
+            null != t && e.$scroll(!1, () => t), null != i && e.$scroll(!0, () => i);
+        })(this.driver, e, t);
+    }
+    scrollBy({vertical: e, horizontal: t}) {
+        ((e, t, i, s, n) => {
+            if (null != s) {
+                const i = s + t.$getScrollOffset();
+                e.$scroll(!1, () => i);
+            }
+            if (null != n) {
+                const t = n + i.$getScrollOffset();
+                e.$scroll(!0, () => t);
+            }
+        })(this.driver, this.q, this.F, e, t);
+    }
+    static ɵfac=/*@__PURE__*/ e.ɵɵngDeclareFactory({
+        minVersion: "12.0.0",
+        version: "22.1.7",
+        ngImport: e,
+        type: i,
+        deps: [],
+        target: e.ɵɵFactoryTarget.Component
+    });
+    static ɵcmp=/*@__PURE__*/ e.ɵɵngDeclareComponent({
+        minVersion: "17.0.0",
+        version: "22.1.7",
+        type: i,
+        isStandalone: !0,
+        selector: "virtua-vgrid",
+        inputs: {
+            rows: {
+                classPropertyName: "rows",
+                publicName: "rows",
+                isSignal: !0,
+                isRequired: !0,
+                transformFunction: null
+            },
+            cols: {
+                classPropertyName: "cols",
+                publicName: "cols",
+                isSignal: !0,
+                isRequired: !0,
+                transformFunction: null
+            },
+            rowHeight: {
+                classPropertyName: "rowHeight",
+                publicName: "rowHeight",
+                isSignal: !0,
+                isRequired: !0,
+                transformFunction: null
+            },
+            colWidth: {
+                classPropertyName: "colWidth",
+                publicName: "colWidth",
+                isSignal: !0,
+                isRequired: !0,
+                transformFunction: null
+            },
+            headerRows: {
+                classPropertyName: "headerRows",
+                publicName: "headerRows",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            },
+            sectionRows: {
+                classPropertyName: "sectionRows",
+                publicName: "sectionRows",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            },
+            footerRows: {
+                classPropertyName: "footerRows",
+                publicName: "footerRows",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            },
+            headerCols: {
+                classPropertyName: "headerCols",
+                publicName: "headerCols",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            },
+            footerCols: {
+                classPropertyName: "footerCols",
+                publicName: "footerCols",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            },
+            spans: {
+                classPropertyName: "spans",
+                publicName: "spans",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            },
+            keepMounted: {
+                classPropertyName: "keepMounted",
+                publicName: "keepMounted",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            },
+            bufferSize: {
+                classPropertyName: "bufferSize",
+                publicName: "bufferSize",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            },
+            gap: {
+                classPropertyName: "gap",
+                publicName: "gap",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            },
+            ariaSort: {
+                classPropertyName: "ariaSort",
+                publicName: "ariaSort",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            }
+        },
+        outputs: {
+            verticalScrolled: "verticalScrolled",
+            horizontalScrolled: "horizontalScrolled",
+            scrollEnded: "scrollEnded",
+            resized: "resized"
+        },
+        host: {
+            attributes: {
+                role: "table"
+            },
+            properties: {
+                "attr.aria-rowcount": "ariaRowCount ?? rowCount()",
+                "attr.aria-colcount": "ariaColCount ?? colCount()"
+            }
+        },
+        queries: [ {
+            propertyName: "template",
+            first: !0,
+            predicate: l,
+            emitDistinctChangesOnly: !1,
+            descendants: !0,
+            isSignal: !0
+        } ],
+        viewQueries: [ {
+            propertyName: "container",
+            first: !0,
+            predicate: [ "container" ],
+            emitDistinctChangesOnly: !1,
+            descendants: !0,
+            isSignal: !0
+        } ],
+        ngImport: e,
+        template: '\n    <div #container [style]="containerStyle()">\n      @for (\n        state of plan().$groups;\n        track "$rows" in state ? state.$key : state.$row\n      ) {\n        @if ("$rows" in state) {\n          <div\n            virtuaGridRowGroup\n            [state]="state"\n            [template]="template()"\n            [rows]="rows()"\n            [cols]="cols()"\n            [resizer]="driver.$observeItem"\n          ></div>\n        } @else {\n          <div\n            virtuaGridRow\n            [state]="state"\n            [template]="template()"\n            [row]="rowItem(state.$row)"\n            [cols]="cols()"\n            [resizer]="driver.$observeItem"\n          ></div>\n        }\n      }\n    </div>\n  ',
+        isInline: !0,
+        dependencies: [ {
+            kind: "directive",
+            type: e.forwardRef(() => he),
+            selector: "div[virtuaGridRowGroup]",
+            inputs: [ "state", "template", "rows", "cols", "resizer" ]
+        }, {
+            kind: "directive",
+            type: e.forwardRef(() => de),
+            selector: "div[virtuaGridRow]",
+            inputs: [ "state", "template", "row", "cols", "resizer" ]
+        } ],
+        changeDetection: e.ChangeDetectionStrategy.OnPush
+    });
+};
+
+i.OnPush, i.OnPush, i.OnPush;
+
+var ge = (e, t) => t ? `calc(${100 * e}% + ${t}px)` : 100 * e + "%", Se = class t {
+    index=h.required();
+    offset=h.required();
+    crossOffset=h.required();
+    crossSize=h.required();
+    hide=h.required();
+    resizer=h.required();
+    style=u(() => ({
+        contain: "layout style",
+        position: "absolute",
+        top: this.offset() + "px",
+        "inset-inline-start": this.crossOffset(),
+        width: this.crossSize(),
+        visibility: this.hide() ? "hidden" : void 0
+    }));
+    constructor() {
+        const e = d(n).nativeElement;
+        let t;
+        c({
+            read: () => {
+                const i = this.index();
+                t && t(), t = S(this.resizer)(e, i);
+            }
+        }), d(s).onDestroy(() => {
+            t && t();
+        });
+    }
+    static ɵfac=/*@__PURE__*/ e.ɵɵngDeclareFactory({
+        minVersion: "12.0.0",
+        version: "22.1.7",
+        ngImport: e,
+        type: t,
+        deps: [],
+        target: e.ɵɵFactoryTarget.Directive
+    });
+    static ɵdir=/*@__PURE__*/ e.ɵɵngDeclareDirective({
+        minVersion: "17.1.0",
+        version: "22.1.7",
+        type: t,
+        isStandalone: !0,
+        selector: "div[virtuaMasonryItem]",
+        inputs: {
+            index: {
+                classPropertyName: "index",
+                publicName: "index",
+                isSignal: !0,
+                isRequired: !0,
+                transformFunction: null
+            },
+            offset: {
+                classPropertyName: "offset",
+                publicName: "offset",
+                isSignal: !0,
+                isRequired: !0,
+                transformFunction: null
+            },
+            crossOffset: {
+                classPropertyName: "crossOffset",
+                publicName: "crossOffset",
+                isSignal: !0,
+                isRequired: !0,
+                transformFunction: null
+            },
+            crossSize: {
+                classPropertyName: "crossSize",
+                publicName: "crossSize",
+                isSignal: !0,
+                isRequired: !0,
+                transformFunction: null
+            },
+            hide: {
+                classPropertyName: "hide",
+                publicName: "hide",
+                isSignal: !0,
+                isRequired: !0,
+                transformFunction: null
+            },
+            resizer: {
+                classPropertyName: "resizer",
+                publicName: "resizer",
+                isSignal: !0,
+                isRequired: !0,
+                transformFunction: null
+            }
+        },
+        host: {
+            properties: {
+                style: "style()"
+            }
+        },
+        ngImport: e
+    });
+}, ye = class i {
+    data=h.required();
+    getKey=h(le);
+    lanes=h.required();
+    gap=h();
+    itemSize=h();
+    bufferSize=h();
+    keepMounted=h();
+    cacheProp=h(void 0, {
+        alias: "cache"
+    });
+    scrolled=f();
+    scrollEnded=f();
+    resized=f();
+    template=p.required(l);
+    container=y.required("container");
+    v;
+    N;
+    driver;
+    $=d(n).nativeElement;
+    R=d(t);
+    I=g(void 0);
+    P=u(() => {
+        this.I();
+        const e = this.data().length, [t, i] = this.v.$getRange(this.bufferSize()), s = this.keepMounted(), n = [];
+        if (s) {
+            const r = new Set(s);
+            for (let e = t; e <= i; e++) r.add(e);
+            for (const t of P([ ...r ])) t < e && n.push(t);
+        } else for (let e = t; e <= i; e++) n.push(e);
+        return n;
+    });
+    items=u(() => {
+        this.I();
+        const e = this.v, t = this.N, i = this.data(), s = this.getKey(), n = t.$getGap(), r = t.$getLanes(), o = ge(1 / r, n / r - n), l = [];
+        for (const a of this.P()) {
+            const c = i[a], u = t.$getItemLane(a);
+            l.push({
+                key: s(c, a),
+                index: a,
+                data: c,
+                offset: e.$getItemOffset(a),
+                crossOffset: ge(u / r, u * n / r),
+                crossSize: o,
+                hide: t.$isSizeEqual(a)
+            });
+        }
+        return l;
+    });
+    containerStyle=u(() => (this.I(), {
+        contain: "size style",
+        "overflow-anchor": "none",
+        flex: "none",
+        position: "relative",
+        width: "100%",
+        height: this.v.$getTotalSize() + "px",
+        "pointer-events": this.v.$isScrolling() ? "none" : void 0
+    }));
+    constructor() {
+        m(() => {
+            const e = this.data();
+            this.v && S(() => {
+                this.v.$update(5, e.length);
+            });
+        }), m(() => {
+            const e = this.lanes(), t = this.gap();
+            this.v && S(() => {
+                _(this.v, this.N, e, t);
+            });
+        }), a({
+            read: () => {
+                this.driver.$observe(this.container().nativeElement);
+            }
+        }), c({
+            read: () => {
+                this.I(), this.driver.$effect();
+            }
+        }), d(s).onDestroy(() => {
+            this.v?.$dispose(), this.driver?.$dispose();
+        });
+    }
+    ngOnInit() {
+        const e = this.$;
+        e.setAttribute("style", "display:block;overflow-y:auto;contain:strict;width:100%;height:100%;" + (e.getAttribute("style") || ""));
+        const t = this.N = ((e, t, i = 0, s, n) => {
+            let r = b(t, 1), o = n && n[1] || s || 40, l = -1, a = s ? void 0 : /* @__PURE__ */ new Set, c = !s;
+            const u = n ? n[0].slice(0, e) : [];
+            E(u, e - u.length);
+            const p = [], m = [], d = [ 0 ], h = e => {
+                const t = u[e];
+                return -1 === t ? o : t;
+            }, f = () => {
+                if (l >= e - 1) return;
+                const t = [], s = [];
+                for (let e = 0; e < r; e++) t.push(0), s.push(-1);
+                for (let e = l, n = r; e >= 0 && n; e--) {
+                    const r = m[e];
+                    -1 === s[r] && (s[r] = e, t[r] = p[e] + h(e) + i, n--);
+                }
+                for (;l < e - 1; ) {
+                    const e = ++l;
+                    let n = 0, o = 1 / 0, a = 1 / 0;
+                    for (let e = 0; e < r; e++) {
+                        const i = t[e];
+                        (i < o || i === o && s[e] < a) && (n = e, o = i, a = s[e]);
+                    }
+                    const c = o + h(e);
+                    p[e] = o, m[e] = n, t[n] = c + i, s[n] = e, d[e + 1] = b(d[e], c);
+                }
+            }, g = t => t >= e ? y() : (f(), p[t]), S = e => (f(), d[e]), y = () => S(e), v = t => K(S, e + 1, t);
+            return {
+                $getRange: (t, i) => {
+                    const s = K(g, e, i);
+                    return [ w(v(t), s), s ];
+                },
+                $findIndex: v,
+                $getItemOffset: g,
+                $getItemSize: h,
+                $isSizeEqual: (e, t = -1) => u[e] === t,
+                $setItemSizes: (e, t) => {
+                    for (const [t, i] of e) u[t] = i, a && a.add(t), l = w(t - 1, l);
+                    if (a && t) {
+                        const e = [];
+                        let s = 0;
+                        if (a.forEach(t => {
+                            const n = u[t];
+                            -1 !== n && n && (e.push(n), s += n + i);
+                        }), s > t * r) {
+                            P(e);
+                            const t = e.length, i = t / 2 | 0;
+                            o = t % 2 == 0 ? (e[i - 1] + e[i]) / 2 : e[i], l = -1, a = void 0, c = !1;
+                        }
+                    }
+                },
+                $getTotalSize: y,
+                $getLength: () => e,
+                $setLength: t => {
+                    const i = t - e;
+                    l = w(t - 1, l), e = t, i > 0 ? E(u, i) : u.splice(i);
+                },
+                $relayout: (e, t = 0) => ((e = b(e, 1)) !== r || t !== i) && (r = e, i = t, l = -1, 
+                a = s ? void 0 : /* @__PURE__ */ new Set, !0),
+                $isEstimating: () => c,
+                $snapshot: () => [ u.slice(), o ],
+                $getLanes: () => r,
+                $getGap: () => i,
+                $getItemLane: e => (f(), m[e])
+            };
+        })(this.data().length, this.lanes(), this.gap(), this.itemSize(), this.cacheProp()), i = this.v = V(t);
+        this.driver = te(i, t, !1), i.$subscribe(1, e => {
+            this.I.set(i.$getStateVersion()), e && this.R.tick();
+        }), i.$subscribe(4, () => {
+            this.scrolled.emit(i.$getScrollOffset());
+        }), i.$subscribe(8, () => {
+            this.scrollEnded.emit();
+        }), i.$subscribe(2, () => {
+            this.resized.emit();
+        }), this.I.set(i.$getStateVersion());
+    }
+    get cache() {
+        return this.N.$snapshot();
+    }
+    get scrollOffset() {
+        return this.v.$getScrollOffset();
+    }
+    get scrollSize() {
+        return M(this.v);
+    }
+    get viewportSize() {
+        return this.v.$getViewportSize();
+    }
+    getItemOffset(e) {
+        return this.v.$getItemOffset(e);
+    }
+    getItemSize(e) {
+        return this.N.$getItemSize(e);
+    }
+    scrollToIndex(e, t) {
+        ne(this.driver, this.v, this.N, e, t);
+    }
+    scrollTo(e) {
+        ie(this.driver, e);
+    }
+    scrollBy(e) {
+        se(this.driver, this.v, e);
+    }
+    static ɵfac=/*@__PURE__*/ e.ɵɵngDeclareFactory({
+        minVersion: "12.0.0",
+        version: "22.1.7",
+        ngImport: e,
+        type: i,
+        deps: [],
+        target: e.ɵɵFactoryTarget.Component
+    });
+    static ɵcmp=/*@__PURE__*/ e.ɵɵngDeclareComponent({
+        minVersion: "17.0.0",
+        version: "22.1.7",
+        type: i,
+        isStandalone: !0,
+        selector: "virtua-vmasonry",
+        inputs: {
+            data: {
+                classPropertyName: "data",
+                publicName: "data",
+                isSignal: !0,
+                isRequired: !0,
+                transformFunction: null
+            },
+            getKey: {
+                classPropertyName: "getKey",
+                publicName: "getKey",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            },
+            lanes: {
+                classPropertyName: "lanes",
+                publicName: "lanes",
+                isSignal: !0,
+                isRequired: !0,
+                transformFunction: null
+            },
+            gap: {
+                classPropertyName: "gap",
+                publicName: "gap",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            },
+            itemSize: {
+                classPropertyName: "itemSize",
+                publicName: "itemSize",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            },
+            bufferSize: {
+                classPropertyName: "bufferSize",
+                publicName: "bufferSize",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            },
+            keepMounted: {
+                classPropertyName: "keepMounted",
+                publicName: "keepMounted",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            },
+            cacheProp: {
+                classPropertyName: "cacheProp",
+                publicName: "cache",
+                isSignal: !0,
+                isRequired: !1,
+                transformFunction: null
+            }
+        },
+        outputs: {
+            scrolled: "scrolled",
+            scrollEnded: "scrollEnded",
+            resized: "resized"
+        },
+        queries: [ {
+            propertyName: "template",
+            first: !0,
+            predicate: l,
+            emitDistinctChangesOnly: !1,
+            descendants: !0,
+            isSignal: !0
+        } ],
+        viewQueries: [ {
+            propertyName: "container",
+            first: !0,
+            predicate: [ "container" ],
+            emitDistinctChangesOnly: !1,
+            descendants: !0,
+            isSignal: !0
+        } ],
+        ngImport: e,
+        template: '\n    <div #container [style]="containerStyle()">\n      @for (item of items(); track item.key) {\n        <div\n          virtuaMasonryItem\n          [index]="item.index"\n          [offset]="item.offset"\n          [crossOffset]="item.crossOffset"\n          [crossSize]="item.crossSize"\n          [hide]="item.hide"\n          [resizer]="driver.$observeItem"\n        >\n          <ng-container\n            [ngTemplateOutlet]="template()"\n            [ngTemplateOutletContext]="{\n              $implicit: item.data,\n              index: item.index,\n            }"\n          />\n        </div>\n      }\n    </div>\n  ',
+        isInline: !0,
+        dependencies: [ {
+            kind: "directive",
+            type: e.forwardRef(() => Se),
+            selector: "div[virtuaMasonryItem]",
+            inputs: [ "index", "offset", "crossOffset", "crossSize", "hide", "resizer" ]
+        }, {
+            kind: "directive",
+            type: e.forwardRef(() => v),
+            selector: "[ngTemplateOutlet]",
+            inputs: [ "ngTemplateOutletContext", "ngTemplateOutlet", "ngTemplateOutletInjector" ]
+        } ],
+        changeDetection: e.ChangeDetectionStrategy.OnPush
+    });
+};
+
+i.OnPush;
+
+export { fe as VGrid, ue as VList, ye as VMasonry, ce as Virtualizer, pe as WindowVirtualizer };
+//# sourceMappingURL=index.js.map

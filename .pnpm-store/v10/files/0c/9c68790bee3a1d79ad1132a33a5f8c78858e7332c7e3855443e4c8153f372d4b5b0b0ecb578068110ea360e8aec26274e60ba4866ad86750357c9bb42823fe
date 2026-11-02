@@ -1,0 +1,14 @@
+import { fetchMessages, tryUseI18nContext } from "../context.js";
+import { deepCopy } from "@intlify/shared";
+import { localeDetector } from "#internal/i18n-locale-detector.mjs";
+export function createUserLocaleDetector(defaultLocale, fallbackLocale) {
+  return async (event, i18nCtx) => {
+    const locale = localeDetector(event, { defaultLocale, fallbackLocale });
+    const messages = await (tryUseI18nContext(event)?.loadMessages(locale) ?? fetchMessages(locale));
+    for (const locale2 of Object.keys(messages)) {
+      i18nCtx.messages[locale2] ??= {};
+      deepCopy(messages[locale2], i18nCtx.messages[locale2]);
+    }
+    return locale;
+  };
+}
