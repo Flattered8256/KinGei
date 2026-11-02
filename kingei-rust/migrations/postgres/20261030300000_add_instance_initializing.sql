@@ -1,0 +1,3 @@
+ALTER TABLE instance ADD COLUMN initializing BOOLEAN NOT NULL DEFAULT TRUE;
+
+UPDATE instance SET initializing = FALSE WHERE EXISTS (SELECT 1 FROM "user");
