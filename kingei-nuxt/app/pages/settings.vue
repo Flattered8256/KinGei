@@ -35,6 +35,8 @@ const showNav = computed(() => !isMobile.value || route.path === '/settings')
   flex: 1;
   min-width: 0;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
   background: var(--bg-panel);
   border-radius: var(--radius-xl);
   overflow: auto;

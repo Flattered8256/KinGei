@@ -81,9 +81,8 @@ async function remove(user: User) {
       </div>
     </header>
     <div class="list">
-      <KgOverlay v-if="loading && !users.length" />
       <p
-        v-else-if="!users.length"
+        v-if="!users.length && !loading"
         class="empty muted"
       >
         {{ $t('app.empty') }}
@@ -122,11 +121,14 @@ async function remove(user: User) {
         </button>
       </div>
     </div>
+    <KgOverlay v-if="loading && !users.length" />
   </section>
 </template>
 
 <style scoped>
 .page {
+  position: relative;
+  flex-grow: 1;
   padding: 8px 24px 32px;
 }
 
@@ -152,12 +154,10 @@ h1 {
 }
 
 .list {
-  position: relative;
   display: flex;
   flex-direction: column;
   gap: 4px;
   max-width: 560px;
-  min-height: 120px;
   margin-top: 12px;
 }
 
