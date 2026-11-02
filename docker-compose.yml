@@ -1,0 +1,51 @@
+services:
+  kingei-garage:
+    image: dxflrs/garage:v2.5.0
+    command: ["/garage", "server", "--single-node", "--default-bucket"]
+    environment:
+      GARAGE_DEFAULT_ACCESS_KEY: ${S3_ACCESS_KEY}
+      GARAGE_DEFAULT_SECRET_KEY: ${S3_SECRET_KEY}
+      GARAGE_DEFAULT_BUCKET: ${S3_BUCKET}
+    volumes:
+      - ./garage.toml:/etc/garage.toml:ro
+      - ./KinGei-data/garage/meta:/var/lib/garage/meta
+      - ./KinGei-data/garage/data:/var/lib/garage/data
+    healthcheck:
+      test: ["CMD", "/garage", "status"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+
+  kingei-app:
+    build:
+      context: .
+    environment:
+      DATABASE_URL: sqlite:///data/chat.db
+      PORT: "3000"
+      STATIC_DIR: /app/public
+      JWT_SECRET: ${JWT_SECRET}
+      S3_ENDPOINT: http://kingei-garage:3900
+      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      S3_BUCKET: ${S3_BUCKET}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-}
+      COOKIE_SAMESITE: ${COOKIE_SAMESITE:-Lax}
+      RUST_LOG: info
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./KinGei-data/database/sqlite:/data
+    depends_on:
+      kingei-garage:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3000/api/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped

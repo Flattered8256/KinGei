@@ -1,0 +1,22 @@
+# 本地单节点固定密钥。
+metadata_dir = "/var/lib/garage/meta"
+data_dir = "/var/lib/garage/data"
+db_engine = "sqlite"
+replication_factor = 1
+allow_world_readable_secrets = true
+
+rpc_bind_addr = "[::]:3901"
+rpc_public_addr = "127.0.0.1:3901"
+rpc_secret = "6e1a4c2f9b8d0e7a3c5f1d8b4a6e0c2f9d7b5a3c1e8f0d6b4a2c9e7f1d3b5a8c"
+
+[s3_api]
+s3_region = "us-east-1"
+api_bind_addr = "[::]:3900"
+
+[s3_web]
+bind_addr = "[::]:3902"
+root_domain = ".web.garage.localhost"
+
+[admin]
+api_bind_addr = "[::]:3903"
+admin_token = "kingei-local-admin-token-not-for-prod"

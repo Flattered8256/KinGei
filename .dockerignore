@@ -1,0 +1,12 @@
+.git
+**/.git
+**/node_modules
+**/target
+**/.nuxt
+**/.output
+**/.data
+**/chat.db
+**/.env
+**/__pycache__
+KinGei-data
+
