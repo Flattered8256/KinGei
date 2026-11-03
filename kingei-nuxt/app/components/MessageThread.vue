@@ -509,7 +509,6 @@ onBeforeUnmount(() => {
 .block:hover,
 .block.open {
   z-index: 2;
-  background: color-mix(in srgb, var(--color-text) 4%, transparent);
 }
 
 .block:hover :deep(.actions),
