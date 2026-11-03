@@ -10,4 +10,5 @@ pub struct Message {
     pub content: String,
     pub file_id: Option<i64>,
     pub created_at: DateTime<Utc>,
+    pub deleted_at: Option<DateTime<Utc>>,
 }

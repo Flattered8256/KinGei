@@ -33,6 +33,18 @@ pub async fn list(
     Ok(Json(result))
 }
 
+pub async fn delete(
+    State(state): State<Arc<AppState>>,
+    Extension(user_id): Extension<Uuid>,
+    Path((id, message_id)): Path<(i64, i64)>,
+) -> Result<Json<MessageResponse>, AppError> {
+    let result = state
+        .message_service
+        .delete(user_id, id, message_id)
+        .await?;
+    Ok(Json(result))
+}
+
 pub async fn update_read_cursor(
     State(state): State<Arc<AppState>>,
     Extension(user_id): Extension<Uuid>,

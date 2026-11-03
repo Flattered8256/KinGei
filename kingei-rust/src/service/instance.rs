@@ -25,6 +25,7 @@ impl InstanceService {
         if request.allow_add_friend.is_none()
             && request.allow_create_group.is_none()
             && request.invite_only.is_none()
+            && request.limit_message_delete.is_none()
         {
             return self.get().await;
         }
@@ -35,6 +36,7 @@ impl InstanceService {
                 allow_add_friend: request.allow_add_friend,
                 allow_create_group: request.allow_create_group,
                 invite_only: request.invite_only,
+                limit_message_delete: request.limit_message_delete,
             })
             .await?;
         Ok(InstanceResponse::from(updated))

@@ -7,4 +7,5 @@ pub struct Instance {
     pub allow_create_group: bool,
     pub initializing: bool,
     pub invite_only: bool,
+    pub limit_message_delete: bool,
 }

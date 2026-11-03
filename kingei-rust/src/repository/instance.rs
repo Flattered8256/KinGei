@@ -8,6 +8,7 @@ pub struct UpdateInstance {
     pub allow_add_friend: Option<bool>,
     pub allow_create_group: Option<bool>,
     pub invite_only: Option<bool>,
+    pub limit_message_delete: Option<bool>,
 }
 
 pub struct InstanceRepository {
@@ -22,7 +23,7 @@ impl InstanceRepository {
     pub async fn get(&self) -> Result<Instance, sqlx::Error> {
         sqlx::query_as::<_, Instance>(
             r#"
-            SELECT id, allow_add_friend, allow_create_group, initializing, invite_only
+            SELECT id, allow_add_friend, allow_create_group, initializing, invite_only, limit_message_delete
             FROM instance
             WHERE id = 1
             "#,
@@ -59,12 +60,21 @@ impl InstanceRepository {
             has_set = true;
         }
 
+        if let Some(limit_message_delete) = instance.limit_message_delete {
+            if has_set {
+                builder.push(",");
+            }
+            builder.push("limit_message_delete = ");
+            builder.push_bind(limit_message_delete);
+            has_set = true;
+        }
+
         if !has_set {
             return self.get().await;
         }
 
         builder.push(
-            " WHERE id = 1 RETURNING id, allow_add_friend, allow_create_group, initializing, invite_only",
+            " WHERE id = 1 RETURNING id, allow_add_friend, allow_create_group, initializing, invite_only, limit_message_delete",
         );
         builder
             .build_query_as::<Instance>()
@@ -90,6 +100,7 @@ mod tests {
         assert!(instance.allow_create_group);
         assert!(instance.initializing);
         assert!(!instance.invite_only);
+        assert!(!instance.limit_message_delete);
     }
 
     #[tokio::test]
@@ -103,6 +114,7 @@ mod tests {
                 allow_add_friend: Some(false),
                 allow_create_group: None,
                 invite_only: None,
+                limit_message_delete: None,
             })
             .await
             .unwrap();
@@ -110,12 +122,14 @@ mod tests {
         assert!(updated.allow_create_group);
         assert!(updated.initializing);
         assert!(!updated.invite_only);
+        assert!(!updated.limit_message_delete);
 
         let current = repo.get().await.unwrap();
         assert!(!current.allow_add_friend);
         assert!(current.allow_create_group);
         assert!(current.initializing);
         assert!(!current.invite_only);
+        assert!(!current.limit_message_delete);
     }
 
     #[tokio::test]
@@ -129,6 +143,7 @@ mod tests {
                 allow_add_friend: Some(false),
                 allow_create_group: Some(false),
                 invite_only: None,
+                limit_message_delete: None,
             })
             .await
             .unwrap();
@@ -136,6 +151,7 @@ mod tests {
         assert!(!updated.allow_create_group);
         assert!(updated.initializing);
         assert!(!updated.invite_only);
+        assert!(!updated.limit_message_delete);
     }
 
     #[tokio::test]
@@ -149,23 +165,48 @@ mod tests {
                 allow_add_friend: None,
                 allow_create_group: None,
                 invite_only: Some(true),
+                limit_message_delete: None,
             })
             .await
             .unwrap();
         assert!(updated.allow_add_friend);
         assert!(updated.allow_create_group);
         assert!(updated.invite_only);
+        assert!(!updated.limit_message_delete);
 
         let current = repo
             .update(UpdateInstance {
                 allow_add_friend: Some(false),
                 allow_create_group: None,
                 invite_only: None,
+                limit_message_delete: None,
             })
             .await
             .unwrap();
         assert!(!current.allow_add_friend);
         assert!(current.invite_only);
+        assert!(!current.limit_message_delete);
+    }
+
+    #[tokio::test]
+    async fn update_limit_message_delete_leaves_other_flags() {
+        let pool = test_pool().await;
+        run_migrations(&pool).await;
+        let repo = InstanceRepository::new(pool);
+
+        let updated = repo
+            .update(UpdateInstance {
+                allow_add_friend: None,
+                allow_create_group: None,
+                invite_only: None,
+                limit_message_delete: Some(true),
+            })
+            .await
+            .unwrap();
+        assert!(updated.allow_add_friend);
+        assert!(updated.allow_create_group);
+        assert!(!updated.invite_only);
+        assert!(updated.limit_message_delete);
     }
 
     async fn test_pool() -> DbPool {

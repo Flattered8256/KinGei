@@ -11,6 +11,7 @@ use crate::serializer::message::MessageResponse;
 #[derive(Debug, Clone)]
 pub enum ClientEvent {
     MessageCreated(MessageResponse),
+    MessageDeleted(MessageResponse),
     MessageRead(ReadReceiptEvent),
     ChatCreated(ChatResponse),
     ChatUpdated(ChatResponse),
@@ -28,6 +29,7 @@ impl ClientEvent {
     fn event_name(&self) -> &'static str {
         match self {
             Self::MessageCreated(_) => "message.created",
+            Self::MessageDeleted(_) => "message.deleted",
             Self::MessageRead(_) => "message.read",
             Self::ChatCreated(_) => "chat.created",
             Self::ChatUpdated(_) => "chat.updated",
@@ -46,6 +48,7 @@ impl ClientEvent {
         let event = Event::default().event(self.event_name());
         match self {
             Self::MessageCreated(data) => event.json_data(data),
+            Self::MessageDeleted(data) => event.json_data(data),
             Self::MessageRead(data) => event.json_data(data),
             Self::ChatCreated(data) => event.json_data(data),
             Self::ChatUpdated(data) => event.json_data(data),

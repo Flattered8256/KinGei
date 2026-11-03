@@ -28,7 +28,7 @@ impl MessageRepository {
             r#"
             INSERT INTO message(chat_id, sender_id, content, file_id, created_at)
             VALUES ($1, $2, $3, $4, $5)
-            RETURNING id, chat_id, sender_id, content, file_id, created_at
+            RETURNING id, chat_id, sender_id, content, file_id, created_at, deleted_at
             "#,
         )
         .bind(chat_id)
@@ -65,11 +65,28 @@ impl MessageRepository {
     ) -> Result<Option<Message>, sqlx::Error> {
         sqlx::query_as::<_, Message>(
             r#"
-            SELECT id, chat_id, sender_id, content, file_id, created_at
+            SELECT id, chat_id, sender_id, content, file_id, created_at, deleted_at
             FROM message
             WHERE chat_id = $1 AND id = $2
             "#,
         )
+        .bind(chat_id)
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await
+    }
+
+    pub async fn soft_delete(&self, chat_id: i64, id: i64) -> Result<Option<Message>, sqlx::Error> {
+        let now = Utc::now();
+        sqlx::query_as::<_, Message>(
+            r#"
+            UPDATE message
+            SET deleted_at = $1, content = '', file_id = NULL
+            WHERE chat_id = $2 AND id = $3 AND deleted_at IS NULL
+            RETURNING id, chat_id, sender_id, content, file_id, created_at, deleted_at
+            "#,
+        )
+        .bind(now)
         .bind(chat_id)
         .bind(id)
         .fetch_optional(&self.pool)
@@ -85,7 +102,7 @@ impl MessageRepository {
     ) -> Result<Vec<Message>, sqlx::Error> {
         let mut builder = QueryBuilder::<Db>::new(
             r#"
-            SELECT id, chat_id, sender_id, content, file_id, created_at
+            SELECT id, chat_id, sender_id, content, file_id, created_at, deleted_at
             FROM message
             WHERE chat_id = 
             "#,
@@ -160,7 +177,7 @@ impl MessageRepository {
             r#"
             SELECT COUNT(*)
             FROM message
-            WHERE chat_id = $1 AND id > $2 AND sender_id != $3
+            WHERE chat_id = $1 AND id > $2 AND sender_id != $3 AND deleted_at IS NULL
             "#,
         )
         .bind(chat_id)
@@ -186,6 +203,7 @@ impl MessageRepository {
             LEFT JOIN message m
               ON m.chat_id = cm.chat_id
              AND m.sender_id != cm.user_id
+             AND m.deleted_at IS NULL
              AND m.id > COALESCE(cm.last_read_message_id, 0)
             WHERE cm.user_id = 
             "#,
@@ -215,6 +233,7 @@ impl MessageRepository {
             LEFT JOIN message m
               ON m.chat_id = cm.chat_id
              AND m.sender_id != cm.user_id
+             AND m.deleted_at IS NULL
              AND m.id > COALESCE(cm.last_read_message_id, 0)
             WHERE cm.chat_id = $1
             GROUP BY cm.user_id

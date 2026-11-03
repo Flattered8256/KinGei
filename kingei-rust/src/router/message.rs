@@ -1,6 +1,6 @@
 use axum::{
     Router, middleware,
-    routing::{get, patch},
+    routing::{delete, get, patch},
 };
 use std::sync::Arc;
 
@@ -11,6 +11,7 @@ use crate::state::AppState;
 pub fn protected_routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/{id}/message", get(message::list).post(message::send))
+        .route("/{id}/message/{message_id}", delete(message::delete))
         .route("/{id}/read", patch(message::update_read_cursor))
         .layer(middleware::from_fn(auth::auth_middleware))
 }

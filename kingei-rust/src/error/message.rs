@@ -15,6 +15,12 @@ pub enum MessageError {
     MessageNotFound,
     #[error("NotMember")]
     NotMember,
+    #[error("CannotDeleteMessage")]
+    CannotDeleteMessage,
+    #[error("CannotDeleteOld")]
+    CannotDeleteOld,
+    #[error("MessageAlreadyDeleted")]
+    MessageAlreadyDeleted,
 }
 
 #[derive(Debug, Serialize)]
@@ -30,6 +36,9 @@ impl IntoResponse for MessageError {
             MessageError::NotFriends => (StatusCode::NOT_FOUND, self.to_string()),
             MessageError::MessageNotFound => (StatusCode::NOT_FOUND, self.to_string()),
             MessageError::NotMember => (StatusCode::FORBIDDEN, self.to_string()),
+            MessageError::CannotDeleteMessage => (StatusCode::FORBIDDEN, self.to_string()),
+            MessageError::CannotDeleteOld => (StatusCode::BAD_REQUEST, self.to_string()),
+            MessageError::MessageAlreadyDeleted => (StatusCode::CONFLICT, self.to_string()),
         };
 
         (

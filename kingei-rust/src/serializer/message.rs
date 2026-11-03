@@ -31,6 +31,7 @@ pub struct MessageResponse {
     pub content: String,
     pub file: Option<FileResponse>,
     pub created_at: DateTime<Utc>,
+    pub deleted: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -41,13 +42,19 @@ pub struct ReadCursorResponse {
 
 impl MessageResponse {
     pub fn from_message(message: Message, file: Option<FileResponse>) -> Self {
+        let deleted = message.deleted_at.is_some();
         Self {
             id: message.id,
             chat_id: message.chat_id,
             sender_id: message.sender_id,
-            content: message.content,
-            file,
+            content: if deleted {
+                String::new()
+            } else {
+                message.content
+            },
+            file: if deleted { None } else { file },
             created_at: message.created_at,
+            deleted,
         }
     }
 }

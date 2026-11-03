@@ -8,6 +8,7 @@ pub struct InstanceResponse {
     pub allow_create_group: bool,
     pub initializing: bool,
     pub invite_only: bool,
+    pub limit_message_delete: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -15,6 +16,7 @@ pub struct UpdateInstanceRequest {
     pub allow_add_friend: Option<bool>,
     pub allow_create_group: Option<bool>,
     pub invite_only: Option<bool>,
+    pub limit_message_delete: Option<bool>,
 }
 
 impl From<Instance> for InstanceResponse {
@@ -24,6 +26,7 @@ impl From<Instance> for InstanceResponse {
             allow_create_group: instance.allow_create_group,
             initializing: instance.initializing,
             invite_only: instance.invite_only,
+            limit_message_delete: instance.limit_message_delete,
         }
     }
 }

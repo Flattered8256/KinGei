@@ -1,0 +1,1 @@
+ALTER TABLE instance ADD COLUMN limit_message_delete INTEGER NOT NULL DEFAULT 0;

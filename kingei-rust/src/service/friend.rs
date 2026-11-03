@@ -334,6 +334,7 @@ mod tests {
                 allow_add_friend: Some(false),
                 allow_create_group: None,
                 invite_only: None,
+                limit_message_delete: None,
             })
             .await
             .unwrap();
@@ -361,6 +362,7 @@ mod tests {
                 allow_add_friend: Some(false),
                 allow_create_group: None,
                 invite_only: None,
+                limit_message_delete: None,
             })
             .await
             .unwrap();
