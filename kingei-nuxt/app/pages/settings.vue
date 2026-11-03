@@ -6,7 +6,12 @@ definePageMeta({
 
 const route = useRoute()
 const { isMobile } = useIsMobile()
-const showNav = computed(() => !isMobile.value || route.path === '/settings')
+const settingsPath = computed(() => {
+  const path = route.path
+  return path.length > 1 ? path.replace(/\/+$/, '') : path
+})
+const atSettingsRoot = computed(() => settingsPath.value === '/settings')
+const showNav = computed(() => !isMobile.value || atSettingsRoot.value)
 </script>
 
 <template>
@@ -16,7 +21,7 @@ const showNav = computed(() => !isMobile.value || route.path === '/settings')
   >
     <SettingsNav v-show="showNav" />
     <div
-      v-show="!isMobile || route.path !== '/settings'"
+      v-show="!isMobile || !atSettingsRoot"
       class="content"
     >
       <NuxtPage />

@@ -16,7 +16,8 @@ const admin = [
 ]
 
 function active(to: string) {
-  return route.path === to
+  const path = route.path.length > 1 ? route.path.replace(/\/+$/, '') : route.path
+  return path === to
 }
 
 async function signOut() {
