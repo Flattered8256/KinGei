@@ -24,6 +24,12 @@ export function sendMessage(chatId: number, body: SendMessageRequest) {
   })
 }
 
+export function deleteMessage(chatId: number, messageId: number) {
+  return apiFetch<Message>(`/chat/${chatId}/message/${messageId}`, {
+    method: 'DELETE',
+  })
+}
+
 export function updateReadCursor(chatId: number, body: UpdateReadCursorRequest) {
   return apiFetch<ReadCursor>(`/chat/${chatId}/read`, {
     method: 'PATCH',

@@ -42,6 +42,7 @@ export {
 } from './chat'
 
 export {
+  deleteMessage,
   listMessages,
   sendMessage,
   updateReadCursor,

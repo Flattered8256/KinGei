@@ -26,6 +26,9 @@
     "EmptyName": "Name cannot be empty",
     "CreateGroupDisabled": "Creating groups is turned off",
     "EmptyContent": "Message cannot be empty",
+    "CannotDeleteMessage": "You cannot delete this message",
+    "CannotDeleteOld": "This message is too old to delete",
+    "MessageAlreadyDeleted": "This message was already deleted",
     "MessageNotFound": "Message not found",
     "FileNotFound": "File not found",
     "FileNameTooLong": "File name is too long",
@@ -146,7 +149,10 @@
     "download": "Download",
     "previewImage": "[Image]",
     "previewVideo": "[Video]",
-    "previewFile": "[File]"
+    "previewFile": "[File]",
+    "delete": "Delete",
+    "deleteConfirm": "Delete this message?",
+    "messageDeleted": "This message was deleted"
   },
   "friends": {
     "title": "Friends",
@@ -199,6 +205,8 @@
     "allowCreateGroupHint": "Members can create new group chats",
     "inviteOnly": "Invite-only registration",
     "inviteOnlyHint": "When on, new users must enter the current invite code to register",
+    "limitMessageDelete": "Limit message deletion",
+    "limitMessageDeleteHint": "Members can only delete their own messages within two minutes. Owners and admins are not limited",
     "inviteCode": "Invite code",
     "inviteCodeEmpty": "No invite code yet",
     "inviteCodeGenerate": "Generate invite code",

@@ -1,5 +1,5 @@
 import type { ClientEvent, Message, SendMessageRequest } from '~/types/api'
-import { listMessages, sendMessage, updateReadCursor } from '~/utils/api/message'
+import { deleteMessage, listMessages, sendMessage, updateReadCursor } from '~/utils/api/message'
 
 const PAGE_SIZE = 50
 
@@ -62,6 +62,24 @@ export function useMessages() {
       return
     }
     setThread(chatId, { ...thread, items: [...thread.items, message] })
+  }
+
+  function patchMessage(chatId: number, message: Message) {
+    const thread = threadOf(chatId)
+    if (!thread) {
+      return
+    }
+    const index = thread.items.findIndex(item => item.id === message.id)
+    if (index === -1) {
+      return
+    }
+    const current = thread.items[index]
+    if (!current || current.deleted) {
+      return
+    }
+    const items = [...thread.items]
+    items[index] = message
+    setThread(chatId, { ...thread, items })
   }
 
   function mergeLatest(chatId: number, page: Message[]) {
@@ -237,6 +255,16 @@ export function useMessages() {
     }
   }
 
+  async function remove(messageId: number) {
+    const chatId = currentId.value
+    if (!chatId) {
+      return
+    }
+    const deleted = await deleteMessage(chatId, messageId)
+    patchMessage(chatId, deleted)
+    chats.patchPreview(deleted)
+  }
+
   async function send(content: string, fileId?: number) {
     const chatId = currentId.value
     const text = content.trim()
@@ -286,6 +314,9 @@ export function useMessages() {
         }
         break
       }
+      case 'message.deleted':
+        patchMessage(event.data.chat_id, event.data)
+        break
       case 'chat.deleted':
         dropThread(event.data.chat_id)
         break
@@ -344,6 +375,7 @@ export function useMessages() {
     close,
     loadOlder,
     send,
+    remove,
     refreshCurrent,
     ingest,
     takeDraft,

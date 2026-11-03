@@ -10,10 +10,14 @@ const props = defineProps<{
 
 const { t, locale } = useI18n()
 const { user } = useAuth()
+const { isMobile } = useIsMobile()
+const { instance } = useInstance()
 const users = useUserDirectory()
 const messages = useMessages()
+const toast = useToast()
 const NEAR_BOTTOM = 80
 const FLUSH_BOTTOM = 1
+const DELETE_WINDOW_MS = 120_000
 
 const listRef = ref<VListHandle | null>(null)
 const stickToBottom = ref(true)
@@ -25,6 +29,8 @@ const ready = ref(false)
 const myId = computed(() => user.value?.id ?? '')
 const showJump = computed(() => !stickToBottom.value && messages.items.value.length > 0)
 const lightbox = ref<FileResponse | null>(null)
+const deletingId = ref<number | null>(null)
+const openActionsId = ref<number | null>(null)
 
 const prevIds = {
   first: null as number | null,
@@ -38,6 +44,76 @@ function sender(message: Message) {
 
 function isOwn(message: Message) {
   return message.sender_id === myId.value
+}
+
+function canDelete(message: Message) {
+  if (message.deleted) {
+    return false
+  }
+  const me = user.value
+  if (!me) {
+    return false
+  }
+  if (me.role === 'Admin' || props.chat.owner_id === me.id) {
+    return true
+  }
+  if (message.sender_id !== me.id) {
+    return false
+  }
+  if (!instance.value.limit_message_delete) {
+    return true
+  }
+  const created = Date.parse(message.created_at)
+  if (Number.isNaN(created)) {
+    return false
+  }
+  return Date.now() - created <= DELETE_WINDOW_MS
+}
+
+function onBlockClick(event: MouseEvent, message: Message) {
+  if (!isMobile.value || !canDelete(message)) {
+    return
+  }
+  const target = event.target as HTMLElement | null
+  if (target?.closest('button, a')) {
+    return
+  }
+  openActionsId.value = openActionsId.value === message.id ? null : message.id
+}
+
+function onDocumentClick(event: MouseEvent) {
+  if (openActionsId.value == null) {
+    return
+  }
+  const target = event.target as HTMLElement | null
+  if (target?.closest('.block')) {
+    return
+  }
+  openActionsId.value = null
+}
+
+async function onDelete(message: Message) {
+  if (deletingId.value != null) {
+    return
+  }
+  if (!confirm(t('chat.deleteConfirm'))) {
+    return
+  }
+  deletingId.value = message.id
+  try {
+    await messages.remove(message.id)
+    if (openActionsId.value === message.id) {
+      openActionsId.value = null
+    }
+  }
+  catch (err) {
+    toast.error(err)
+  }
+  finally {
+    if (deletingId.value === message.id) {
+      deletingId.value = null
+    }
+  }
 }
 
 function readers(message: Message) {
@@ -185,6 +261,8 @@ watch(
     flushBottom.value = true
     shift.value = false
     ready.value = false
+    openActionsId.value = null
+    deletingId.value = null
     prevIds.first = null
     prevIds.last = null
     scrollToLatest()
@@ -200,7 +278,14 @@ watch(
   },
 )
 
-onMounted(scrollToLatest)
+onMounted(() => {
+  scrollToLatest()
+  document.addEventListener('click', onDocumentClick)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', onDocumentClick)
+})
 </script>
 
 <template>
@@ -240,57 +325,86 @@ onMounted(scrollToLatest)
             <span class="day-line" />
           </div>
           <div
-            class="message-line"
-            :class="{ own: isOwn(item) }"
+            class="block"
+            :class="{ open: openActionsId === item.id }"
+            @click="onBlockClick($event, item)"
           >
-            <Avatar
-              v-if="!isOwn(item)"
-              :name="sender(item)?.username"
-              :seed="item.sender_id"
-              :file-id="sender(item)?.avatar"
-              :size="36"
-            />
-            <div class="bubble-wrap">
-              <div class="meta">
-                <span
-                  class="name truncate"
-                  :title="sender(item)?.username ?? $t('app.unknownUser')"
-                >{{ sender(item)?.username ?? $t('app.unknownUser') }}</span>
-                <span class="time">{{ timeOf(item) }}</span>
-              </div>
-              <MessageAttachment
-                v-if="item.file"
-                :file="item.file"
-                :own="isOwn(item)"
-                @open="lightbox = item.file"
+            <div
+              class="message-line"
+              :class="{ own: isOwn(item) }"
+            >
+              <Avatar
+                v-if="!isOwn(item)"
+                :name="sender(item)?.username"
+                :seed="item.sender_id"
+                :file-id="sender(item)?.avatar"
+                :size="36"
               />
-              <div
-                v-if="item.content.trim()"
-                class="bubble"
-              >
-                {{ item.content }}
+              <div class="bubble-wrap">
+                <div class="meta">
+                  <span
+                    class="name truncate"
+                    :title="sender(item)?.username ?? $t('app.unknownUser')"
+                  >{{ sender(item)?.username ?? $t('app.unknownUser') }}</span>
+                  <span class="time">{{ timeOf(item) }}</span>
+                </div>
+                <template v-if="item.deleted">
+                  <p class="tombstone">
+                    {{ $t('chat.messageDeleted') }}
+                  </p>
+                </template>
+                <template v-else>
+                  <div class="stack">
+                    <MessageAttachment
+                      v-if="item.file"
+                      :file="item.file"
+                      :own="isOwn(item)"
+                      @open="lightbox = item.file"
+                    />
+                    <div
+                      v-if="item.content.trim()"
+                      class="bubble"
+                    >
+                      {{ item.content }}
+                    </div>
+                    <MessageActions
+                      v-if="canDelete(item)"
+                      :own="isOwn(item)"
+                    >
+                      <button
+                        type="button"
+                        :disabled="deletingId === item.id"
+                        :aria-label="$t('chat.delete')"
+                        :title="$t('chat.delete')"
+                        @click.stop="onDelete(item)"
+                      >
+                        <AppIcon name="trash" :size="16" />
+                      </button>
+                    </MessageActions>
+                  </div>
+                </template>
+                <div
+                  v-if="readers(item).length"
+                  class="reads"
+                >
+                  <Avatar
+                    v-for="member in readers(item)"
+                    :key="member.user.id"
+                    :name="member.user.username"
+                    :seed="member.user.id"
+                    :file-id="member.user.avatar"
+                    :size="16"
+                  />
+                </div>
               </div>
-              <div
-                v-if="readers(item).length"
-                class="reads"
-              >
-                <Avatar
-                  v-for="member in readers(item)"
-                  :key="member.user.id"
-                  :name="member.user.username"
-                  :seed="member.user.id"
-                  :file-id="member.user.avatar"
-                  :size="16"
-                />
-              </div>
+              <Avatar
+                v-if="isOwn(item)"
+                :name="user?.username"
+                :seed="user?.id"
+                :file-id="user?.avatar"
+                :size="36"
+              />
             </div>
-            <Avatar
-              v-if="isOwn(item)"
-              :name="user?.username"
-              :seed="user?.id"
-              :file-id="user?.avatar"
-              :size="36"
-            />
           </div>
         </div>
       </template>
@@ -373,15 +487,46 @@ onMounted(scrollToLatest)
 .row {
   display: flex;
   flex-direction: column;
-  padding: 7px 20px;
 }
 
 .row.lead {
-  padding-top: 16px;
+  padding-top: 9px;
 }
 
 .row.tail {
-  padding-bottom: 16px;
+  padding-bottom: 9px;
+}
+
+.block {
+  position: relative;
+  padding: 7px 20px;
+}
+
+.block :deep(.actions) {
+  display: none;
+}
+
+.block:hover,
+.block.open {
+  z-index: 2;
+  background: color-mix(in srgb, var(--color-text) 4%, transparent);
+}
+
+.block:hover :deep(.actions),
+.block.open :deep(.actions),
+.block:focus-within :deep(.actions) {
+  display: flex;
+}
+
+@media (hover: none) {
+  .block:hover :deep(.actions) {
+    display: none;
+  }
+
+  .block.open :deep(.actions),
+  .block:focus-within :deep(.actions) {
+    display: flex;
+  }
 }
 
 .day {
@@ -390,7 +535,7 @@ onMounted(scrollToLatest)
   justify-content: center;
   gap: 12px;
   width: 100%;
-  padding: 10px 0 12px;
+  padding: 10px 20px 12px;
 }
 
 .day-line {
@@ -432,6 +577,15 @@ onMounted(scrollToLatest)
   align-items: flex-end;
 }
 
+.stack {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: fit-content;
+  max-width: 100%;
+}
+
 .meta {
   display: flex;
   gap: 8px;
@@ -469,6 +623,13 @@ onMounted(scrollToLatest)
 
 .message-line.own .bubble {
   background: var(--color-bubble-own);
+}
+
+.tombstone {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 13px;
+  font-style: italic;
 }
 
 .reads {

@@ -12,7 +12,7 @@ const { isMobile } = useIsMobile()
 const { instance, updateFlags } = useInstance()
 const toast = useToast()
 
-type FlagKey = 'allow_add_friend' | 'allow_create_group' | 'invite_only'
+type FlagKey = 'allow_add_friend' | 'allow_create_group' | 'invite_only' | 'limit_message_delete'
 
 let queue: Promise<void> = Promise.resolve()
 
@@ -142,6 +142,18 @@ async function persist(key: FlagKey, sent: boolean) {
           :model-value="instance.invite_only"
           :aria-label="$t('settings.inviteOnly')"
           @update:model-value="setFlag('invite_only', $event)"
+        />
+      </div>
+      <div class="divider" />
+      <div class="row">
+        <div class="copy">
+          <strong>{{ $t('settings.limitMessageDelete') }}</strong>
+          <span class="muted">{{ $t('settings.limitMessageDeleteHint') }}</span>
+        </div>
+        <KgSwitch
+          :model-value="instance.limit_message_delete"
+          :aria-label="$t('settings.limitMessageDelete')"
+          @update:model-value="setFlag('limit_message_delete', $event)"
         />
       </div>
     </div>

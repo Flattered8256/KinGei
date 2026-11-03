@@ -178,6 +178,9 @@ export function useChats() {
         }
         break
       }
+      case 'message.deleted':
+        patchPreview(event.data)
+        break
       case 'message.read': {
         const chat = chats.value.find(item => item.id === event.data.chat_id)
         if (!chat) {
@@ -205,6 +208,14 @@ export function useChats() {
       default:
         break
     }
+  }
+
+  function patchPreview(message: Message) {
+    const preview = previews.value[message.chat_id]
+    if (preview?.id !== message.id) {
+      return
+    }
+    previews.value = { ...previews.value, [message.chat_id]: message }
   }
 
   function markReadLocal(chatId: number) {
@@ -237,6 +248,7 @@ export function useChats() {
     titleOf,
     peerOf,
     ingest,
+    patchPreview,
     markReadLocal,
     replaceChat,
     removeChat,

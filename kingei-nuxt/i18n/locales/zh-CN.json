@@ -26,6 +26,9 @@
     "EmptyName": "名称不能为空",
     "CreateGroupDisabled": "当前不允许创建群聊",
     "EmptyContent": "消息不能为空",
+    "CannotDeleteMessage": "不能删除这条消息",
+    "CannotDeleteOld": "消息发送已超过可删除时间",
+    "MessageAlreadyDeleted": "这条消息已经删除",
     "MessageNotFound": "消息不存在",
     "FileNotFound": "文件不存在",
     "FileNameTooLong": "文件名过长",
@@ -146,7 +149,10 @@
     "download": "下载",
     "previewImage": "[图片]",
     "previewVideo": "[视频]",
-    "previewFile": "[文件]"
+    "previewFile": "[文件]",
+    "delete": "删除",
+    "deleteConfirm": "确定删除这条消息？",
+    "messageDeleted": "该消息已删除"
   },
   "friends": {
     "title": "好友",
@@ -199,6 +205,8 @@
     "allowCreateGroupHint": "成员可以创建新的群聊",
     "inviteOnly": "仅邀请码注册",
     "inviteOnlyHint": "开启后，新用户必须填写当前邀请码才能注册",
+    "limitMessageDelete": "限制消息删除",
+    "limitMessageDeleteHint": "成员只能删除两分钟内自己发的消息。群主和管理员不受限制",
     "inviteCode": "邀请码",
     "inviteCodeEmpty": "尚未生成邀请码",
     "inviteCodeGenerate": "生成邀请码",

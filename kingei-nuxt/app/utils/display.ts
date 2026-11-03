@@ -195,8 +195,11 @@ export function formatDuration(ms: number | null | undefined): string {
 
 export function messagePreviewText(
   message: Message,
-  labels: { image: string, video: string, file: string },
+  labels: { image: string, video: string, file: string, deleted: string },
 ): string {
+  if (message.deleted) {
+    return labels.deleted
+  }
   const text = message.content.trim()
   if (text) {
     return text

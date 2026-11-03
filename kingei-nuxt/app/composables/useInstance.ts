@@ -7,6 +7,7 @@ const DEFAULT_INSTANCE: Instance = {
   allow_create_group: true,
   initializing: false,
   invite_only: false,
+  limit_message_delete: false,
 }
 
 let inflight: Promise<void> | null = null

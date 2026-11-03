@@ -29,6 +29,9 @@ export const API_ERROR_CODES = [
   'EmptyName',
   'CreateGroupDisabled',
   'EmptyContent',
+  'CannotDeleteMessage',
+  'CannotDeleteOld',
+  'MessageAlreadyDeleted',
   'MessageNotFound',
   'FileNotFound',
   'FileNameTooLong',
@@ -59,12 +62,14 @@ export interface Instance {
   allow_create_group: boolean
   initializing: boolean
   invite_only: boolean
+  limit_message_delete: boolean
 }
 
 export interface UpdateInstanceRequest {
   allow_add_friend?: boolean
   allow_create_group?: boolean
   invite_only?: boolean
+  limit_message_delete?: boolean
 }
 
 export interface Invite {
@@ -179,6 +184,7 @@ export interface Message {
   content: string
   file: FileResponse | null
   created_at: string
+  deleted: boolean
 }
 
 export interface SendMessageRequest {
@@ -222,6 +228,7 @@ export interface FriendDeletedEvent {
 
 export const CLIENT_EVENT_NAMES = [
   'message.created',
+  'message.deleted',
   'message.read',
   'chat.created',
   'chat.updated',
@@ -239,6 +246,7 @@ export type ClientEventName = (typeof CLIENT_EVENT_NAMES)[number]
 
 export type ClientEvent =
   | { event: 'message.created'; data: Message }
+  | { event: 'message.deleted'; data: Message }
   | { event: 'message.read'; data: ReadReceiptEvent }
   | { event: 'chat.created'; data: Chat }
   | { event: 'chat.updated'; data: Chat }

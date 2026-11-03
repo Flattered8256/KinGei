@@ -72,6 +72,7 @@ function previewText(id: number) {
     image: t('chat.previewImage'),
     video: t('chat.previewVideo'),
     file: t('chat.previewFile'),
+    deleted: t('chat.messageDeleted'),
   })
 }
 
