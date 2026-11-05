@@ -11,4 +11,5 @@ pub struct Message {
     pub file_id: Option<i64>,
     pub created_at: DateTime<Utc>,
     pub deleted_at: Option<DateTime<Utc>>,
+    pub reply_to_id: Option<i64>,
 }

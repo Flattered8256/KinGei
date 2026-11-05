@@ -20,15 +20,16 @@ impl MessageRepository {
         sender_id: Uuid,
         content: &str,
         file_id: Option<i64>,
+        reply_to_id: Option<i64>,
     ) -> Result<Message, sqlx::Error> {
         let mut tx = self.pool.begin().await?;
         let now = Utc::now();
 
         let message = sqlx::query_as::<_, Message>(
             r#"
-            INSERT INTO message(chat_id, sender_id, content, file_id, created_at)
-            VALUES ($1, $2, $3, $4, $5)
-            RETURNING id, chat_id, sender_id, content, file_id, created_at, deleted_at
+            INSERT INTO message(chat_id, sender_id, content, file_id, created_at, reply_to_id)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING id, chat_id, sender_id, content, file_id, created_at, deleted_at, reply_to_id
             "#,
         )
         .bind(chat_id)
@@ -36,6 +37,7 @@ impl MessageRepository {
         .bind(content)
         .bind(file_id)
         .bind(now)
+        .bind(reply_to_id)
         .fetch_one(&mut *tx)
         .await?;
 
@@ -65,7 +67,7 @@ impl MessageRepository {
     ) -> Result<Option<Message>, sqlx::Error> {
         sqlx::query_as::<_, Message>(
             r#"
-            SELECT id, chat_id, sender_id, content, file_id, created_at, deleted_at
+            SELECT id, chat_id, sender_id, content, file_id, created_at, deleted_at, reply_to_id
             FROM message
             WHERE chat_id = $1 AND id = $2
             "#,
@@ -83,7 +85,7 @@ impl MessageRepository {
             UPDATE message
             SET deleted_at = $1, content = '', file_id = NULL
             WHERE chat_id = $2 AND id = $3 AND deleted_at IS NULL
-            RETURNING id, chat_id, sender_id, content, file_id, created_at, deleted_at
+            RETURNING id, chat_id, sender_id, content, file_id, created_at, deleted_at, reply_to_id
             "#,
         )
         .bind(now)
@@ -102,7 +104,7 @@ impl MessageRepository {
     ) -> Result<Vec<Message>, sqlx::Error> {
         let mut builder = QueryBuilder::<Db>::new(
             r#"
-            SELECT id, chat_id, sender_id, content, file_id, created_at, deleted_at
+            SELECT id, chat_id, sender_id, content, file_id, created_at, deleted_at, reply_to_id
             FROM message
             WHERE chat_id = 
             "#,
@@ -120,6 +122,36 @@ impl MessageRepository {
             builder.push(" ORDER BY id DESC LIMIT ");
         }
         builder.push_bind(limit);
+
+        builder
+            .build_query_as::<Message>()
+            .fetch_all(&self.pool)
+            .await
+    }
+
+    pub async fn find_by_ids(
+        &self,
+        chat_id: i64,
+        ids: &[i64],
+    ) -> Result<Vec<Message>, sqlx::Error> {
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let mut builder = QueryBuilder::<Db>::new(
+            r#"
+            SELECT id, chat_id, sender_id, content, file_id, created_at, deleted_at, reply_to_id
+            FROM message
+            WHERE chat_id = 
+            "#,
+        );
+        builder.push_bind(chat_id);
+        builder.push(" AND id IN (");
+        let mut separated = builder.separated(", ");
+        for id in ids {
+            separated.push_bind(id);
+        }
+        builder.push(")");
 
         builder
             .build_query_as::<Message>()

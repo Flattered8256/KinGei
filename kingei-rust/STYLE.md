@@ -353,7 +353,7 @@ WHERE user_id = $1 AND friend_id = $2
 - `GET /friend` 的 `FriendResponse` 嵌 `user`（`UserResponse`）和好友关系 `created_at`。不摊平 `friend_id` / `username` / `email`。
 - 把文件当图片用（用户/群头像）共用 `service::file::require_image`：属于当前用户、Ready、MIME 为 `image/jpeg`、`image/png`、`image/webp`、`image/gif`。失败 → `404 FileNotFound` / `403 NotOwner` / `400 FileNotReady` / `400 InvalidImage`。谁能把这张图挂到哪条记录，仍由各领域判断。
 - 消息附件共用 `service::file::require_ready_file`：属于发送者且 `status = Ready`，不限 MIME。失败 → `404 FileNotFound` / `403 NotOwner` / `400 FileNotReady`，不创建消息。
-- `POST /chat/{id}/message` 请求 `content`（可省略或为 `null`）和可选 `file_id`；`content` 为空且无 `file_id` → `400 EmptyContent`。`MessageResponse` 嵌 `file: FileResponse | null`，`GET /chat/{id}/message` 与 `message.created` SSE 同形。前端用 `file.media` 做气泡占位和封面（`thumbnail_id` 再调下载），`file.content_type` 区分类型。
+- `POST /chat/{id}/message` 请求 `content`（可省略或为 `null`）和可选 `file_id`；`content` 为空且无 `file_id` → `400 EmptyContent`。`POST /chat/{id}/message/{message_id}` 请求体相同，对该条回复；目标不在本会话 → `404 MessageNotFound`，已软删 → `409 ReplyTargetDeleted`。`MessageResponse` 嵌 `file: FileResponse | null` 和 `reply_to: MessageResponse | null`（只一层，内层 `reply_to` 恒为 `null`；消息自身已删时 `reply_to` 也为 `null`）。`GET /chat/{id}/message`、发送/回复响应与 `message.created` SSE 同形。前端用 `file.media` 做气泡占位和封面（`thumbnail_id` 再调下载），`file.content_type` 区分类型。
 - `PATCH /user/update` 可改 `username`、`email`、`avatar`。省略 `avatar` 不改头像；给 file id 则先 `require_image` 再写 `user.avatar`。只改 FK，不删对象存储里的文件。
 - `ChatResponse.avatar` 是 file id 或 `null`。私聊为 null。`PATCH /chat/{id}`（群主）可改 `name` 和/或 `avatar`；省略则不改。只改头像时走 `require_image`。Direct 仍 `CannotModifyDirect`。
 - Access Token 15 分钟，Refresh Token 7 天。改时长只改 `src/utils/auth.rs` 里的常量。

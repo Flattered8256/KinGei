@@ -19,7 +19,7 @@ pub async fn send(
     Path(id): Path<i64>,
     Json(req): Json<SendMessageRequest>,
 ) -> Result<Json<MessageResponse>, AppError> {
-    let result = state.message_service.send(user_id, id, req).await?;
+    let result = state.message_service.send(user_id, id, req, None).await?;
     Ok(Json(result))
 }
 
@@ -30,6 +30,19 @@ pub async fn list(
     Query(query): Query<ListMessageQuery>,
 ) -> Result<Json<Vec<MessageResponse>>, AppError> {
     let result = state.message_service.list(user_id, id, query).await?;
+    Ok(Json(result))
+}
+
+pub async fn reply(
+    State(state): State<Arc<AppState>>,
+    Extension(user_id): Extension<Uuid>,
+    Path((id, message_id)): Path<(i64, i64)>,
+    Json(req): Json<SendMessageRequest>,
+) -> Result<Json<MessageResponse>, AppError> {
+    let result = state
+        .message_service
+        .send(user_id, id, req, Some(message_id))
+        .await?;
     Ok(Json(result))
 }
 

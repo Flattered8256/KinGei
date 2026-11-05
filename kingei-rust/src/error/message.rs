@@ -21,6 +21,8 @@ pub enum MessageError {
     CannotDeleteOld,
     #[error("MessageAlreadyDeleted")]
     MessageAlreadyDeleted,
+    #[error("ReplyTargetDeleted")]
+    ReplyTargetDeleted,
 }
 
 #[derive(Debug, Serialize)]
@@ -39,6 +41,7 @@ impl IntoResponse for MessageError {
             MessageError::CannotDeleteMessage => (StatusCode::FORBIDDEN, self.to_string()),
             MessageError::CannotDeleteOld => (StatusCode::BAD_REQUEST, self.to_string()),
             MessageError::MessageAlreadyDeleted => (StatusCode::CONFLICT, self.to_string()),
+            MessageError::ReplyTargetDeleted => (StatusCode::CONFLICT, self.to_string()),
         };
 
         (

@@ -63,6 +63,7 @@ impl MessageService {
         user_id: Uuid,
         chat_id: i64,
         request: SendMessageRequest,
+        reply_to_id: Option<i64>,
     ) -> Result<MessageResponse, AppError> {
         let content = request.content.as_deref().unwrap_or_default().trim();
         if content.is_empty() && request.file_id.is_none() {
@@ -72,6 +73,20 @@ impl MessageService {
         let chat = self.require_member(user_id, chat_id).await?;
         self.require_direct_friends(user_id, &chat).await?;
 
+        let parent = if let Some(id) = reply_to_id {
+            let parent = self
+                .message_repo
+                .find_in_chat(chat.id, id)
+                .await?
+                .ok_or(AppError::Message(MessageError::MessageNotFound))?;
+            if parent.deleted_at.is_some() {
+                return Err(AppError::Message(MessageError::ReplyTargetDeleted));
+            }
+            Some(parent)
+        } else {
+            None
+        };
+
         let file = match request.file_id {
             Some(file_id) => Some(require_ready_file(&self.file_repo, user_id, file_id).await?),
             None => None,
@@ -79,13 +94,25 @@ impl MessageService {
 
         let created = self
             .message_repo
-            .create(chat.id, user_id, content, request.file_id)
+            .create(chat.id, user_id, content, request.file_id, reply_to_id)
             .await?;
-        let file = match file {
-            Some(file) => Some(self.file_response(file).await?),
-            None => None,
-        };
-        let response = MessageResponse::from_message(created, file);
+
+        let mut files = HashMap::new();
+        if let Some(file) = file {
+            files.insert(file.id, self.file_response(file).await?);
+        }
+        if let Some(parent_file_id) = parent.as_ref().and_then(|p| p.file_id)
+            && !files.contains_key(&parent_file_id)
+        {
+            files.extend(self.load_files(&[parent_file_id]).await?);
+        }
+
+        let reply_to = parent.map(|p| {
+            let file = p.file_id.and_then(|id| files.get(&id).cloned());
+            Box::new(MessageResponse::from_message(p, file, None))
+        });
+        let file = created.file_id.and_then(|id| files.get(&id).cloned());
+        let response = MessageResponse::from_message(created, file, reply_to);
         self.publish_message_created(chat.id, response.clone())
             .await;
         Ok(response)
@@ -112,9 +139,20 @@ impl MessageService {
             messages.reverse();
         }
 
+        let mut reply_ids = Vec::new();
+        let mut seen_replies = HashSet::new();
+        for message in &messages {
+            if let Some(id) = message.reply_to_id
+                && seen_replies.insert(id)
+            {
+                reply_ids.push(id);
+            }
+        }
+        let parents = self.message_repo.find_by_ids(chat.id, &reply_ids).await?;
+
         let mut file_ids = Vec::new();
         let mut seen = HashSet::new();
-        for message in &messages {
+        for message in messages.iter().chain(parents.iter()) {
             if let Some(file_id) = message.file_id
                 && seen.insert(file_id)
             {
@@ -122,26 +160,23 @@ impl MessageService {
             }
         }
 
-        let files = self.file_repo.find_by_ids(&file_ids).await?;
-        let mut media: HashMap<i64, _> = self
-            .file_repo
-            .find_media_by_file_ids(&file_ids)
-            .await?
+        let files = self.load_files(&file_ids).await?;
+        let replies: HashMap<i64, MessageResponse> = parents
             .into_iter()
-            .map(|row| (row.file_id, row))
-            .collect();
-        let files: HashMap<i64, FileResponse> = files
-            .into_iter()
-            .map(|file| {
-                let media = media.remove(&file.id);
-                (file.id, FileResponse::from(file, media))
+            .map(|parent| {
+                let file = parent.file_id.and_then(|id| files.get(&id).cloned());
+                (parent.id, MessageResponse::from_message(parent, file, None))
             })
             .collect();
 
         let mut responses = Vec::with_capacity(messages.len());
         for message in messages {
             let file = message.file_id.and_then(|id| files.get(&id).cloned());
-            responses.push(MessageResponse::from_message(message, file));
+            let reply_to = message
+                .reply_to_id
+                .and_then(|id| replies.get(&id).cloned())
+                .map(Box::new);
+            responses.push(MessageResponse::from_message(message, file, reply_to));
         }
         Ok(responses)
     }
@@ -189,7 +224,7 @@ impl MessageService {
             .await?
             .ok_or(AppError::Message(MessageError::MessageAlreadyDeleted))?;
 
-        let response = MessageResponse::from_message(deleted, None);
+        let response = MessageResponse::from_message(deleted, None, None);
         self.publish_message_deleted(chat.id, response.clone())
             .await;
         Ok(response)
@@ -226,6 +261,28 @@ impl MessageService {
             last_read_message_id,
             unread_count,
         })
+    }
+
+    async fn load_files(&self, file_ids: &[i64]) -> Result<HashMap<i64, FileResponse>, AppError> {
+        if file_ids.is_empty() {
+            return Ok(HashMap::new());
+        }
+
+        let files = self.file_repo.find_by_ids(file_ids).await?;
+        let mut media: HashMap<i64, _> = self
+            .file_repo
+            .find_media_by_file_ids(file_ids)
+            .await?
+            .into_iter()
+            .map(|row| (row.file_id, row))
+            .collect();
+        Ok(files
+            .into_iter()
+            .map(|file| {
+                let media = media.remove(&file.id);
+                (file.id, FileResponse::from(file, media))
+            })
+            .collect())
     }
 
     async fn file_response(&self, file: File) -> Result<FileResponse, AppError> {
@@ -499,11 +556,148 @@ mod tests {
         assert_eq!(after, 0);
     }
 
+    #[tokio::test]
+    async fn reply_embeds_parent_in_response_and_list() {
+        let fx = setup().await;
+        let parent = send(&fx, fx.member_id, "hello").await;
+
+        let created = reply(&fx, fx.owner_id, parent.id, "ok").await.unwrap();
+        let nested = created.reply_to.expect("reply_to");
+        assert_eq!(nested.id, parent.id);
+        assert_eq!(nested.content, "hello");
+        assert!(nested.reply_to.is_none());
+
+        let listed = list_all(&fx, fx.owner_id).await;
+        assert_eq!(listed.len(), 2);
+        let listed_reply = listed.iter().find(|m| m.id == created.id).unwrap();
+        let nested = listed_reply.reply_to.as_ref().expect("reply_to");
+        assert_eq!(nested.id, parent.id);
+        assert_eq!(nested.content, "hello");
+    }
+
+    #[tokio::test]
+    async fn list_embeds_parent_outside_page() {
+        let fx = setup().await;
+        let parent = send(&fx, fx.member_id, "hello").await;
+        send(&fx, fx.owner_id, "filler").await;
+        let created = reply(&fx, fx.owner_id, parent.id, "ok").await.unwrap();
+
+        let listed = fx
+            .service
+            .list(
+                fx.owner_id,
+                fx.chat_id,
+                ListMessageQuery {
+                    before: None,
+                    after: None,
+                    limit: Some(1),
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].id, created.id);
+        let nested = listed[0].reply_to.as_ref().expect("reply_to");
+        assert_eq!(nested.id, parent.id);
+        assert_eq!(nested.content, "hello");
+    }
+
+    #[tokio::test]
+    async fn reply_shows_deleted_parent() {
+        let fx = setup().await;
+        let parent = send(&fx, fx.member_id, "hello").await;
+        let created = reply(&fx, fx.owner_id, parent.id, "ok").await.unwrap();
+
+        fx.service
+            .delete(fx.member_id, fx.chat_id, parent.id)
+            .await
+            .unwrap();
+
+        let listed = list_all(&fx, fx.owner_id).await;
+        let listed_reply = listed.iter().find(|m| m.id == created.id).unwrap();
+        let nested = listed_reply.reply_to.as_ref().expect("reply_to");
+        assert_eq!(nested.id, parent.id);
+        assert!(nested.deleted);
+        assert!(nested.content.is_empty());
+        assert!(nested.file.is_none());
+    }
+
+    #[tokio::test]
+    async fn cannot_reply_to_deleted() {
+        let fx = setup().await;
+        let parent = send(&fx, fx.member_id, "hello").await;
+        fx.service
+            .delete(fx.member_id, fx.chat_id, parent.id)
+            .await
+            .unwrap();
+
+        let err = reply(&fx, fx.owner_id, parent.id, "ok").await.unwrap_err();
+        assert!(matches!(
+            err,
+            AppError::Message(MessageError::ReplyTargetDeleted)
+        ));
+    }
+
+    #[tokio::test]
+    async fn cannot_reply_to_missing_or_other_chat() {
+        let fx = setup().await;
+        let err = reply(&fx, fx.owner_id, 999_999, "ok").await.unwrap_err();
+        assert!(matches!(
+            err,
+            AppError::Message(MessageError::MessageNotFound)
+        ));
+
+        let other = fx
+            .chat_repo
+            .create_group(fx.owner_id, "other")
+            .await
+            .unwrap();
+        fx.chat_repo
+            .add_member(other.id, fx.member_id)
+            .await
+            .unwrap();
+        let other_msg = fx
+            .service
+            .send(
+                fx.member_id,
+                other.id,
+                SendMessageRequest {
+                    content: Some("secret".to_string()),
+                    file_id: None,
+                },
+                None,
+            )
+            .await
+            .unwrap();
+
+        let err = reply(&fx, fx.owner_id, other_msg.id, "ok")
+            .await
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            AppError::Message(MessageError::MessageNotFound)
+        ));
+    }
+
+    #[tokio::test]
+    async fn reply_to_reply_is_one_level() {
+        let fx = setup().await;
+        let first = send(&fx, fx.member_id, "one").await;
+        let second = reply(&fx, fx.owner_id, first.id, "two").await.unwrap();
+        let third = reply(&fx, fx.member_id, second.id, "three").await.unwrap();
+
+        let nested = third.reply_to.expect("reply_to");
+        assert_eq!(nested.id, second.id);
+        assert_eq!(nested.content, "two");
+        assert!(nested.reply_to.is_none());
+    }
+
     struct Fixture {
         service: MessageService,
         pool: DbPool,
         instance_repo: Arc<InstanceRepository>,
         message_repo: Arc<MessageRepository>,
+        chat_repo: Arc<ChatRepository>,
         admin_id: Uuid,
         owner_id: Uuid,
         member_id: Uuid,
@@ -518,6 +712,41 @@ mod tests {
                 SendMessageRequest {
                     content: Some(content.to_string()),
                     file_id: None,
+                },
+                None,
+            )
+            .await
+            .unwrap()
+    }
+
+    async fn reply(
+        fx: &Fixture,
+        sender_id: Uuid,
+        message_id: i64,
+        content: &str,
+    ) -> Result<MessageResponse, AppError> {
+        fx.service
+            .send(
+                sender_id,
+                fx.chat_id,
+                SendMessageRequest {
+                    content: Some(content.to_string()),
+                    file_id: None,
+                },
+                Some(message_id),
+            )
+            .await
+    }
+
+    async fn list_all(fx: &Fixture, user_id: Uuid) -> Vec<MessageResponse> {
+        fx.service
+            .list(
+                user_id,
+                fx.chat_id,
+                ListMessageQuery {
+                    before: None,
+                    after: None,
+                    limit: None,
                 },
             )
             .await
@@ -574,7 +803,7 @@ mod tests {
 
         let service = MessageService::new(
             message_repo.clone(),
-            chat_repo,
+            chat_repo.clone(),
             Arc::new(FriendRepository::new(pool.clone())),
             Arc::new(FileRepository::new(pool.clone())),
             user_repo,
@@ -587,6 +816,7 @@ mod tests {
             pool,
             instance_repo,
             message_repo,
+            chat_repo,
             admin_id: admin.id,
             owner_id: owner.id,
             member_id: member.id,

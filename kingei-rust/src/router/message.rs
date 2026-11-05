@@ -11,7 +11,10 @@ use crate::state::AppState;
 pub fn protected_routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/{id}/message", get(message::list).post(message::send))
-        .route("/{id}/message/{message_id}", delete(message::delete))
+        .route(
+            "/{id}/message/{message_id}",
+            delete(message::delete).post(message::reply),
+        )
         .route("/{id}/read", patch(message::update_read_cursor))
         .layer(middleware::from_fn(auth::auth_middleware))
 }
