@@ -418,39 +418,41 @@ onBeforeUnmount(() => {
                       :message="item.reply_to"
                       @select="jumpToQuote(item)"
                     />
-                    <MessageAttachment
-                      v-if="item.file"
-                      :file="item.file"
-                      :own="isOwn(item)"
-                      @open="lightbox = item.file"
-                    />
-                    <div
-                      v-if="item.content.trim()"
-                      class="bubble"
-                    >
-                      {{ item.content }}
+                    <div class="body">
+                      <MessageAttachment
+                        v-if="item.file"
+                        :file="item.file"
+                        :own="isOwn(item)"
+                        @open="lightbox = item.file"
+                      />
+                      <div
+                        v-if="item.content.trim()"
+                        class="bubble"
+                      >
+                        {{ item.content }}
+                      </div>
+                      <MessageActions :own="isOwn(item)">
+                        <button
+                          type="button"
+                          :aria-label="$t('chat.reply')"
+                          :title="$t('chat.reply')"
+                          @click.stop="onReply(item)"
+                        >
+                          <AppIcon name="reply" :size="16" />
+                        </button>
+                        <button
+                          v-if="canDelete(item)"
+                          type="button"
+                          class="danger"
+                          :disabled="deletingId === item.id"
+                          :aria-label="$t('chat.delete')"
+                          :title="$t('chat.delete')"
+                          @click.stop="onDelete(item)"
+                        >
+                          <AppIcon name="trash" :size="16" />
+                        </button>
+                      </MessageActions>
                     </div>
-                    <MessageActions :own="isOwn(item)">
-                      <button
-                        type="button"
-                        :aria-label="$t('chat.reply')"
-                        :title="$t('chat.reply')"
-                        @click.stop="onReply(item)"
-                      >
-                        <AppIcon name="reply" :size="16" />
-                      </button>
-                      <button
-                        v-if="canDelete(item)"
-                        type="button"
-                        class="danger"
-                        :disabled="deletingId === item.id"
-                        :aria-label="$t('chat.delete')"
-                        :title="$t('chat.delete')"
-                        @click.stop="onDelete(item)"
-                      >
-                        <AppIcon name="trash" :size="16" />
-                      </button>
-                    </MessageActions>
                   </div>
                 </template>
                 <div
@@ -662,7 +664,6 @@ onBeforeUnmount(() => {
 }
 
 .stack {
-  position: relative;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -672,6 +673,20 @@ onBeforeUnmount(() => {
 }
 
 .message-line.own .stack {
+  align-items: flex-end;
+}
+
+.body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.message-line.own .body {
   align-items: flex-end;
 }
 
