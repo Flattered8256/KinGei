@@ -307,45 +307,6 @@ onUnmounted(() => {
     @dragleave="onDragLeave"
     @drop="onDrop"
   >
-    <div
-      v-if="pending"
-      class="chip"
-    >
-      <img
-        v-if="isImageType(pending.file.type)"
-        class="thumb"
-        :src="pending.localUrl"
-        alt=""
-      >
-      <span
-        v-else
-        class="thumb icon"
-      >
-        <AppIcon name="file" :size="20" />
-      </span>
-      <div class="chip-body">
-        <span
-          class="chip-name truncate"
-          :title="pending.file.name"
-        >{{ pending.file.name }}</span>
-        <span class="chip-status">{{ statusText }}</span>
-        <div
-          v-if="pending.status !== 'ready'"
-          class="bar"
-        >
-          <i :style="{ width: `${pending.progress}%` }" />
-        </div>
-      </div>
-      <button
-        type="button"
-        class="icon-btn remove"
-        :aria-label="$t('chat.removeAttachment')"
-        :title="$t('chat.removeAttachment')"
-        @click="clearPending"
-      >
-        <AppIcon name="close" :size="16" />
-      </button>
-    </div>
     <div class="row">
       <button
         type="button"
@@ -380,6 +341,47 @@ onUnmounted(() => {
             :aria-label="$t('chat.cancelReply')"
             :title="$t('chat.cancelReply')"
             @click="messages.clearReply()"
+          >
+            <AppIcon name="close" :size="12" />
+          </button>
+        </div>
+        <div
+          v-if="pending"
+          class="quote-chip"
+        >
+          <div class="attach-body">
+            <img
+              v-if="isImageType(pending.file.type)"
+              class="thumb"
+              :src="pending.localUrl"
+              alt=""
+            >
+            <span
+              v-else
+              class="thumb icon"
+            >
+              <AppIcon name="file" :size="16" />
+            </span>
+            <div class="attach-copy">
+              <span
+                class="quote-name truncate"
+                :title="pending.file.name"
+              >{{ pending.file.name }}</span>
+              <span class="quote-text truncate">{{ statusText }}</span>
+              <div
+                v-if="pending.status !== 'ready'"
+                class="bar"
+              >
+                <i :style="{ width: `${pending.progress}%` }" />
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            class="quote-close"
+            :aria-label="$t('chat.removeAttachment')"
+            :title="$t('chat.removeAttachment')"
+            @click="clearPending"
           >
             <AppIcon name="close" :size="12" />
           </button>
@@ -568,22 +570,19 @@ onUnmounted(() => {
   opacity: 0.45;
 }
 
-.chip {
+.attach-body {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px;
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  background: var(--bg-muted);
+  gap: 8px;
+  min-width: 0;
 }
 
 .thumb {
-  width: 40px;
-  height: 40px;
+  width: 28px;
+  height: 28px;
   flex-shrink: 0;
   object-fit: cover;
-  border-radius: 8px;
+  border-radius: 6px;
 }
 
 .thumb.icon {
@@ -594,21 +593,16 @@ onUnmounted(() => {
   color: var(--color-primary);
 }
 
-.chip-body {
+[data-theme='dark'] .thumb.icon {
+  background: var(--bg-muted);
+}
+
+.attach-copy {
   min-width: 0;
   flex: 1;
   display: flex;
   flex-direction: column;
   gap: 2px;
-}
-
-.chip-name {
-  font-weight: 600;
-}
-
-.chip-status {
-  color: var(--color-muted);
-  font-size: 12px;
 }
 
 .bar {
@@ -623,12 +617,6 @@ onUnmounted(() => {
   display: block;
   height: 100%;
   background: var(--color-primary);
-}
-
-.remove {
-  width: 32px;
-  height: 32px;
-  flex-shrink: 0;
 }
 
 .file {
