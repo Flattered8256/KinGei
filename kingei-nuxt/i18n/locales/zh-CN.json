@@ -30,6 +30,7 @@
     "CannotDeleteOld": "消息发送已超过可删除时间",
     "MessageAlreadyDeleted": "这条消息已经删除",
     "MessageNotFound": "消息不存在",
+    "ReplyTargetDeleted": "原消息已删除，无法回复",
     "FileNotFound": "文件不存在",
     "FileNameTooLong": "文件名过长",
     "InvalidSize": "文件大小无效",
@@ -152,7 +153,10 @@
     "previewFile": "[文件]",
     "delete": "删除",
     "deleteConfirm": "确定删除这条消息？",
-    "messageDeleted": "该消息已删除"
+    "messageDeleted": "该消息已删除",
+    "reply": "回复",
+    "cancelReply": "取消回复",
+    "replyTo": "回复 {name}"
   },
   "friends": {
     "title": "好友",

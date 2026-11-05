@@ -33,6 +33,7 @@ export const API_ERROR_CODES = [
   'CannotDeleteOld',
   'MessageAlreadyDeleted',
   'MessageNotFound',
+  'ReplyTargetDeleted',
   'FileNotFound',
   'FileNameTooLong',
   'InvalidSize',
@@ -185,6 +186,7 @@ export interface Message {
   file: FileResponse | null
   created_at: string
   deleted: boolean
+  reply_to: Message | null
 }
 
 export interface SendMessageRequest {

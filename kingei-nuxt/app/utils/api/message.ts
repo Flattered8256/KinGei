@@ -17,8 +17,15 @@ export function listMessages(chatId: number, query: ListMessageQuery = {}) {
   })
 }
 
-export function sendMessage(chatId: number, body: SendMessageRequest) {
-  return apiFetch<Message>(`/chat/${chatId}/message`, {
+export function sendMessage(
+  chatId: number,
+  body: SendMessageRequest,
+  replyToId?: number,
+) {
+  const path = replyToId != null
+    ? `/chat/${chatId}/message/${replyToId}`
+    : `/chat/${chatId}/message`
+  return apiFetch<Message>(path, {
     method: 'POST',
     body,
   })

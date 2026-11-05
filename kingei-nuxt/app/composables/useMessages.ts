@@ -1,4 +1,5 @@
 import type { ClientEvent, Message, SendMessageRequest } from '~/types/api'
+import { isApiErrorCode } from '~/utils/api/error'
 import { deleteMessage, listMessages, sendMessage, updateReadCursor } from '~/utils/api/message'
 
 const PAGE_SIZE = 50
@@ -19,6 +20,8 @@ export function useMessages() {
   const currentId = useState<number | null>('messages.currentId', () => null)
   const threads = useState<Record<number, Thread>>('messages.threads', () => ({}))
   const drafts = useState<Record<number, string>>('messages.drafts', () => ({}))
+  const replies = useState<Record<number, Message>>('messages.replies', () => ({}))
+  const revealId = useState<number | null>('messages.revealId', () => null)
   const loading = useState('messages.loading', () => false)
   const loadingMore = useState('messages.loadingMore', () => false)
   const sending = useState('messages.sending', () => false)
@@ -31,6 +34,10 @@ export function useMessages() {
   })
   const items = computed(() => currentThread.value.items)
   const hasMore = computed(() => currentThread.value.hasMore)
+  const replyTo = computed(() => {
+    const id = currentId.value
+    return id == null ? null : replies.value[id] ?? null
+  })
 
   function isCurrent(chatId: number) {
     return currentId.value === chatId
@@ -41,7 +48,7 @@ export function useMessages() {
   }
 
   function dropThread(chatId: number) {
-    if (!(chatId in threads.value) && !(chatId in drafts.value)) {
+    if (!(chatId in threads.value) && !(chatId in drafts.value) && !(chatId in replies.value)) {
       return
     }
     const nextThreads = { ...threads.value }
@@ -50,6 +57,31 @@ export function useMessages() {
     const nextDrafts = { ...drafts.value }
     delete nextDrafts[chatId]
     drafts.value = nextDrafts
+    const nextReplies = { ...replies.value }
+    delete nextReplies[chatId]
+    replies.value = nextReplies
+  }
+
+  function setReplyTo(message: Message) {
+    const chatId = currentId.value
+    if (chatId == null || message.deleted) {
+      return
+    }
+    replies.value = { ...replies.value, [chatId]: message }
+  }
+
+  function reveal(messageId: number) {
+    revealId.value = messageId
+  }
+
+  function clearReply(chatId?: number | null) {
+    const id = chatId ?? currentId.value
+    if (id == null || !(id in replies.value)) {
+      return
+    }
+    const next = { ...replies.value }
+    delete next[id]
+    replies.value = next
   }
 
   function threadOf(chatId: number) {
@@ -66,20 +98,29 @@ export function useMessages() {
 
   function patchMessage(chatId: number, message: Message) {
     const thread = threadOf(chatId)
-    if (!thread) {
-      return
+    if (thread) {
+      let changed = false
+      const items = thread.items.map((item) => {
+        if (item.id === message.id) {
+          if (item.deleted) {
+            return item
+          }
+          changed = true
+          return message
+        }
+        if (item.reply_to?.id === message.id && !item.reply_to.deleted) {
+          changed = true
+          return { ...item, reply_to: { ...message, reply_to: null } }
+        }
+        return item
+      })
+      if (changed) {
+        setThread(chatId, { ...thread, items })
+      }
     }
-    const index = thread.items.findIndex(item => item.id === message.id)
-    if (index === -1) {
-      return
+    if (message.deleted && replies.value[chatId]?.id === message.id) {
+      clearReply(chatId)
     }
-    const current = thread.items[index]
-    if (!current || current.deleted) {
-      return
-    }
-    const items = [...thread.items]
-    items[index] = message
-    setThread(chatId, { ...thread, items })
   }
 
   function mergeLatest(chatId: number, page: Message[]) {
@@ -280,9 +321,16 @@ export function useMessages() {
       if (fileId != null) {
         body.file_id = fileId
       }
-      const created = await sendMessage(chatId, body)
+      const created = await sendMessage(chatId, body, replies.value[chatId]?.id)
+      clearReply(chatId)
       appendMessage(chatId, created)
       await markRead(chatId, created.id)
+    }
+    catch (err) {
+      if (isApiErrorCode(err, 'ReplyTargetDeleted')) {
+        clearReply(chatId)
+      }
+      throw err
     }
     finally {
       if (isCurrent(chatId)) {
@@ -357,6 +405,8 @@ export function useMessages() {
     currentId.value = null
     threads.value = {}
     drafts.value = {}
+    replies.value = {}
+    revealId.value = null
     loading.value = false
     loadingMore.value = false
     sending.value = false
@@ -376,6 +426,11 @@ export function useMessages() {
     loadOlder,
     send,
     remove,
+    replyTo,
+    setReplyTo,
+    clearReply,
+    revealId,
+    reveal,
     refreshCurrent,
     ingest,
     takeDraft,

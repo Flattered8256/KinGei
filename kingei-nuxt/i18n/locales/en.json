@@ -30,6 +30,7 @@
     "CannotDeleteOld": "This message is too old to delete",
     "MessageAlreadyDeleted": "This message was already deleted",
     "MessageNotFound": "Message not found",
+    "ReplyTargetDeleted": "The original message was deleted",
     "FileNotFound": "File not found",
     "FileNameTooLong": "File name is too long",
     "InvalidSize": "Invalid file size",
@@ -152,7 +153,10 @@
     "previewFile": "[File]",
     "delete": "Delete",
     "deleteConfirm": "Delete this message?",
-    "messageDeleted": "This message was deleted"
+    "messageDeleted": "This message was deleted",
+    "reply": "Reply",
+    "cancelReply": "Cancel reply",
+    "replyTo": "Reply to {name}"
   },
   "friends": {
     "title": "Friends",

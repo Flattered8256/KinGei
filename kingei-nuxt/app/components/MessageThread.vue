@@ -31,6 +31,8 @@ const showJump = computed(() => !stickToBottom.value && messages.items.value.len
 const lightbox = ref<FileResponse | null>(null)
 const deletingId = ref<number | null>(null)
 const openActionsId = ref<number | null>(null)
+const flashId = ref<number | null>(null)
+let flashTimer: ReturnType<typeof setTimeout> | null = null
 
 const prevIds = {
   first: null as number | null,
@@ -71,7 +73,7 @@ function canDelete(message: Message) {
 }
 
 function onBlockClick(event: MouseEvent, message: Message) {
-  if (!isMobile.value || !canDelete(message)) {
+  if (!isMobile.value || message.deleted) {
     return
   }
   const target = event.target as HTMLElement | null
@@ -90,6 +92,43 @@ function onDocumentClick(event: MouseEvent) {
     return
   }
   openActionsId.value = null
+}
+
+function onReply(message: Message) {
+  messages.setReplyTo(message)
+  openActionsId.value = null
+}
+
+function quoteTitle(message: Message) {
+  return sender(message)?.username ?? t('app.unknownUser')
+}
+
+function jumpToQuote(message: Message) {
+  if (message.reply_to) {
+    jumpTo(message.reply_to.id)
+  }
+}
+
+function jumpTo(id: number) {
+  const index = messages.items.value.findIndex(item => item.id === id)
+  if (index < 0) {
+    return
+  }
+  if (index < messages.items.value.length - 1) {
+    stickToBottom.value = false
+    pendingBottom.value = false
+    flushBottom.value = false
+  }
+  listRef.value?.scrollToIndex(index, { align: 'center' })
+  flashId.value = id
+  if (flashTimer) {
+    clearTimeout(flashTimer)
+  }
+  flashTimer = setTimeout(() => {
+    if (flashId.value === id) {
+      flashId.value = null
+    }
+  }, 1200)
 }
 
 async function onDelete(message: Message) {
@@ -263,6 +302,7 @@ watch(
     ready.value = false
     openActionsId.value = null
     deletingId.value = null
+    flashId.value = null
     prevIds.first = null
     prevIds.last = null
     scrollToLatest()
@@ -278,6 +318,20 @@ watch(
   },
 )
 
+watch(
+  () => messages.revealId.value,
+  (id) => {
+    if (id == null) {
+      return
+    }
+    const target = id
+    messages.revealId.value = null
+    nextTick(() => {
+      jumpTo(target)
+    })
+  },
+)
+
 onMounted(() => {
   scrollToLatest()
   document.addEventListener('click', onDocumentClick)
@@ -285,6 +339,9 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', onDocumentClick)
+  if (flashTimer) {
+    clearTimeout(flashTimer)
+  }
 })
 </script>
 
@@ -326,7 +383,7 @@ onBeforeUnmount(() => {
           </div>
           <div
             class="block"
-            :class="{ open: openActionsId === item.id }"
+            :class="{ open: openActionsId === item.id, flash: flashId === item.id }"
             @click="onBlockClick($event, item)"
           >
             <div
@@ -355,6 +412,12 @@ onBeforeUnmount(() => {
                 </template>
                 <template v-else>
                   <div class="stack">
+                    <MessageReplyQuote
+                      v-if="item.reply_to"
+                      :title="quoteTitle(item.reply_to)"
+                      :message="item.reply_to"
+                      @select="jumpToQuote(item)"
+                    />
                     <MessageAttachment
                       v-if="item.file"
                       :file="item.file"
@@ -367,12 +430,19 @@ onBeforeUnmount(() => {
                     >
                       {{ item.content }}
                     </div>
-                    <MessageActions
-                      v-if="canDelete(item)"
-                      :own="isOwn(item)"
-                    >
+                    <MessageActions :own="isOwn(item)">
                       <button
                         type="button"
+                        :aria-label="$t('chat.reply')"
+                        :title="$t('chat.reply')"
+                        @click.stop="onReply(item)"
+                      >
+                        <AppIcon name="reply" :size="16" />
+                      </button>
+                      <button
+                        v-if="canDelete(item)"
+                        type="button"
+                        class="danger"
                         :disabled="deletingId === item.id"
                         :aria-label="$t('chat.delete')"
                         :title="$t('chat.delete')"
@@ -511,6 +581,21 @@ onBeforeUnmount(() => {
   z-index: 2;
 }
 
+.block.flash {
+  animation: flash-msg 1.2s ease;
+}
+
+@keyframes flash-msg {
+  0%,
+  100% {
+    background: transparent;
+  }
+
+  30% {
+    background: color-mix(in srgb, var(--color-primary) 16%, transparent);
+  }
+}
+
 .block:hover :deep(.actions),
 .block.open :deep(.actions),
 .block:focus-within :deep(.actions) {
@@ -580,9 +665,14 @@ onBeforeUnmount(() => {
   position: relative;
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 6px;
   width: fit-content;
   max-width: 100%;
+}
+
+.message-line.own .stack {
+  align-items: flex-end;
 }
 
 .meta {

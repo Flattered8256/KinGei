@@ -1,6 +1,6 @@
 <script setup lang="ts">
 const props = withDefaults(defineProps<{
-  name: 'chat' | 'friends' | 'settings' | 'home' | 'search' | 'plus' | 'send' | 'back' | 'close' | 'more' | 'down' | 'paperclip' | 'download' | 'play' | 'file' | 'trash'
+  name: 'chat' | 'friends' | 'settings' | 'home' | 'search' | 'plus' | 'send' | 'back' | 'close' | 'more' | 'down' | 'paperclip' | 'download' | 'play' | 'file' | 'trash' | 'reply'
   size?: number
 }>(), {
   size: 22,
@@ -75,6 +75,10 @@ const props = withDefaults(defineProps<{
       <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
       <path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12" />
       <path d="M10 11v6M14 11v6" />
+    </template>
+    <template v-else-if="props.name === 'reply'">
+      <path d="M3 10h10a5 5 0 0 1 5 5v2" />
+      <path d="M7 6 3 10l4 4" />
     </template>
     <template v-else>
       <circle cx="6" cy="12" r="1.4" fill="currentColor" stroke="none" />

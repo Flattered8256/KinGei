@@ -47,6 +47,11 @@ withDefaults(defineProps<{
 }
 
 .actions :slotted(button:hover:not(:disabled)) {
+  background: var(--bg-hover);
+  color: var(--color-text);
+}
+
+.actions :slotted(button.danger:hover:not(:disabled)) {
   background: var(--color-danger-bg);
   color: var(--color-danger);
 }

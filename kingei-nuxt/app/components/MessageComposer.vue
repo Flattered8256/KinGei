@@ -16,6 +16,8 @@ type PendingAttachment = {
 }
 
 const messages = useMessages()
+const chats = useChats()
+const users = useUserDirectory()
 const { isMobile } = useIsMobile()
 const toast = useToast()
 const { t } = useI18n()
@@ -26,6 +28,20 @@ const pending = ref<PendingAttachment | null>(null)
 const dragging = ref(false)
 let attachGen = 0
 let dragCount = 0
+
+const replyTo = computed(() => messages.replyTo.value)
+
+const replyTitle = computed(() => {
+  const target = replyTo.value
+  if (!target) {
+    return ''
+  }
+  const chatId = messages.currentId.value
+  const chat = chatId == null ? null : chats.chats.value.find(item => item.id === chatId)
+  const member = chat?.member.find(item => item.user.id === target.sender_id)?.user
+  const name = member?.username ?? users.get(target.sender_id)?.username ?? t('app.unknownUser')
+  return t('chat.replyTo', { name })
+})
 
 const canSend = computed(() => {
   if (messages.sending.value) {
@@ -228,8 +244,24 @@ function onDrop(event: DragEvent) {
   }
 }
 
+function onQuoteSelect() {
+  const target = replyTo.value
+  if (target) {
+    messages.reveal(target.id)
+  }
+}
+
 watch(draft, () => {
   nextTick(fit)
+})
+
+watch(replyTo, (target) => {
+  if (!target) {
+    return
+  }
+  nextTick(() => {
+    area.value?.focus()
+  })
 })
 
 watch(
@@ -262,6 +294,25 @@ onUnmounted(() => {
     @dragleave="onDragLeave"
     @drop="onDrop"
   >
+    <div
+      v-if="replyTo"
+      class="chip quote-chip"
+    >
+      <MessageReplyQuote
+        :title="replyTitle"
+        :message="replyTo"
+        @select="onQuoteSelect"
+      />
+      <button
+        type="button"
+        class="icon-btn remove"
+        :aria-label="$t('chat.cancelReply')"
+        :title="$t('chat.cancelReply')"
+        @click="messages.clearReply()"
+      >
+        <AppIcon name="close" :size="16" />
+      </button>
+    </div>
     <div
       v-if="pending"
       class="chip"
@@ -414,6 +465,15 @@ onUnmounted(() => {
   border: 1px solid var(--color-border);
   border-radius: 12px;
   background: var(--bg-muted);
+}
+
+.quote-chip {
+  padding: 4px 8px 4px 4px;
+}
+
+.quote-chip :deep(.quote) {
+  flex: 1;
+  min-width: 0;
 }
 
 .thumb {
