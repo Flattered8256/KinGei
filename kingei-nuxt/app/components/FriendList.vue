@@ -70,7 +70,7 @@ const listsEmpty = computed(() =>
     <div class="search">
       <input
         v-model="query"
-        class="input"
+        class="input input-search"
         :placeholder="$t('friends.searchPlaceholder')"
       >
     </div>

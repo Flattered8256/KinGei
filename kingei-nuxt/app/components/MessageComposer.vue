@@ -4,7 +4,7 @@ import {
   isImageType,
   uploadFile,
 } from '~/utils/api/file'
-import { formatFileSize } from '~/utils/display'
+import { formatFileSize, messagePreviewText } from '~/utils/display'
 
 type PendingAttachment = {
   file: File
@@ -41,6 +41,19 @@ const replyTitle = computed(() => {
   const member = chat?.member.find(item => item.user.id === target.sender_id)?.user
   const name = member?.username ?? users.get(target.sender_id)?.username ?? t('app.unknownUser')
   return t('chat.replyTo', { name })
+})
+
+const replyPreview = computed(() => {
+  const target = replyTo.value
+  if (!target) {
+    return ''
+  }
+  return messagePreviewText(target, {
+    image: t('chat.previewImage'),
+    video: t('chat.previewVideo'),
+    file: t('chat.previewFile'),
+    deleted: t('chat.messageDeleted'),
+  })
 })
 
 const canSend = computed(() => {
@@ -90,11 +103,16 @@ function clearPending() {
   disposePending()
 }
 
-function pick() {
+function pick(kind: 'image' | 'file') {
   if (messages.sending.value) {
     return
   }
-  fileInput.value?.click()
+  const el = fileInput.value
+  if (!el) {
+    return
+  }
+  el.accept = kind === 'image' ? 'image/*' : ''
+  el.click()
 }
 
 function onFile(event: Event) {
@@ -295,25 +313,6 @@ onUnmounted(() => {
     @drop="onDrop"
   >
     <div
-      v-if="replyTo"
-      class="chip quote-chip"
-    >
-      <MessageReplyQuote
-        :title="replyTitle"
-        :message="replyTo"
-        @select="onQuoteSelect"
-      />
-      <button
-        type="button"
-        class="icon-btn remove"
-        :aria-label="$t('chat.cancelReply')"
-        :title="$t('chat.cancelReply')"
-        @click="messages.clearReply()"
-      >
-        <AppIcon name="close" :size="16" />
-      </button>
-    </div>
-    <div
       v-if="pending"
       class="chip"
     >
@@ -352,36 +351,75 @@ onUnmounted(() => {
         <AppIcon name="close" :size="16" />
       </button>
     </div>
-    <div class="row">
-      <button
-        type="button"
-        class="icon-btn attach"
-        :disabled="messages.sending.value"
-        :aria-label="$t('chat.attach')"
-        :title="$t('chat.attach')"
-        @click="pick"
+    <div
+      class="box"
+      :class="{ 'has-reply': replyTo }"
+    >
+      <div
+        v-if="replyTo"
+        class="quote-chip"
       >
-        <AppIcon name="paperclip" :size="20" />
-      </button>
-      <div class="field-wrap">
+        <div
+          class="quote-pick"
+          role="button"
+          tabindex="0"
+          @click="onQuoteSelect"
+          @keydown.enter.prevent="onQuoteSelect"
+          @keydown.space.prevent="onQuoteSelect"
+        >
+          <span class="quote-accent" />
+          <span class="quote-name truncate">{{ replyTitle }}</span>
+          <span class="quote-text truncate">{{ replyPreview }}</span>
+        </div>
+        <button
+          type="button"
+          class="quote-close"
+          :aria-label="$t('chat.cancelReply')"
+          :title="$t('chat.cancelReply')"
+          @click="messages.clearReply()"
+        >
+          <AppIcon name="close" :size="12" />
+        </button>
+      </div>
+      <div class="row">
+        <button
+          type="button"
+          class="tool"
+          :disabled="messages.sending.value"
+          :aria-label="$t('chat.attachImage')"
+          :title="$t('chat.attachImage')"
+          @click="pick('image')"
+        >
+          <AppIcon name="image" :size="20" />
+        </button>
+        <button
+          type="button"
+          class="tool"
+          :disabled="messages.sending.value"
+          :aria-label="$t('chat.attachFile')"
+          :title="$t('chat.attachFile')"
+          @click="pick('file')"
+        >
+          <AppIcon name="file" :size="20" />
+        </button>
         <textarea
           ref="area"
           v-model="draft"
-          class="box"
+          class="area"
           rows="1"
           :placeholder="$t('chat.inputPlaceholder')"
           @keydown="onKeydown"
           @paste="onPaste"
         />
+        <button
+          class="send"
+          type="submit"
+          :disabled="!canSend"
+          :aria-label="$t('app.send')"
+        >
+          <AppIcon name="send" :size="16" />
+        </button>
       </div>
-      <button
-        class="send"
-        type="submit"
-        :disabled="!canSend"
-        :aria-label="$t('app.send')"
-      >
-        <AppIcon name="send" :size="18" />
-      </button>
     </div>
     <input
       ref="fileInput"
@@ -397,55 +435,149 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 12px 16px 16px;
+  padding: 12px 16px;
   border-top: 1px solid var(--color-border);
 }
 
-.composer.dragging {
-  background: var(--bg-hover);
+.composer.dragging .box {
+  border-color: var(--color-primary);
+}
+
+.box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 52px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-input);
+}
+
+.box.has-reply {
+  padding: 8px 12px;
+}
+
+.box:focus-within {
+  border-color: var(--color-primary);
+}
+
+.quote-chip {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 20px;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius-md);
+  background: var(--bg-muted);
+}
+
+[data-theme='dark'] .quote-chip {
+  background: var(--bg-panel);
+}
+
+.quote-pick {
+  display: grid;
+  grid-template-columns: 3px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: 8px;
+  row-gap: 2px;
+  align-items: center;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.quote-accent {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  width: 3px;
+  height: 28px;
+  border-radius: 2px;
+  background: var(--color-primary);
+}
+
+.quote-name,
+.quote-text {
+  grid-column: 2;
+  min-width: 0;
+  font-size: 12px;
+}
+
+.quote-name {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.quote-text {
+  color: var(--color-muted);
+}
+
+.quote-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--color-border);
+  color: var(--color-muted);
+}
+
+[data-theme='dark'] .quote-close {
+  background: var(--bg-active);
 }
 
 .row {
   display: flex;
   align-items: flex-end;
-  gap: 8px;
+  gap: 10px;
 }
 
-.attach {
-  width: 36px;
-  height: 36px;
+.tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
   flex-shrink: 0;
+  color: var(--color-section);
 }
 
-.field-wrap {
+.tool:hover:not(:disabled) {
+  color: var(--color-text);
+}
+
+.tool:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.area {
   flex: 1;
   min-width: 0;
-}
-
-.box {
-  display: block;
-  width: 100%;
-  min-height: 44px;
+  min-height: 32px;
   max-height: 120px;
-  padding: 10px 14px;
-  border: 1px solid var(--color-border);
-  border-radius: 22px;
-  background: var(--bg-input);
+  padding: 5px 0;
+  border: 0;
+  background: transparent;
   resize: none;
   overflow-y: auto;
 }
 
-.box:focus {
+.area:focus {
   outline: none;
-  border-color: var(--color-primary);
+}
+
+.area::placeholder {
+  color: var(--color-placeholder);
 }
 
 .send {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   flex-shrink: 0;
   border-radius: 50%;
   background: var(--color-primary);
@@ -460,20 +592,10 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: 0 44px 0 44px;
   padding: 8px;
   border: 1px solid var(--color-border);
   border-radius: 12px;
   background: var(--bg-muted);
-}
-
-.quote-chip {
-  padding: 4px 8px 4px 4px;
-}
-
-.quote-chip :deep(.quote) {
-  flex: 1;
-  min-width: 0;
 }
 
 .thumb {

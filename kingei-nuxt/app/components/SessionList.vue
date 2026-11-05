@@ -162,7 +162,7 @@ function onClickOutsideMenu() {
     >
       <input
         v-model="query"
-        class="input"
+        class="input input-search"
         :placeholder="$t('chat.searchPlaceholder')"
       >
     </div>

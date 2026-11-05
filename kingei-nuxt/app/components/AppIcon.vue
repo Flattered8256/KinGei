@@ -1,6 +1,6 @@
 <script setup lang="ts">
 const props = withDefaults(defineProps<{
-  name: 'chat' | 'friends' | 'settings' | 'home' | 'search' | 'plus' | 'send' | 'back' | 'close' | 'more' | 'down' | 'paperclip' | 'download' | 'play' | 'file' | 'trash' | 'reply'
+  name: 'chat' | 'friends' | 'settings' | 'home' | 'search' | 'plus' | 'send' | 'back' | 'close' | 'more' | 'down' | 'paperclip' | 'download' | 'play' | 'file' | 'image' | 'trash' | 'reply'
   size?: number
 }>(), {
   size: 22,
@@ -69,6 +69,11 @@ const props = withDefaults(defineProps<{
     <template v-else-if="props.name === 'file'">
       <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z" />
       <path d="M14 3v5h5" />
+    </template>
+    <template v-else-if="props.name === 'image'">
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <circle cx="8.5" cy="10.5" r="1.5" />
+      <path d="m21 15-5-5-4 4-2-2-5 5" />
     </template>
     <template v-else-if="props.name === 'trash'">
       <path d="M4 7h16" />

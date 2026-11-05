@@ -5,6 +5,7 @@ import { messagePreviewText } from '~/utils/display'
 const props = defineProps<{
   title: string
   message: Message
+  end?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -25,44 +26,75 @@ const preview = computed(() => messagePreviewText(props.message, {
   <button
     type="button"
     class="quote"
+    :class="{ end }"
     @click.stop="emit('select')"
   >
-    <span class="quote-name truncate">{{ title }}</span>
-    <span class="quote-text truncate">{{ preview }}</span>
+    <span class="accent" />
+    <span class="copy">
+      <span class="quote-name truncate">{{ title }}</span>
+      <span class="quote-text truncate">{{ preview }}</span>
+    </span>
   </button>
 </template>
 
 <style scoped>
 .quote {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  align-self: stretch;
-  min-width: 120px;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
   max-width: 100%;
   overflow: hidden;
-  padding: 6px 10px;
-  border: 0;
-  border-left: 3px solid var(--color-primary);
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+  padding: 6px 10px 6px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--bg-quote);
   color: inherit;
   font: inherit;
   text-align: left;
   cursor: pointer;
 }
 
-.quote-name {
+.quote.end {
+  flex-direction: row-reverse;
+  padding: 6px 8px 6px 10px;
+  text-align: right;
+}
+
+.accent {
+  width: 2px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: 2px;
+  background: var(--color-primary);
+}
+
+.copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+}
+
+.quote.end .copy {
+  align-items: flex-end;
+}
+
+.quote-name,
+.quote-text {
   max-width: 100%;
-  color: var(--color-primary);
   font-size: 12px;
+  line-height: 1.3;
+}
+
+.quote-name {
+  color: var(--color-primary);
   font-weight: 600;
 }
 
 .quote-text {
-  max-width: 100%;
-  color: var(--color-muted);
-  font-size: 12px;
+  color: var(--color-quote);
 }
 </style>

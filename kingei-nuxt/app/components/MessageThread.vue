@@ -416,6 +416,7 @@ onBeforeUnmount(() => {
                       v-if="item.reply_to"
                       :title="quoteTitle(item.reply_to)"
                       :message="item.reply_to"
+                      :end="!isOwn(item)"
                       @select="jumpToQuote(item)"
                     />
                     <MessageAttachment
@@ -666,7 +667,7 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 6px;
+  gap: 8px;
   width: fit-content;
   max-width: 100%;
 }
