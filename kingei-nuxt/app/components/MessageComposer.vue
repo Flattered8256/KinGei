@@ -351,37 +351,8 @@ onUnmounted(() => {
         <AppIcon name="close" :size="16" />
       </button>
     </div>
-    <div
-      class="box"
-      :class="{ 'has-reply': replyTo }"
-    >
-      <div
-        v-if="replyTo"
-        class="quote-chip"
-      >
-        <div
-          class="quote-pick"
-          role="button"
-          tabindex="0"
-          @click="onQuoteSelect"
-          @keydown.enter.prevent="onQuoteSelect"
-          @keydown.space.prevent="onQuoteSelect"
-        >
-          <span class="quote-accent" />
-          <span class="quote-name truncate">{{ replyTitle }}</span>
-          <span class="quote-text truncate">{{ replyPreview }}</span>
-        </div>
-        <button
-          type="button"
-          class="quote-close"
-          :aria-label="$t('chat.cancelReply')"
-          :title="$t('chat.cancelReply')"
-          @click="messages.clearReply()"
-        >
-          <AppIcon name="close" :size="12" />
-        </button>
-      </div>
-      <div class="row">
+    <div class="row">
+      <div class="tools">
         <button
           type="button"
           class="tool"
@@ -402,6 +373,34 @@ onUnmounted(() => {
         >
           <AppIcon name="file" :size="20" />
         </button>
+      </div>
+      <div class="box">
+        <div
+          v-if="replyTo"
+          class="quote-chip"
+        >
+          <div
+            class="quote-pick"
+            role="button"
+            tabindex="0"
+            @click="onQuoteSelect"
+            @keydown.enter.prevent="onQuoteSelect"
+            @keydown.space.prevent="onQuoteSelect"
+          >
+            <span class="quote-accent" />
+            <span class="quote-name truncate">{{ replyTitle }}</span>
+            <span class="quote-text truncate">{{ replyPreview }}</span>
+          </div>
+          <button
+            type="button"
+            class="quote-close"
+            :aria-label="$t('chat.cancelReply')"
+            :title="$t('chat.cancelReply')"
+            @click="messages.clearReply()"
+          >
+            <AppIcon name="close" :size="12" />
+          </button>
+        </div>
         <textarea
           ref="area"
           v-model="draft"
@@ -411,15 +410,15 @@ onUnmounted(() => {
           @keydown="onKeydown"
           @paste="onPaste"
         />
-        <button
-          class="send"
-          type="submit"
-          :disabled="!canSend"
-          :aria-label="$t('app.send')"
-        >
-          <AppIcon name="send" :size="16" />
-        </button>
       </div>
+      <button
+        class="send"
+        type="submit"
+        :disabled="!canSend"
+        :aria-label="$t('app.send')"
+      >
+        <AppIcon name="send" :size="16" />
+      </button>
     </div>
     <input
       ref="fileInput"
@@ -443,19 +442,29 @@ onUnmounted(() => {
   border-color: var(--color-primary);
 }
 
+.row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.tools {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
 .box {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 8px;
-  min-height: 52px;
-  padding: 10px 12px;
+  min-width: 0;
+  min-height: 40px;
+  padding: 8px 12px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   background: var(--bg-input);
-}
-
-.box.has-reply {
-  padding: 8px 12px;
 }
 
 .box:focus-within {
@@ -527,18 +536,12 @@ onUnmounted(() => {
   background: var(--bg-active);
 }
 
-.row {
-  display: flex;
-  align-items: flex-end;
-  gap: 10px;
-}
-
 .tool {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   flex-shrink: 0;
   color: var(--color-section);
 }
@@ -553,11 +556,11 @@ onUnmounted(() => {
 }
 
 .area {
-  flex: 1;
-  min-width: 0;
-  min-height: 32px;
+  display: block;
+  width: 100%;
+  min-height: 24px;
   max-height: 120px;
-  padding: 5px 0;
+  padding: 0;
   border: 0;
   background: transparent;
   resize: none;
@@ -576,8 +579,8 @@ onUnmounted(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   flex-shrink: 0;
   border-radius: 50%;
   background: var(--color-primary);
