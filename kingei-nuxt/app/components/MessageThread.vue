@@ -416,7 +416,6 @@ onBeforeUnmount(() => {
                       v-if="item.reply_to"
                       :title="quoteTitle(item.reply_to)"
                       :message="item.reply_to"
-                      :end="!isOwn(item)"
                       @select="jumpToQuote(item)"
                     />
                     <MessageAttachment

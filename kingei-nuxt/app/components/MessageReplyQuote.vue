@@ -5,7 +5,6 @@ import { messagePreviewText } from '~/utils/display'
 const props = defineProps<{
   title: string
   message: Message
-  end?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -26,7 +25,6 @@ const preview = computed(() => messagePreviewText(props.message, {
   <button
     type="button"
     class="quote"
-    :class="{ end }"
     @click.stop="emit('select')"
   >
     <span class="accent" />
@@ -56,12 +54,6 @@ const preview = computed(() => messagePreviewText(props.message, {
   cursor: pointer;
 }
 
-.quote.end {
-  flex-direction: row-reverse;
-  padding: 6px 8px 6px 10px;
-  text-align: right;
-}
-
 .accent {
   width: 2px;
   height: 26px;
@@ -76,10 +68,6 @@ const preview = computed(() => messagePreviewText(props.message, {
   align-items: flex-start;
   gap: 2px;
   min-width: 0;
-}
-
-.quote.end .copy {
-  align-items: flex-end;
 }
 
 .quote-name,
