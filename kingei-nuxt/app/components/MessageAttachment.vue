@@ -181,7 +181,8 @@ async function download() {
   display: flex;
   align-items: center;
   gap: 10px;
-  width: min(260px, 100%);
+  width: 260px;
+  max-width: 100%;
   padding: 10px 8px 10px 12px;
   border-radius: 12px;
   background: var(--color-bubble-other);
