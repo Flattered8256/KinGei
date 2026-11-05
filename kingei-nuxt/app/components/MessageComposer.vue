@@ -103,16 +103,11 @@ function clearPending() {
   disposePending()
 }
 
-function pick(kind: 'image' | 'file') {
+function pick() {
   if (messages.sending.value) {
     return
   }
-  const el = fileInput.value
-  if (!el) {
-    return
-  }
-  el.accept = kind === 'image' ? 'image/*' : ''
-  el.click()
+  fileInput.value?.click()
 }
 
 function onFile(event: Event) {
@@ -352,28 +347,16 @@ onUnmounted(() => {
       </button>
     </div>
     <div class="row">
-      <div class="tools">
-        <button
-          type="button"
-          class="tool"
-          :disabled="messages.sending.value"
-          :aria-label="$t('chat.attachImage')"
-          :title="$t('chat.attachImage')"
-          @click="pick('image')"
-        >
-          <AppIcon name="image" :size="20" />
-        </button>
-        <button
-          type="button"
-          class="tool"
-          :disabled="messages.sending.value"
-          :aria-label="$t('chat.attachFile')"
-          :title="$t('chat.attachFile')"
-          @click="pick('file')"
-        >
-          <AppIcon name="file" :size="20" />
-        </button>
-      </div>
+      <button
+        type="button"
+        class="tool"
+        :disabled="messages.sending.value"
+        :aria-label="$t('chat.attach')"
+        :title="$t('chat.attach')"
+        @click="pick"
+      >
+        <AppIcon name="paperclip" :size="20" />
+      </button>
       <div class="box">
         <div
           v-if="replyTo"
@@ -446,12 +429,6 @@ onUnmounted(() => {
   display: flex;
   align-items: flex-end;
   gap: 8px;
-}
-
-.tools {
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
 }
 
 .box {
