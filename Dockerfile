@@ -14,9 +14,9 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         pkg-config cmake clang perl build-essential \
     && rm -rf /var/lib/apt/lists/*
-COPY kingei-rust/Cargo.toml kingei-rust/Cargo.lock ./
-COPY kingei-rust/src ./src
-COPY kingei-rust/migrations ./migrations
+COPY kingei-axum/Cargo.toml kingei-axum/Cargo.lock ./
+COPY kingei-axum/src ./src
+COPY kingei-axum/migrations ./migrations
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/app/target \
     cargo build --release --no-default-features --features ${DB_BACKEND} \
