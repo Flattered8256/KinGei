@@ -1,23 +1,33 @@
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use chrono::{Duration, Utc};
+use tempfile::TempDir;
 use uuid::Uuid;
 
 use crate::error::AppError;
 use crate::error::file::FileError;
 use crate::model::file::{File, FileStatus};
-use crate::repository::file::{FileRepository, NewThumbnail, ReadyMedia};
-use crate::serializer::file::{
-    CreateFileRequest, FileResponse, PresignDownloadResponse, PresignUploadResponse,
-};
-use crate::storage::{ObjectStream, PRESIGN_TTL, Storage, parse_bytes_range};
+use crate::repository::file::{FileRepository, NewFile, NewThumbnail, ReadyMedia};
+use crate::serializer::file::FileResponse;
+use crate::storage::{ObjectStream, Storage, parse_bytes_range};
 use crate::utils::media::{media_kind_from_content_type, probe_path, write_thumbnail};
 
 const MAX_NAME_CHARS: usize = 255;
+const DEFAULT_CONTENT_TYPE: &str = "application/octet-stream";
 
 pub struct FileService {
     repo: Arc<FileRepository>,
     storage: Storage,
+}
+
+/// 上传请求已落盘的部分，传输层（multipart）与业务层之间的边界。
+#[derive(Debug)]
+pub struct ReceivedUpload {
+    pub dir: TempDir,
+    pub source: PathBuf,
+    pub name: String,
+    pub content_type: String,
+    pub size: i64,
 }
 
 impl FileService {
@@ -25,129 +35,97 @@ impl FileService {
         Self { repo, storage }
     }
 
-    pub async fn create(
+    pub async fn store(
         &self,
         owner_id: Uuid,
-        request: CreateFileRequest,
-    ) -> Result<PresignUploadResponse, AppError> {
-        let name = request.name.trim();
+        upload: ReceivedUpload,
+    ) -> Result<FileResponse, AppError> {
+        let name = upload.name.trim();
         if name.is_empty() {
             return Err(AppError::File(FileError::EmptyName));
         }
         if name.chars().count() > MAX_NAME_CHARS {
             return Err(AppError::File(FileError::FileNameTooLong));
         }
-        if request.size <= 0 {
+        if upload.size <= 0 {
             return Err(AppError::File(FileError::InvalidSize));
         }
 
-        let content_type = request
-            .content_type
-            .as_deref()
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .unwrap_or("application/octet-stream")
-            .to_string();
+        let content_type = normalize_content_type(&upload.content_type);
+        let (media, thumbnail_path) = self
+            .probe_media(&upload.source, &content_type, &upload.dir)
+            .await;
 
         let object_key = format!("{}/{}", owner_id, Uuid::new_v4());
-        let file = self
-            .repo
-            .create(
-                owner_id,
-                &object_key,
-                name,
-                &content_type,
-                request.size,
-                FileStatus::Pending,
-            )
+        let size = self
+            .storage
+            .put_object(&object_key, &content_type, &upload.source)
             .await?;
 
-        let upload_url = match self
-            .storage
-            .presign_put(&file.object_key, &file.content_type, file.size)
-            .await
-        {
-            Ok(url) => url,
+        let thumbnail = self.upload_thumbnail(owner_id, thumbnail_path).await;
+        let thumbnail_key = thumbnail.as_ref().map(|item| item.object_key.clone());
+
+        let new_file = NewFile {
+            owner_id,
+            object_key: object_key.clone(),
+            name: name.to_string(),
+            content_type: content_type.clone(),
+            size,
+        };
+
+        match self.repo.create_ready(new_file, media, thumbnail).await {
+            Ok((file, saved_media)) => Ok(FileResponse::from(file, saved_media)),
             Err(e) => {
-                if let Err(delete_err) = self.repo.delete(file.id).await {
-                    tracing::error!(?delete_err, "compensate delete failed");
+                self.cleanup_object(&object_key).await;
+                if let Some(key) = thumbnail_key {
+                    self.cleanup_object(&key).await;
                 }
-                return Err(AppError::Storage(e));
+                Err(AppError::Database(e))
             }
-        };
-
-        Ok(PresignUploadResponse {
-            id: file.id,
-            name: file.name,
-            content_type: file.content_type,
-            size: file.size,
-            upload_url,
-            expires_at: Utc::now() + Duration::seconds(PRESIGN_TTL.as_secs() as i64),
-        })
+        }
     }
 
-    pub async fn complete(&self, user_id: Uuid, id: i64) -> Result<FileResponse, AppError> {
-        let file = self
-            .repo
-            .find_by_id(id)
-            .await?
-            .ok_or(AppError::File(FileError::FileNotFound))?;
-
-        if file.owner_id != user_id {
-            return Err(AppError::File(FileError::NotOwner));
-        }
-
-        if file.status == FileStatus::Ready {
-            return self.to_response(file).await;
-        }
-
-        let meta = match self.storage.head_object(&file.object_key).await {
-            Ok(Some(meta)) => meta,
-            Ok(None) => return Err(AppError::File(FileError::UploadIncomplete)),
-            Err(e) => return Err(AppError::Storage(e)),
-        };
-
-        if meta.content_length != file.size {
-            return Err(AppError::File(FileError::SizeMismatch));
-        }
-
-        let (media, thumbnail) = self.probe_and_thumb(&file).await;
-        let (updated, saved_media) = self
-            .repo
-            .mark_ready(file.id, media, thumbnail)
-            .await?
-            .ok_or(AppError::File(FileError::FileNotFound))?;
-        Ok(FileResponse::from(updated, saved_media))
-    }
-
-    async fn to_response(&self, file: File) -> Result<FileResponse, AppError> {
-        let media = self.repo.find_media(file.id).await?;
-        Ok(FileResponse::from(file, media))
-    }
-
-    async fn probe_and_thumb(&self, file: &File) -> (Option<ReadyMedia>, Option<NewThumbnail>) {
-        let Some(kind) = media_kind_from_content_type(&file.content_type) else {
-            return (None, None);
-        };
-
-        let dir = match tempfile::TempDir::new() {
-            Ok(dir) => dir,
-            Err(e) => {
-                tracing::error!(?e, "media tempdir failed");
-                return (None, None);
-            }
-        };
-        let source = dir.path().join("source");
-        if let Err(e) = self
+    async fn upload_thumbnail(
+        &self,
+        owner_id: Uuid,
+        path: Option<PathBuf>,
+    ) -> Option<NewThumbnail> {
+        let path = path?;
+        let object_key = format!("{}/{}", owner_id, Uuid::new_v4());
+        match self
             .storage
-            .get_object_to_path(&file.object_key, &source)
+            .put_object(&object_key, "image/jpeg", &path)
             .await
         {
-            tracing::error!(?e, file_id = file.id, "download for probe failed");
-            return (None, None);
+            Ok(size) => Some(NewThumbnail {
+                owner_id,
+                object_key,
+                size,
+            }),
+            Err(e) => {
+                tracing::error!(?e, "thumbnail upload failed");
+                None
+            }
         }
+    }
 
-        let source_for_probe = source.clone();
+    async fn cleanup_object(&self, key: &str) {
+        if let Err(e) = self.storage.delete_object(key).await {
+            tracing::error!(?e, key, "compensate delete failed");
+        }
+    }
+
+    async fn probe_media(
+        &self,
+        source: &Path,
+        content_type: &str,
+        dir: &TempDir,
+    ) -> (Option<ReadyMedia>, Option<PathBuf>) {
+        let Some(kind) = media_kind_from_content_type(content_type) else {
+            return (None, None);
+        };
+
+        let source_for_probe = source.to_path_buf();
         let probed =
             match tokio::task::spawn_blocking(move || probe_path(&source_for_probe, kind)).await {
                 Ok(value) => value,
@@ -167,7 +145,7 @@ impl FileService {
         };
 
         let thumb_path = dir.path().join("thumbnail.jpg");
-        let source_for_thumb = source.clone();
+        let source_for_thumb = source.to_path_buf();
         let dest_for_thumb = thumb_path.clone();
         let width = probe.width;
         let height = probe.height;
@@ -178,7 +156,7 @@ impl FileService {
         {
             Ok(Ok(())) => true,
             Ok(Err(e)) => {
-                tracing::error!(error = %e, file_id = file.id, "ffmpeg thumbnail failed");
+                tracing::error!(error = %e, "ffmpeg thumbnail failed");
                 false
             }
             Err(e) => {
@@ -187,55 +165,11 @@ impl FileService {
             }
         };
 
-        if !thumb_ok {
-            return (Some(media), None);
+        if thumb_ok {
+            (Some(media), Some(thumb_path))
+        } else {
+            (Some(media), None)
         }
-
-        let object_key = format!("{}/{}", file.owner_id, Uuid::new_v4());
-        match self
-            .storage
-            .put_object(&object_key, "image/jpeg", &thumb_path)
-            .await
-        {
-            Ok(size) => (
-                Some(media),
-                Some(NewThumbnail {
-                    owner_id: file.owner_id,
-                    object_key,
-                    size,
-                }),
-            ),
-            Err(e) => {
-                tracing::error!(?e, file_id = file.id, "thumbnail upload failed");
-                (Some(media), None)
-            }
-        }
-    }
-
-    pub async fn download(&self, id: i64) -> Result<PresignDownloadResponse, AppError> {
-        let file = self
-            .repo
-            .find_by_id(id)
-            .await?
-            .ok_or(AppError::File(FileError::FileNotFound))?;
-
-        if file.status != FileStatus::Ready {
-            return Err(AppError::File(FileError::FileNotReady));
-        }
-
-        let download_url = self
-            .storage
-            .presign_get(&file.object_key, &file.content_type, &file.name)
-            .await?;
-
-        Ok(PresignDownloadResponse {
-            id: file.id,
-            name: file.name,
-            content_type: file.content_type,
-            size: file.size,
-            download_url,
-            expires_at: Utc::now() + Duration::seconds(PRESIGN_TTL.as_secs() as i64),
-        })
     }
 
     pub async fn content(
@@ -271,6 +205,20 @@ pub struct FileContent {
     pub file: File,
     pub object: ObjectStream,
     pub ranged: bool,
+}
+
+fn normalize_content_type(raw: &str) -> String {
+    let value: String = raw
+        .trim()
+        .chars()
+        .filter(|c| !c.is_control())
+        .take(255)
+        .collect();
+    if value.is_empty() {
+        DEFAULT_CONTENT_TYPE.to_string()
+    } else {
+        value
+    }
 }
 
 const IMAGE_CONTENT_TYPES: &[&str] = &["image/jpeg", "image/png", "image/webp", "image/gif"];

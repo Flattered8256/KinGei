@@ -11,14 +11,16 @@ pub enum FileError {
     FileNameTooLong,
     #[error("InvalidSize")]
     InvalidSize,
+    #[error("InvalidMultipart")]
+    InvalidMultipart,
+    #[error("MissingFile")]
+    MissingFile,
+    #[error("FileTooLarge")]
+    FileTooLarge,
     #[error("FileNotFound")]
     FileNotFound,
     #[error("NotOwner")]
     NotOwner,
-    #[error("UploadIncomplete")]
-    UploadIncomplete,
-    #[error("SizeMismatch")]
-    SizeMismatch,
     #[error("FileNotReady")]
     FileNotReady,
     #[error("InvalidImage")]
@@ -36,10 +38,11 @@ impl IntoResponse for FileError {
             FileError::EmptyName => (StatusCode::BAD_REQUEST, self.to_string()),
             FileError::FileNameTooLong => (StatusCode::BAD_REQUEST, self.to_string()),
             FileError::InvalidSize => (StatusCode::BAD_REQUEST, self.to_string()),
+            FileError::InvalidMultipart => (StatusCode::BAD_REQUEST, self.to_string()),
+            FileError::MissingFile => (StatusCode::BAD_REQUEST, self.to_string()),
+            FileError::FileTooLarge => (StatusCode::PAYLOAD_TOO_LARGE, self.to_string()),
             FileError::FileNotFound => (StatusCode::NOT_FOUND, self.to_string()),
             FileError::NotOwner => (StatusCode::FORBIDDEN, self.to_string()),
-            FileError::UploadIncomplete => (StatusCode::BAD_REQUEST, self.to_string()),
-            FileError::SizeMismatch => (StatusCode::BAD_REQUEST, self.to_string()),
             FileError::FileNotReady => (StatusCode::BAD_REQUEST, self.to_string()),
             FileError::InvalidImage => (StatusCode::BAD_REQUEST, self.to_string()),
         };

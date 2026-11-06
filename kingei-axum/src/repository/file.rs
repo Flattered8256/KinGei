@@ -18,6 +18,14 @@ pub struct NewThumbnail {
     pub size: i64,
 }
 
+pub struct NewFile {
+    pub owner_id: Uuid,
+    pub object_key: String,
+    pub name: String,
+    pub content_type: String,
+    pub size: i64,
+}
+
 pub struct FileRepository {
     pool: DbPool,
 }
@@ -27,31 +35,80 @@ impl FileRepository {
         Self { pool }
     }
 
-    pub async fn create(
+    /// 上传完成时一次写入缩略图、主文件和 media 行，避免出现半成品。
+    pub async fn create_ready(
         &self,
-        owner_id: Uuid,
-        object_key: &str,
-        name: &str,
-        content_type: &str,
-        size: i64,
-        status: FileStatus,
-    ) -> Result<File, sqlx::Error> {
-        sqlx::query_as::<_, File>(
+        new_file: NewFile,
+        media: Option<ReadyMedia>,
+        thumbnail: Option<NewThumbnail>,
+    ) -> Result<(File, Option<Media>), sqlx::Error> {
+        let mut tx = self.pool.begin().await?;
+
+        let thumbnail_id = if media.is_some()
+            && let Some(thumb) = thumbnail
+        {
+            let created = sqlx::query_as::<_, File>(
+                r#"
+                INSERT INTO file(owner_id, object_key, name, content_type, size, status, created_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                RETURNING id, owner_id, object_key, name, content_type, size, status, created_at
+                "#,
+            )
+            .bind(thumb.owner_id)
+            .bind(&thumb.object_key)
+            .bind("thumbnail.jpg")
+            .bind("image/jpeg")
+            .bind(thumb.size)
+            .bind(FileStatus::Ready)
+            .bind(Utc::now())
+            .fetch_one(&mut *tx)
+            .await?;
+            Some(created.id)
+        } else {
+            None
+        };
+
+        let file = sqlx::query_as::<_, File>(
             r#"
             INSERT INTO file(owner_id, object_key, name, content_type, size, status, created_at)
             VALUES ($1, $2, $3, $4, $5, $6, $7)
             RETURNING id, owner_id, object_key, name, content_type, size, status, created_at
             "#,
         )
-        .bind(owner_id)
-        .bind(object_key)
-        .bind(name)
-        .bind(content_type)
-        .bind(size)
-        .bind(status)
+        .bind(new_file.owner_id)
+        .bind(new_file.object_key)
+        .bind(new_file.name)
+        .bind(new_file.content_type)
+        .bind(new_file.size)
+        .bind(FileStatus::Ready)
         .bind(Utc::now())
-        .fetch_one(&self.pool)
-        .await
+        .fetch_one(&mut *tx)
+        .await?;
+
+        let saved_media = if let Some(media) = media {
+            let saved = sqlx::query_as::<_, Media>(
+                r#"
+                INSERT INTO media(file_id, kind, width, height, duration_ms, thumbnail_id, created_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                RETURNING file_id, kind, width, height, duration_ms, thumbnail_id, created_at
+                "#,
+            )
+            .bind(file.id)
+            .bind(media.kind)
+            .bind(media.width)
+            .bind(media.height)
+            .bind(media.duration_ms)
+            .bind(thumbnail_id)
+            .bind(Utc::now())
+            .fetch_one(&mut *tx)
+            .await?;
+            Some(saved)
+        } else {
+            None
+        };
+
+        tx.commit().await?;
+        Ok((file, saved_media))
     }
 
     pub async fn find_by_id(&self, id: i64) -> Result<Option<File>, sqlx::Error> {
@@ -128,77 +185,6 @@ impl FileRepository {
             .await
     }
 
-    pub async fn mark_ready(
-        &self,
-        id: i64,
-        media: Option<ReadyMedia>,
-        thumbnail: Option<NewThumbnail>,
-    ) -> Result<Option<(File, Option<Media>)>, sqlx::Error> {
-        let mut tx = self.pool.begin().await?;
-
-        let thumbnail_id = if media.is_some()
-            && let Some(thumb) = thumbnail
-        {
-            let created = sqlx::query_as::<_, File>(
-                r#"
-                INSERT INTO file(owner_id, object_key, name, content_type, size, status, created_at)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
-                RETURNING id, owner_id, object_key, name, content_type, size, status, created_at
-                "#,
-            )
-            .bind(thumb.owner_id)
-            .bind(&thumb.object_key)
-            .bind("thumbnail.jpg")
-            .bind("image/jpeg")
-            .bind(thumb.size)
-            .bind(FileStatus::Ready)
-            .bind(Utc::now())
-            .fetch_one(&mut *tx)
-            .await?;
-            Some(created.id)
-        } else {
-            None
-        };
-
-        let saved_media = if let Some(media) = media {
-            let saved = sqlx::query_as::<_, Media>(
-                r#"
-                INSERT INTO media(file_id, kind, width, height, duration_ms, thumbnail_id, created_at)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
-                RETURNING file_id, kind, width, height, duration_ms, thumbnail_id, created_at
-                "#,
-            )
-            .bind(id)
-            .bind(media.kind)
-            .bind(media.width)
-            .bind(media.height)
-            .bind(media.duration_ms)
-            .bind(thumbnail_id)
-            .bind(Utc::now())
-            .fetch_one(&mut *tx)
-            .await?;
-            Some(saved)
-        } else {
-            None
-        };
-
-        let updated = sqlx::query_as::<_, File>(
-            r#"
-            UPDATE file
-            SET status = $1
-            WHERE id = $2
-            RETURNING id, owner_id, object_key, name, content_type, size, status, created_at
-            "#,
-        )
-        .bind(FileStatus::Ready)
-        .bind(id)
-        .fetch_optional(&mut *tx)
-        .await?;
-
-        tx.commit().await?;
-        Ok(updated.map(|file| (file, saved_media)))
-    }
-
     pub async fn list_object_keys_by_owner(
         &self,
         owner_id: Uuid,
@@ -212,18 +198,5 @@ impl FileRepository {
         .bind(owner_id)
         .fetch_all(&self.pool)
         .await
-    }
-
-    pub async fn delete(&self, id: i64) -> Result<(), sqlx::Error> {
-        sqlx::query(
-            r#"
-            DELETE FROM file
-            WHERE id = $1
-            "#,
-        )
-        .bind(id)
-        .execute(&self.pool)
-        .await?;
-        Ok(())
     }
 }

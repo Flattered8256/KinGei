@@ -1,20 +1,12 @@
 use std::env;
 use std::path::Path;
-use std::time::Duration;
 
 use aws_config::BehaviorVersion;
 use aws_sdk_s3::Client;
 use aws_sdk_s3::config::{
     Credentials, Region, RequestChecksumCalculation, ResponseChecksumValidation,
 };
-use aws_sdk_s3::error::SdkError;
-use aws_sdk_s3::operation::head_object::HeadObjectError;
-use aws_sdk_s3::presigning::PresigningConfig;
 use aws_sdk_s3::primitives::ByteStream;
-use aws_sdk_s3::types::{CorsConfiguration, CorsRule};
-use tokio::io::AsyncWriteExt;
-
-pub const PRESIGN_TTL: Duration = Duration::from_secs(15 * 60);
 
 #[derive(Debug)]
 pub struct StorageError(pub String);
@@ -30,13 +22,11 @@ impl std::error::Error for StorageError {}
 #[derive(Clone)]
 pub struct Storage {
     client: Client,
-    presign: Client,
     bucket: String,
 }
 
 struct StorageConfig {
     endpoint: String,
-    public_endpoint: String,
     access_key: String,
     secret_key: String,
     bucket: String,
@@ -47,11 +37,8 @@ struct StorageConfig {
 
 impl StorageConfig {
     fn from_env() -> Self {
-        let endpoint = require_env("S3_ENDPOINT");
-        let public_endpoint = env::var("S3_PUBLIC_ENDPOINT").unwrap_or_else(|_| endpoint.clone());
         Self {
-            endpoint,
-            public_endpoint,
+            endpoint: require_env("S3_ENDPOINT"),
             access_key: require_env("S3_ACCESS_KEY"),
             secret_key: require_env("S3_SECRET_KEY"),
             bucket: require_env("S3_BUCKET"),
@@ -73,18 +60,6 @@ impl Storage {
             config.path_style,
         )
         .await;
-        let presign = if config.public_endpoint == config.endpoint {
-            client.clone()
-        } else {
-            s3_client(
-                &config.public_endpoint,
-                &config.access_key,
-                &config.secret_key,
-                &config.region,
-                config.path_style,
-            )
-            .await
-        };
 
         if config.manage_bucket {
             ensure_bucket(&client, &config.bucket).await;
@@ -100,79 +75,13 @@ impl Storage {
         tracing::info!(
             bucket = %config.bucket,
             endpoint = %config.endpoint,
-            public_endpoint = %config.public_endpoint,
             path_style = config.path_style,
             manage_bucket = config.manage_bucket,
             "s3 connected"
         );
         Self {
             client,
-            presign,
             bucket: config.bucket,
-        }
-    }
-
-    pub async fn presign_put(
-        &self,
-        key: &str,
-        content_type: &str,
-        size: i64,
-    ) -> Result<String, StorageError> {
-        let presigning =
-            PresigningConfig::expires_in(PRESIGN_TTL).map_err(|e| StorageError(e.to_string()))?;
-        let presigned = self
-            .presign
-            .put_object()
-            .bucket(&self.bucket)
-            .key(key)
-            .content_type(content_type)
-            .content_length(size)
-            .presigned(presigning)
-            .await
-            .map_err(|e| StorageError(format!("{e:?}")))?;
-        Ok(presigned.uri().to_string())
-    }
-
-    pub async fn presign_get(
-        &self,
-        key: &str,
-        content_type: &str,
-        filename: &str,
-    ) -> Result<String, StorageError> {
-        let presigning =
-            PresigningConfig::expires_in(PRESIGN_TTL).map_err(|e| StorageError(e.to_string()))?;
-        let presigned = self
-            .presign
-            .get_object()
-            .bucket(&self.bucket)
-            .key(key)
-            .response_content_type(content_type)
-            .response_content_disposition(&content_disposition(filename, false))
-            .presigned(presigning)
-            .await
-            .map_err(|e| StorageError(format!("{e:?}")))?;
-        Ok(presigned.uri().to_string())
-    }
-
-    pub async fn head_object(&self, key: &str) -> Result<Option<ObjectMeta>, StorageError> {
-        match self
-            .client
-            .head_object()
-            .bucket(&self.bucket)
-            .key(key)
-            .send()
-            .await
-        {
-            Ok(output) => Ok(Some(ObjectMeta {
-                content_length: output.content_length().unwrap_or(0),
-            })),
-            Err(e) => {
-                if is_not_found(&e) {
-                    Ok(None)
-                } else {
-                    Err(StorageError(format!("{e:?}")))
-                }
-            }
         }
     }
 
@@ -194,29 +103,6 @@ impl Storage {
             content_range: output.content_range().map(str::to_string),
             body: output.body,
         })
-    }
-
-    pub async fn get_object_to_path(&self, key: &str, path: &Path) -> Result<(), StorageError> {
-        let object = self
-            .client
-            .get_object()
-            .bucket(&self.bucket)
-            .key(key)
-            .send()
-            .await
-            .map_err(|e| StorageError(format!("{e:?}")))?;
-        let mut reader = object.body.into_async_read();
-        let mut writer = tokio::fs::File::create(path)
-            .await
-            .map_err(|e| StorageError(e.to_string()))?;
-        tokio::io::copy(&mut reader, &mut writer)
-            .await
-            .map_err(|e| StorageError(e.to_string()))?;
-        writer
-            .flush()
-            .await
-            .map_err(|e| StorageError(e.to_string()))?;
-        Ok(())
     }
 
     pub async fn delete_object(&self, key: &str) -> Result<(), StorageError> {
@@ -255,10 +141,6 @@ impl Storage {
             .map_err(|e| StorageError(format!("{e:?}")))?;
         Ok(size)
     }
-}
-
-pub struct ObjectMeta {
-    pub content_length: i64,
 }
 
 pub struct ObjectStream {
@@ -316,30 +198,6 @@ async fn ensure_bucket(client: &Client, bucket: &str) {
             .await
             .expect("创建S3 bucket失败");
     }
-
-    let cors = CorsConfiguration::builder()
-        .cors_rules(
-            CorsRule::builder()
-                .allowed_methods("PUT")
-                .allowed_methods("GET")
-                .allowed_methods("HEAD")
-                .allowed_origins("*")
-                .allowed_headers("*")
-                .expose_headers("ETag")
-                .expose_headers("Content-Length")
-                .expose_headers("Content-Range")
-                .build()
-                .expect("构造S3 CORS规则失败"),
-        )
-        .build()
-        .expect("构造S3 CORS配置失败");
-    client
-        .put_bucket_cors()
-        .bucket(bucket)
-        .cors_configuration(cors)
-        .send()
-        .await
-        .expect("设置S3 bucket CORS失败");
 }
 
 async fn s3_client(
@@ -362,18 +220,6 @@ async fn s3_client(
         .response_checksum_validation(ResponseChecksumValidation::WhenRequired)
         .build();
     Client::from_conf(config)
-}
-
-fn is_not_found(error: &SdkError<HeadObjectError>) -> bool {
-    if error
-        .as_service_error()
-        .is_some_and(HeadObjectError::is_not_found)
-    {
-        return true;
-    }
-    error
-        .raw_response()
-        .is_some_and(|response| response.status().as_u16() == 404)
 }
 
 pub fn content_disposition(filename: &str, inline: bool) -> String {
