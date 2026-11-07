@@ -62,13 +62,10 @@ export {
 } from './admin'
 
 export {
-  completeFile,
-  createFile,
-  downloadFile,
+  fileDownloadUrl,
   isAbortError,
   isImageType,
   isVideoType,
-  putToPresign,
   uploadFile,
   uploadImage,
 } from './file'

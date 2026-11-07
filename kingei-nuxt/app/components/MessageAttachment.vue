@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { FileResponse } from '~/types/api'
-import { downloadFile } from '~/utils/api/file'
+import { fileDownloadUrl } from '~/utils/api/file'
 import { attachmentKind, formatDuration, formatFileSize, mediaBox } from '~/utils/display'
 
 const props = withDefaults(defineProps<{
@@ -15,8 +15,6 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const toast = useToast()
-const downloading = ref(false)
 const broken = ref(false)
 const retried = ref(false)
 
@@ -55,27 +53,14 @@ function onError() {
   broken.value = true
 }
 
-async function download() {
-  if (downloading.value) {
-    return
-  }
-  downloading.value = true
-  try {
-    const result = await downloadFile(props.file.id)
-    const link = document.createElement('a')
-    link.href = result.download_url
-    link.rel = 'noopener'
-    link.target = '_blank'
-    document.body.append(link)
-    link.click()
-    link.remove()
-  }
-  catch (err) {
-    toast.error(err)
-  }
-  finally {
-    downloading.value = false
-  }
+function download() {
+  const link = document.createElement('a')
+  link.href = fileDownloadUrl(props.file.id)
+  link.rel = 'noopener'
+  link.target = '_blank'
+  document.body.append(link)
+  link.click()
+  link.remove()
 }
 </script>
 
@@ -123,7 +108,6 @@ async function download() {
     <button
       type="button"
       class="icon-btn download"
-      :disabled="downloading"
       :aria-label="t('chat.download')"
       :title="t('chat.download')"
       @click="download"

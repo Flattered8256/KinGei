@@ -1,12 +1,9 @@
-import type {
-  CreateFileRequest,
-  FileResponse,
-  PresignDownloadResponse,
-  PresignUploadResponse,
-} from '~/types/api'
+import type { FileResponse } from '~/types/api'
 import { ApiError } from './error'
-import { apiFetch } from './http'
+import { refreshSession } from './http'
+import { getAccessToken, getRefreshToken } from './session'
 
+const API_BASE = '/api'
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 const VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm']
 
@@ -18,21 +15,8 @@ export type UploadFileOptions = {
   signal?: AbortSignal
 }
 
-export function createFile(body: CreateFileRequest) {
-  return apiFetch<PresignUploadResponse>('/file', {
-    method: 'POST',
-    body,
-  })
-}
-
-export function completeFile(id: number) {
-  return apiFetch<FileResponse>(`/file/${id}/complete`, {
-    method: 'POST',
-  })
-}
-
-export function downloadFile(id: number) {
-  return apiFetch<PresignDownloadResponse>(`/file/${id}/download`)
+export function fileDownloadUrl(id: number) {
+  return `${API_BASE}/file/${id}/download`
 }
 
 function mimeOf(type: string) {
@@ -51,77 +35,133 @@ export function isAbortError(error: unknown) {
   return error instanceof DOMException && error.name === 'AbortError'
 }
 
-export function putToPresign(
-  url: string,
-  data: Blob,
-  contentType: string,
-  onProgress?: (percent: number) => void,
-  signal?: AbortSignal,
-) {
-  return new Promise<void>((resolve, reject) => {
-    if (signal?.aborted) {
+function parseUpload(xhr: XMLHttpRequest): FileResponse | null {
+  try {
+    const data = JSON.parse(xhr.responseText) as Partial<FileResponse>
+    return typeof data.id === 'number' ? (data as FileResponse) : null
+  }
+  catch {
+    return null
+  }
+}
+
+function uploadError(xhr: XMLHttpRequest): ApiError {
+  const status = xhr.status >= 400 ? xhr.status : 500
+  if (status === 413) {
+    return new ApiError(status, 'FileTooLarge')
+  }
+  try {
+    const data = JSON.parse(xhr.responseText) as { code?: unknown }
+    if (typeof data.code === 'string') {
+      return new ApiError(status, data.code)
+    }
+  }
+  catch {
+    // 代理或网关可能返回非 JSON 错误页
+  }
+  return new ApiError(status, 'InternalServerError')
+}
+
+function uploadOnce(file: File, options: UploadFileOptions) {
+  return new Promise<FileResponse>((resolve, reject) => {
+    if (options.signal?.aborted) {
       reject(new DOMException('Aborted', 'AbortError'))
       return
     }
 
     const xhr = new XMLHttpRequest()
-    xhr.open('PUT', url)
-    xhr.setRequestHeader('Content-Type', contentType)
+    xhr.open('POST', `${API_BASE}/file`)
+    xhr.withCredentials = true
+
+    let done = false
+    const token = getAccessToken()
+    if (token) {
+      xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+    }
 
     xhr.upload.onprogress = (event) => {
-      if (!event.lengthComputable || !onProgress) {
+      if (done || !event.lengthComputable || !options.onProgress) {
         return
       }
-      onProgress(Math.round((event.loaded / event.total) * 100))
+      options.onProgress(Math.min(99, Math.round((event.loaded / event.total) * 100)))
+    }
+
+    xhr.upload.onload = () => {
+      if (done) {
+        return
+      }
+      options.onProgress?.(100)
+      options.onPhase?.('processing')
     }
 
     xhr.onload = () => {
+      done = true
       if (xhr.status >= 200 && xhr.status < 300) {
-        onProgress?.(100)
-        resolve()
+        const uploaded = parseUpload(xhr)
+        if (uploaded) {
+          resolve(uploaded)
+          return
+        }
+        reject(new ApiError(500, 'InternalServerError'))
         return
       }
-      reject(new ApiError(xhr.status, 'InternalServerError'))
+      reject(uploadError(xhr))
     }
 
     xhr.onerror = () => {
+      done = true
       reject(new ApiError(500, 'InternalServerError'))
     }
 
     xhr.onabort = () => {
+      done = true
       reject(new DOMException('Aborted', 'AbortError'))
     }
 
     const onAbort = () => xhr.abort()
-    signal?.addEventListener('abort', onAbort, { once: true })
+    options.signal?.addEventListener('abort', onAbort, { once: true })
     xhr.addEventListener('loadend', () => {
-      signal?.removeEventListener('abort', onAbort)
+      options.signal?.removeEventListener('abort', onAbort)
     })
 
-    xhr.send(data)
+    const form = new FormData()
+    form.append('file', file, file.name || 'file')
+    xhr.send(form)
   })
 }
 
-export async function uploadFile(file: File, options: UploadFileOptions = {}) {
-  const contentType = file.type.trim() || 'application/octet-stream'
+function shouldRefresh(error: unknown, signal?: AbortSignal) {
+  return error instanceof ApiError
+    && error.status === 401
+    && Boolean(getRefreshToken())
+    && !signal?.aborted
+}
+
+export async function uploadFile(
+  file: File,
+  options: UploadFileOptions = {},
+): Promise<FileResponse> {
   options.onPhase?.('uploading')
-  const created = await createFile({
-    name: file.name,
-    content_type: contentType,
-    size: file.size,
-  })
-  if (options.signal?.aborted) {
-    throw new DOMException('Aborted', 'AbortError')
+  try {
+    return await uploadOnce(file, options)
   }
-  await putToPresign(
-    created.upload_url,
-    file,
-    contentType,
-    options.onProgress,
-    options.signal,
-  )
-  options.onPhase?.('processing')
-  return completeFile(created.id)
+  catch (error) {
+    if (!shouldRefresh(error, options.signal)) {
+      throw error
+    }
+    try {
+      await refreshSession()
+    }
+    catch {
+      throw error
+    }
+    if (options.signal?.aborted) {
+      throw new DOMException('Aborted', 'AbortError')
+    }
+    options.onProgress?.(0)
+    options.onPhase?.('uploading')
+    return uploadOnce(file, options)
+  }
 }
 
 export async function uploadImage(file: File) {
