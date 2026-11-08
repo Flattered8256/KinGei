@@ -9,7 +9,7 @@ export {
   setSession,
   setUser,
 } from './session'
-export { apiFetch, apiFetchVoid, refreshSession } from './http'
+export { apiFetch, apiFetchVoid, apiUpload, refreshSession } from './http'
 
 export {
   changePassword,
@@ -62,13 +62,10 @@ export {
 } from './admin'
 
 export {
-  completeFile,
-  createFile,
-  downloadFile,
+  downloadFileUrl,
   isAbortError,
   isImageType,
   isVideoType,
-  putToPresign,
   uploadFile,
   uploadImage,
 } from './file'

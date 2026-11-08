@@ -37,8 +37,8 @@ export const API_ERROR_CODES = [
   'FileNotFound',
   'FileNameTooLong',
   'InvalidSize',
-  'UploadIncomplete',
-  'SizeMismatch',
+  'InvalidUpload',
+  'FileTooLarge',
   'FileNotReady',
   'InvalidImage',
   'InviteNotFound',
@@ -261,21 +261,6 @@ export type ClientEvent =
   | { event: 'friend.request.cancelled'; data: FriendRequest }
   | { event: 'friend.deleted'; data: FriendDeletedEvent }
 
-export interface CreateFileRequest {
-  name: string
-  content_type?: string
-  size: number
-}
-
-export interface PresignUploadResponse {
-  id: number
-  name: string
-  content_type: string
-  size: number
-  upload_url: string
-  expires_at: string
-}
-
 export interface FileResponse {
   id: number
   owner_id: string
@@ -285,13 +270,4 @@ export interface FileResponse {
   status: 'Pending' | 'Ready'
   media: MediaResponse | null
   created_at: string
-}
-
-export interface PresignDownloadResponse {
-  id: number
-  name: string
-  content_type: string
-  size: number
-  download_url: string
-  expires_at: string
 }

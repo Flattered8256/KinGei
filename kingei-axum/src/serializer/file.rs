@@ -1,35 +1,8 @@
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use uuid::Uuid;
 
 use crate::model::file::{File, FileStatus, Media, MediaKind};
-
-#[derive(Debug, Deserialize)]
-pub struct CreateFileRequest {
-    pub name: String,
-    pub content_type: Option<String>,
-    pub size: i64,
-}
-
-#[derive(Debug, Serialize)]
-pub struct PresignUploadResponse {
-    pub id: i64,
-    pub name: String,
-    pub content_type: String,
-    pub size: i64,
-    pub upload_url: String,
-    pub expires_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct PresignDownloadResponse {
-    pub id: i64,
-    pub name: String,
-    pub content_type: String,
-    pub size: i64,
-    pub download_url: String,
-    pub expires_at: DateTime<Utc>,
-}
 
 #[derive(Debug, Clone, Serialize)]
 pub struct MediaResponse {

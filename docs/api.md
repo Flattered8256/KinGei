@@ -21,15 +21,15 @@
 | 受保护路由 | `Authorization: Bearer <access>` |
 | 缺失/非法 header | 401 `InvalidCredentials` |
 | 用 refresh 当 access | 401 `InvalidToken` |
-| Cookie 例外 | 仅 `GET /file/{id}/content` 接受 `kingei.access_token` |
+| Cookie 例外 | 仅 `GET /file/{id}/content`、`GET /file/{id}/download` 接受 `kingei.access_token` |
 
-- `POST /user/login` 与 `POST /user/refresh` 除返回 token 外，还下发 `Set-Cookie: kingei.access_token=...; Path=/; Max-Age=900; HttpOnly; SameSite=Lax`，供图片预览使用。
+- `POST /user/login` 与 `POST /user/refresh` 除返回 token 外，还下发 `Set-Cookie: kingei.access_token=...; Path=/; Max-Age=900; HttpOnly; SameSite=Lax`，供图片预览与下载使用。
 - `POST /user/logout` 清理 cookie，返回 `204`，不要求鉴权。
 - 密码只存 bcrypt hash；任何响应都不出现 `password` / `password_hash`。
 
 ## 错误码
 
-HTTP 状态码：`400` 参数或规则不合法、`401` 未登录或凭据错误、`403` 已登录无权、`404` 资源不存在、`409` 状态冲突、`500` 基础设施失败（正文固定 `InternalServerError`，细节只进日志）。
+HTTP 状态码：`400` 参数或规则不合法、`401` 未登录或凭据错误、`403` 已登录无权、`404` 资源不存在、`409` 状态冲突、`413` 上传超出体积上限、`500` 基础设施失败（正文固定 `InternalServerError`，细节只进日志）。
 
 | 领域 | 错误码 |
 | --- | --- |
@@ -37,7 +37,7 @@ HTTP 状态码：`400` 参数或规则不合法、`401` 未登录或凭据错误
 | friend | `CannotAddSelf` `UserNotFound` `AlreadyFriends` `RequestAlreadyPending` `RequestNotFound` `NotRequestReceiver` `NotRequestSender` `RequestNotPending` `NotFriends` `AddFriendDisabled` |
 | chat | `CannotAddSelf` `UserNotFound` `NotFriends` `ChatNotFound` `NotMember` `NotOwner` `CannotModifyDirect` `AlreadyMember` `EmptyName` `CreateGroupDisabled` |
 | message | `EmptyContent` `ChatNotFound` `NotFriends` `MessageNotFound` `NotMember` `CannotDeleteMessage` `CannotDeleteOld` `MessageAlreadyDeleted` `ReplyTargetDeleted` |
-| file | `EmptyName` `FileNameTooLong` `InvalidSize` `FileNotFound` `NotOwner` `UploadIncomplete` `SizeMismatch` `FileNotReady` `InvalidImage` |
+| file | `EmptyName` `FileNameTooLong` `InvalidSize` `InvalidUpload` `FileTooLarge` `FileNotFound` `NotOwner` `FileNotReady` `InvalidImage` |
 | invite | `InviteNotFound` |
 
 ## 端点
@@ -110,13 +110,12 @@ HTTP 状态码：`400` 参数或规则不合法、`401` 未登录或凭据错误
 | `friend.request.created` / `.accepted` / `.rejected` / `.cancelled` | `FriendRequestResponse` |
 | `friend.deleted` | `{ friend_id }` |
 
-### 文件（Bearer，`/content` 例外接受 cookie）
+### 文件（Bearer；`/content`、`/download` 例外接受 cookie）
 
 | 方法 | 路径 | 说明 | 响应 |
 | --- | --- | --- | --- |
-| POST | `/file` | 申请上传地址，`name` / `content_type` / `size` | `PresignUploadResponse` |
-| POST | `/file/{id}/complete` | 确认上传并探测媒体 | `FileResponse` |
-| GET | `/file/{id}/download` | 申请下载地址 | `PresignDownloadResponse` |
+| POST | `/file` | 上传，`multipart/form-data`：`file` 必需，`name` 可选 | `FileResponse`（直接 `Ready`） |
+| GET | `/file/{id}/download` | 流式下载，`Content-Disposition: attachment`，支持 `Range` | 二进制 `200` / `206` |
 | GET | `/file/{id}/content` | 流式预览，支持 `Range` | 二进制 `200` / `206` |
 
 ### 管理（Bearer + Admin）
@@ -148,11 +147,11 @@ HTTP 状态码：`400` 参数或规则不合法、`401` 未登录或凭据错误
 
 ### 文件与对象存储
 
-- 上传三步：`POST /file` 拿预签名 URL（15 分钟，绑定 `Content-Type` 与 `Content-Length`，object key 为 `{owner_id}/{uuid}` 且不进 JSON）→ 客户端直传 → `POST /file/{id}/complete`。
-- `complete` 会 `HeadObject` 校验：对象不存在 → `400 UploadIncomplete`；长度与申请时 `size` 不符 → `400 SizeMismatch`；通过后置 `Ready`。已是 `Ready` 直接返回，不重复探测。
+- 上传一步：`POST /file` 以 `multipart/form-data` 提交，`file` 字段是文件本体，可选的 `name` 文本字段优先于 part 的文件名（避免 multipart 文件名编码差异）。服务端把请求体流式写到临时文件，累计字节超过 `MAX_UPLOAD_SIZE_MB` → `413 FileTooLarge`；非 multipart、缺 `file` 字段或多个 `file` 字段 → `400 InvalidUpload`。
+- 后端中转：同一个临时文件先 `PutObject` 到对象存储（object key 为 `{owner_id}/{uuid}` 且不进 JSON），再本地 `ffprobe`/`ffmpeg` 出缩略图，最后入库并直接返回 `Ready`，不再从对象存储回拉。落库失败会删掉已上传对象。
 - 媒体探测：`image/jpeg` `image/png` `image/webp` `image/gif`（GIF 按 Image、忽略时长）、`video/mp4` `video/quicktime` `video/webm`。`media` 与 `file` 1:1，只有存在预览才插入；`{ kind, width, height, duration_ms, thumbnail_id }`，宽高是显示尺寸（90°/270° 已对调），缩略图长边 320px。
 - 探测失败不阻断 `Ready`：没有视频流则不插行、`media: null`；探测成功但出图失败仍插行、`thumbnail_id: null`。
-- `download`：任意登录用户，仅 `Ready`；预签名 15 分钟，绑定 `response-content-type` 与 `response-content-disposition: attachment`（ASCII `filename` + RFC 5987 `filename*`）。不 `HeadObject`，对象被删则由对象存储返回 404。
+- `download`：任意登录用户，仅 `Ready`；由后端流式转发，`Content-Disposition: attachment`（ASCII `filename` + RFC 5987 `filename*`），支持 `Range`。可直接用同源链接导航，鉴权走 cookie。
 - `content`：流式转发，不读进内存；`Content-Type` 取库中值，`Content-Disposition: inline`，`Accept-Ranges: bytes`，`Cache-Control: private, max-age=86400`；带 `Range` 且对象支持则 `206` + `Content-Range`。
 - 当图片用（用户/群头像）走 `service::file::require_image`：必须属于当前用户、`Ready`、MIME 在图片白名单内。失败 → `404 FileNotFound` / `403 NotOwner` / `400 FileNotReady` / `400 InvalidImage`。
 - 当附件用走 `service::file::require_ready_file`：属于发送者且 `Ready`，不限 MIME；失败不创建消息。
@@ -184,9 +183,9 @@ HTTP 状态码：`400` 参数或规则不合法、`401` 未登录或凭据错误
 | `RUST_LOG` | 否 | tracing 过滤 |
 | `S3_ENDPOINT` / `S3_ACCESS_KEY` / `S3_SECRET_KEY` / `S3_BUCKET` | 是 | S3 兼容对象存储（本机 Garage） |
 | `S3_REGION` | 否 | 默认 `us-east-1` |
-| `S3_PUBLIC_ENDPOINT` | 否 | 默认等于 `S3_ENDPOINT`，只用于预签名 URL |
 | `S3_PATH_STYLE` | 否 | 默认 `true` |
-| `S3_MANAGE_BUCKET` | 否 | 默认 `true`：建桶并设 CORS；`false` 时只 `HeadBucket` |
+| `S3_MANAGE_BUCKET` | 否 | 默认 `true`：建桶；`false` 时只 `HeadBucket` |
+| `MAX_UPLOAD_SIZE_MB` | 否 | 单文件上传上限，默认 `100`；超限返回 `413 FileTooLarge` |
 | `FFPROBE_PATH` / `FFMPEG_PATH` | 否 | 默认 `ffprobe` / `ffmpeg`，启动时校验 |
 
 `.env` 不入库。启动时找不到 ffprobe/ffmpeg 直接退出并给中文提示。

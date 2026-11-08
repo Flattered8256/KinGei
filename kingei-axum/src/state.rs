@@ -80,7 +80,11 @@ impl AppState {
                 instance_repo.clone(),
                 event_hub.clone(),
             ),
-            file_service: FileService::new(file_repo, storage),
+            file_service: FileService::new(
+                file_repo,
+                storage,
+                crate::utils::upload::max_upload_bytes(),
+            ),
             instance_service: InstanceService::new(instance_repo),
             invite_service: InviteService::new(invite_repo),
             event_hub,
