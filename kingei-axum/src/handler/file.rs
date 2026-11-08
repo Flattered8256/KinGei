@@ -103,10 +103,10 @@ async fn stream_file(
         response = response.header(header::CONTENT_RANGE, content_range);
     }
 
-    let body = Body::from_stream(ReaderStream::new(result.object.body.into_async_read()));
+    let body = Body::from_stream(ReaderStream::new(result.object.body));
     response
         .body(body)
-        .map_err(|e| AppError::Storage(StorageError(e.to_string())))
+        .map_err(|e| AppError::Storage(StorageError::Other(e.to_string())))
 }
 
 async fn receive(mut multipart: Multipart, max_bytes: u64) -> Result<ReceivedUpload, AppError> {
@@ -182,7 +182,7 @@ async fn read_text(field: &mut Field<'_>) -> Result<String, AppError> {
 }
 
 fn internal_io(error: std::io::Error) -> AppError {
-    AppError::Storage(StorageError(error.to_string()))
+    AppError::Storage(StorageError::Io(error))
 }
 
 #[cfg(test)]

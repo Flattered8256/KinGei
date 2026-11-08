@@ -23,8 +23,9 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 bcrypt = "0.16"
 jsonwebtoken = "9"
-aws-config = { version = "1.13.0", features = ["behavior-version-latest"] }
-aws-sdk-s3 = "1.154.0"
+object_store = { version = "0.14", default-features = false, features = ["fs", "aws-base", "reqwest", "ring"] }
+# 只为打开 reqwest 的 TLS 后端；object_store 的 reqwest 特性只开 stream。
+reqwest = { version = "0.13", default-features = false, features = ["native-tls"] }
 
 [features]
 default = ["sqlite"]

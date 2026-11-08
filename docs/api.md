@@ -147,12 +147,14 @@ HTTP 状态码：`400` 参数或规则不合法、`401` 未登录或凭据错误
 
 ### 文件与对象存储
 
+- 存储后端：`STORAGE_DRIVER=local`（默认）时文件写在 `STORAGE_LOCAL_DIR` 下，`object_key` 即相对路径；`s3` 时写入 S3 兼容对象存储。两种后端统一由 `object_store` 读写，接口与响应不暴露后端差异。
 - 上传一步：`POST /file` 以 `multipart/form-data` 提交，`file` 字段是文件本体，可选的 `name` 文本字段优先于 part 的文件名（避免 multipart 文件名编码差异）。服务端把请求体流式写到临时文件，累计字节超过 `MAX_UPLOAD_SIZE_MB` → `413 FileTooLarge`；非 multipart、缺 `file` 字段或多个 `file` 字段 → `400 InvalidUpload`。客户端应先用 `/instance` 的 `max_upload_size` 校验，避免在流式上传中被 413 中途断开连接。
-- 后端中转：同一个临时文件先 `PutObject` 到对象存储（object key 为 `{owner_id}/{uuid}` 且不进 JSON），再本地 `ffprobe`/`ffmpeg` 出缩略图，最后入库并直接返回 `Ready`，不再从对象存储回拉。落库失败会删掉已上传对象。
+- 后端中转：同一个临时文件先写入存储后端（local 落盘 / S3 multipart，object key 为 `{owner_id}/{uuid}` 且不进 JSON），再本地 `ffprobe`/`ffmpeg` 出缩略图，最后入库并直接返回 `Ready`，不再从存储回拉。落库失败会删掉已上传文件。
 - 媒体探测：`image/jpeg` `image/png` `image/webp` `image/gif`（GIF 按 Image、忽略时长）、`video/mp4` `video/quicktime` `video/webm`。`media` 与 `file` 1:1，只有存在预览才插入；`{ kind, width, height, duration_ms, thumbnail_id }`，宽高是显示尺寸（90°/270° 已对调），缩略图长边 320px。
 - 探测失败不阻断 `Ready`：没有视频流则不插行、`media: null`；探测成功但出图失败仍插行、`thumbnail_id: null`。
 - `download`：任意登录用户，仅 `Ready`；由后端流式转发，`Content-Disposition: attachment`（ASCII `filename` + RFC 5987 `filename*`），支持 `Range`。可直接用同源链接导航，鉴权走 cookie。
-- `content`：流式转发，不读进内存；`Content-Type` 取库中值，`Content-Disposition: inline`，`Accept-Ranges: bytes`，`Cache-Control: private, max-age=86400`；带 `Range` 且对象支持则 `206` + `Content-Range`。
+- `content`：流式转发，不读进内存；`Content-Type` 取库中值，`Content-Disposition: inline`，`Accept-Ranges: bytes`，`Cache-Control: private, max-age=86400`；带 `Range` 且对象支持则 `206` + `Content-Range`。local 与 S3 的 Range 语义一致，由 `object_store` 处理。
+- `Content-Type` 始终以数据库为准；local 后端不在文件系统上保存对象属性（`put_opts` 不接受 attributes）。
 - 当图片用（用户/群头像）走 `service::file::require_image`：必须属于当前用户、`Ready`、MIME 在图片白名单内。失败 → `404 FileNotFound` / `403 NotOwner` / `400 FileNotReady` / `400 InvalidImage`。
 - 当附件用走 `service::file::require_ready_file`：属于发送者且 `Ready`，不限 MIME；失败不创建消息。
 
@@ -181,11 +183,14 @@ HTTP 状态码：`400` 参数或规则不合法、`401` 未登录或凭据错误
 | `JWT_SECRET` | 是 | 本机必须非空；Docker 中可空，由入口脚本生成到 `JWT_SECRET_FILE` |
 | `JWT_SECRET_FILE` | 否 | 默认 `/kingei-data/jwt_secret`，仅 Docker 入口脚本读取 |
 | `RUST_LOG` | 否 | tracing 过滤 |
-| `S3_ENDPOINT` / `S3_ACCESS_KEY` / `S3_SECRET_KEY` / `S3_BUCKET` | 是 | S3 兼容对象存储（本机 Garage） |
+| `STORAGE_DRIVER` | 否 | `local`（默认）/ `s3`；决定文件读写后端 |
+| `STORAGE_LOCAL_DIR` | 否 | local 的存储根目录，默认 `./KinGei-data/files`；相对路径按进程工作目录解析 |
+| `S3_ENDPOINT` / `S3_ACCESS_KEY` / `S3_SECRET_KEY` / `S3_BUCKET` | `s3` 时是 | S3 兼容对象存储（本机 Garage） |
 | `S3_REGION` | 否 | 默认 `us-east-1` |
 | `S3_PATH_STYLE` | 否 | 默认 `true` |
-| `S3_MANAGE_BUCKET` | 否 | 默认 `true`：建桶；`false` 时只 `HeadBucket` |
 | `MAX_UPLOAD_SIZE_MB` | 否 | 单文件上传上限，默认 `100`；超限返回 `413 FileTooLarge` |
 | `FFPROBE_PATH` / `FFMPEG_PATH` | 否 | 默认 `ffprobe` / `ffmpeg`，启动时校验 |
 
 `.env` 不入库。启动时找不到 ffprobe/ffmpeg 直接退出并给中文提示。
+
+`s3` 模式要求 bucket 已存在：`object_store` 没有建桶 API，启动时用 `ListObjectsV2` 校验（凭据需要 `ListBucket` 权限）；Garage compose 会自动建桶，外部 S3/MinIO 需先手动创建。`S3_MANAGE_BUCKET` 已移除。

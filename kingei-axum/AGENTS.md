@@ -4,7 +4,7 @@
 
 ## 技术栈
 
-Rust edition 2024 · Axum 0.8 · Tokio · sqlx 0.9（feature `sqlite` 默认 / `postgres`）· serde · thiserror · JWT + bcrypt · tracing · aws-sdk-s3。
+Rust edition 2024 · Axum 0.8 · Tokio · sqlx 0.9（feature `sqlite` 默认 / `postgres`）· serde · thiserror · JWT + bcrypt · tracing · object_store。
 
 ## 目录与依赖
 
@@ -24,7 +24,7 @@ src/
   error/<domain>.rs       领域错误 + HTTP 映射
   middleware/      auth、admin
   utils/           JWT、媒体探测等工具函数
-  storage.rs       S3 客户端
+  storage.rs       object_store 门面（local / S3）
   web.rs           静态托管 + S3 反代
   event.rs         SSE 中心
 migrations/sqlite|postgres

@@ -1,156 +1,221 @@
 use std::env;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::pin::Pin;
+use std::sync::Arc;
 
-use aws_config::BehaviorVersion;
-use aws_sdk_s3::Client;
-use aws_sdk_s3::config::{
-    Credentials, Region, RequestChecksumCalculation, ResponseChecksumValidation,
-};
-use aws_sdk_s3::primitives::ByteStream;
+use futures::StreamExt;
+use object_store::aws::AmazonS3Builder;
+use object_store::buffered::BufWriter;
+use object_store::local::LocalFileSystem;
+use object_store::path::Path as ObjectPath;
+use object_store::{GetOptions, GetRange, GetResultPayload, ObjectStore, ObjectStoreExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
+use tokio_util::io::StreamReader;
 
-#[derive(Debug)]
-pub struct StorageError(pub String);
+const DEFAULT_LOCAL_DIR: &str = "./KinGei-data/files";
+const UPLOAD_BUFFER_BYTES: usize = 8 * 1024 * 1024;
 
-impl std::fmt::Display for StorageError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
+#[derive(Debug, thiserror::Error)]
+pub enum StorageError {
+    #[error("object store: {0}")]
+    Object(#[from] object_store::Error),
+
+    #[error("io: {0}")]
+    Io(#[from] std::io::Error),
+
+    #[error("{0}")]
+    Other(String),
 }
 
-impl std::error::Error for StorageError {}
+pub type ObjectBody = Pin<Box<dyn AsyncRead + Send>>;
+
+pub struct ObjectStream {
+    pub content_length: i64,
+    pub content_range: Option<String>,
+    pub body: ObjectBody,
+}
 
 #[derive(Clone)]
 pub struct Storage {
-    client: Client,
-    bucket: String,
-}
-
-struct StorageConfig {
-    endpoint: String,
-    access_key: String,
-    secret_key: String,
-    bucket: String,
-    region: String,
-    path_style: bool,
-    manage_bucket: bool,
-}
-
-impl StorageConfig {
-    fn from_env() -> Self {
-        let endpoint = require_env("S3_ENDPOINT");
-        Self {
-            endpoint,
-            access_key: require_env("S3_ACCESS_KEY"),
-            secret_key: require_env("S3_SECRET_KEY"),
-            bucket: require_env("S3_BUCKET"),
-            region: env::var("S3_REGION").unwrap_or_else(|_| "us-east-1".to_string()),
-            path_style: env_flag("S3_PATH_STYLE", true),
-            manage_bucket: env_flag("S3_MANAGE_BUCKET", true),
-        }
-    }
+    store: Arc<dyn ObjectStore>,
 }
 
 impl Storage {
     pub async fn connect() -> Self {
-        let config = StorageConfig::from_env();
-        let client = s3_client(
-            &config.endpoint,
-            &config.access_key,
-            &config.secret_key,
-            &config.region,
-            config.path_style,
-        )
-        .await;
-
-        if config.manage_bucket {
-            ensure_bucket(&client, &config.bucket).await;
-        } else {
-            client
-                .head_bucket()
-                .bucket(&config.bucket)
-                .send()
-                .await
-                .expect("S3 bucket不存在或无权访问");
+        let driver = env::var("STORAGE_DRIVER").unwrap_or_else(|_| "local".to_string());
+        match driver.trim().to_ascii_lowercase().as_str() {
+            "local" => Self::connect_local().await,
+            "s3" => Self::connect_s3().await,
+            other => {
+                panic!("STORAGE_DRIVER必须是local或s3,当前为{other},请检查项目根目录下的.env文件")
+            }
         }
+    }
 
+    async fn connect_local() -> Self {
+        let dir = env::var("STORAGE_LOCAL_DIR").unwrap_or_else(|_| DEFAULT_LOCAL_DIR.to_string());
+        let dir = PathBuf::from(dir.trim());
+        if dir.as_os_str().is_empty() {
+            panic!("STORAGE_LOCAL_DIR不能为空,请检查项目根目录下的.env文件");
+        }
+        tokio::fs::create_dir_all(&dir)
+            .await
+            .unwrap_or_else(|e| panic!("创建本地存储目录失败 {}: {e}", dir.display()));
+        let store = LocalFileSystem::new_with_prefix(&dir)
+            .unwrap_or_else(|e| panic!("打开本地存储目录失败 {}: {e}", dir.display()))
+            .with_automatic_cleanup(true);
+        tracing::info!(dir = %dir.display(), "local storage ready");
+        Self {
+            store: Arc::new(store),
+        }
+    }
+
+    async fn connect_s3() -> Self {
+        let endpoint = require_env("S3_ENDPOINT");
+        let bucket = require_env("S3_BUCKET");
+        let region = env::var("S3_REGION").unwrap_or_else(|_| "us-east-1".to_string());
+        let path_style = env_flag("S3_PATH_STYLE", true);
+        let allow_http = endpoint.starts_with("http://");
+
+        let store = AmazonS3Builder::new()
+            .with_endpoint(endpoint.as_str())
+            .with_access_key_id(require_env("S3_ACCESS_KEY"))
+            .with_secret_access_key(require_env("S3_SECRET_KEY"))
+            .with_bucket_name(bucket.as_str())
+            .with_region(region.as_str())
+            .with_allow_http(allow_http)
+            .with_virtual_hosted_style_request(!path_style)
+            .build()
+            .unwrap_or_else(|e| panic!("初始化S3失败: {e}"));
+
+        // object_store 没有建桶 API，启动时校验桶存在；Garage 由 compose 自动建桶。
+        store
+            .list_with_delimiter(None)
+            .await
+            .unwrap_or_else(|e| panic!("S3 bucket不存在或无权访问({bucket}): {e}"));
         tracing::info!(
-            bucket = %config.bucket,
-            endpoint = %config.endpoint,
-            path_style = config.path_style,
-            manage_bucket = config.manage_bucket,
+            bucket = %bucket,
+            endpoint = %endpoint,
+            path_style,
             "s3 connected"
         );
         Self {
-            client,
-            bucket: config.bucket,
+            store: Arc::new(store),
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn from_store(store: Arc<dyn ObjectStore>) -> Self {
+        Self { store }
+    }
+
+    pub async fn put_object(&self, key: &str, source: &Path) -> Result<i64, StorageError> {
+        let location = object_path(key)?;
+        let mut source = tokio::fs::File::open(source).await?;
+        let mut writer =
+            BufWriter::with_capacity(self.store.clone(), location, UPLOAD_BUFFER_BYTES);
+
+        match tokio::io::copy(&mut source, &mut writer).await {
+            Ok(size) => {
+                writer.shutdown().await?;
+                Ok(size as i64)
+            }
+            Err(e) => {
+                if let Err(abort) = writer.abort().await {
+                    tracing::error!(?abort, "abort upload failed");
+                }
+                Err(StorageError::Io(e))
+            }
         }
     }
 
     pub async fn get_object(
         &self,
         key: &str,
-        range: Option<&str>,
+        range: Option<&ByteRange>,
     ) -> Result<ObjectStream, StorageError> {
-        let mut request = self.client.get_object().bucket(&self.bucket).key(key);
-        if let Some(range) = range {
-            request = request.range(range);
-        }
-        let output = request
-            .send()
-            .await
-            .map_err(|e| StorageError(format!("{e:?}")))?;
+        let location = object_path(key)?;
+        let options = match range {
+            Some(range) => GetOptions::new().with_range(Some(range.to_get_range()?)),
+            None => GetOptions::new(),
+        };
+        let result = self.store.get_opts(&location, options).await?;
+
+        // object_store 返回的 range 是本次实际返回的字节区间，end 为开区间。
+        let span = result.range.clone();
+        let content_length = span.end.saturating_sub(span.start);
+        let content_range = if range.is_some() && content_length > 0 {
+            Some(format!(
+                "bytes {}-{}/{}",
+                span.start,
+                span.end - 1,
+                result.meta.size
+            ))
+        } else {
+            None
+        };
+
+        let body: ObjectBody = match result.payload {
+            GetResultPayload::File(file, _) => {
+                let mut file = tokio::fs::File::from_std(file);
+                file.seek(std::io::SeekFrom::Start(span.start)).await?;
+                Box::pin(file.take(content_length))
+            }
+            GetResultPayload::Stream(stream) => {
+                let stream = stream.map(|item| item.map_err(std::io::Error::other));
+                Box::pin(StreamReader::new(stream))
+            }
+        };
+
         Ok(ObjectStream {
-            content_length: output.content_length().unwrap_or(0),
-            content_range: output.content_range().map(str::to_string),
-            body: output.body,
+            content_length: content_length as i64,
+            content_range,
+            body,
         })
     }
 
     pub async fn delete_object(&self, key: &str) -> Result<(), StorageError> {
-        self.client
-            .delete_object()
-            .bucket(&self.bucket)
-            .key(key)
-            .send()
-            .await
-            .map_err(|e| StorageError(format!("{e:?}")))?;
-        Ok(())
-    }
-
-    pub async fn put_object(
-        &self,
-        key: &str,
-        content_type: &str,
-        path: &Path,
-    ) -> Result<i64, StorageError> {
-        let size = tokio::fs::metadata(path)
-            .await
-            .map_err(|e| StorageError(e.to_string()))?
-            .len() as i64;
-        let body = ByteStream::from_path(path)
-            .await
-            .map_err(|e| StorageError(e.to_string()))?;
-        self.client
-            .put_object()
-            .bucket(&self.bucket)
-            .key(key)
-            .content_type(content_type)
-            .content_length(size)
-            .body(body)
-            .send()
-            .await
-            .map_err(|e| StorageError(format!("{e:?}")))?;
-        Ok(size)
+        let location = object_path(key)?;
+        match self.store.delete(&location).await {
+            Ok(()) => Ok(()),
+            // local 删除不存在的文件会报 NotFound，S3 是幂等的；这里统一成幂等。
+            Err(object_store::Error::NotFound { .. }) => Ok(()),
+            Err(e) => Err(StorageError::Object(e)),
+        }
     }
 }
 
-pub struct ObjectStream {
-    pub content_length: i64,
-    pub content_range: Option<String>,
-    pub body: ByteStream,
+fn object_path(key: &str) -> Result<ObjectPath, StorageError> {
+    if key.trim().is_empty() {
+        return Err(StorageError::Other("object key不能为空".to_string()));
+    }
+    ObjectPath::parse(key).map_err(|e| StorageError::Other(format!("非法object key {key}: {e}")))
 }
 
-pub fn parse_bytes_range(header: &str) -> Option<String> {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ByteRange {
+    Bounded { start: u64, end: u64 },
+    Open { start: u64 },
+    Suffix { len: u64 },
+}
+
+impl ByteRange {
+    pub fn to_get_range(self) -> Result<GetRange, StorageError> {
+        match self {
+            Self::Bounded { start, end } => {
+                // HTTP 的 end 是闭区间，GetRange 的 end 是开区间。
+                let end = end
+                    .checked_add(1)
+                    .ok_or_else(|| StorageError::Other("range end溢出".to_string()))?;
+                Ok(GetRange::Bounded(start..end))
+            }
+            Self::Open { start } => Ok(GetRange::Offset(start)),
+            Self::Suffix { len } => Ok(GetRange::Suffix(len)),
+        }
+    }
+}
+
+pub fn parse_byte_range(header: &str) -> Option<ByteRange> {
     let spec = header.trim().strip_prefix("bytes=")?.trim();
     if spec.is_empty() || spec.contains(',') {
         return None;
@@ -159,10 +224,23 @@ pub fn parse_bytes_range(header: &str) -> Option<String> {
     if start.is_empty() && end.is_empty() {
         return None;
     }
-    if !start.chars().all(|c| c.is_ascii_digit()) || !end.chars().all(|c| c.is_ascii_digit()) {
+    if start.is_empty() {
+        let len = parse_u64(end)?;
+        return (len > 0).then_some(ByteRange::Suffix { len });
+    }
+    let start = parse_u64(start)?;
+    if end.is_empty() {
+        return Some(ByteRange::Open { start });
+    }
+    let end = parse_u64(end)?;
+    (end >= start).then_some(ByteRange::Bounded { start, end })
+}
+
+fn parse_u64(value: &str) -> Option<u64> {
+    if value.is_empty() || !value.bytes().all(|b| b.is_ascii_digit()) {
         return None;
     }
-    Some(format!("bytes={spec}"))
+    value.parse().ok()
 }
 
 fn require_env(name: &str) -> String {
@@ -183,44 +261,6 @@ fn parse_bool(value: &str) -> Option<bool> {
         "0" | "false" | "no" | "off" => Some(false),
         _ => None,
     }
-}
-
-async fn ensure_bucket(client: &Client, bucket: &str) {
-    let listed = client.list_buckets().send().await.expect("连接S3失败");
-    let exists = listed
-        .buckets()
-        .iter()
-        .any(|item| item.name() == Some(bucket));
-    if !exists {
-        client
-            .create_bucket()
-            .bucket(bucket)
-            .send()
-            .await
-            .expect("创建S3 bucket失败");
-    }
-}
-
-async fn s3_client(
-    endpoint: &str,
-    access_key: &str,
-    secret_key: &str,
-    region: &str,
-    path_style: bool,
-) -> Client {
-    let credentials = Credentials::new(access_key, secret_key, None, None, "s3");
-    let sdk_config = aws_config::defaults(BehaviorVersion::latest())
-        .endpoint_url(endpoint)
-        .region(Region::new(region.to_string()))
-        .credentials_provider(credentials)
-        .load()
-        .await;
-    let config = aws_sdk_s3::config::Builder::from(&sdk_config)
-        .force_path_style(path_style)
-        .request_checksum_calculation(RequestChecksumCalculation::WhenRequired)
-        .response_checksum_validation(ResponseChecksumValidation::WhenRequired)
-        .build();
-    Client::from_conf(config)
 }
 
 pub fn content_disposition(filename: &str, inline: bool) -> String {
@@ -295,22 +335,67 @@ mod tests {
     }
 
     #[test]
-    fn parse_open_and_closed_range() {
+    fn parse_bounded_range() {
         assert_eq!(
-            parse_bytes_range("bytes=0-1023"),
-            Some("bytes=0-1023".to_string())
+            parse_byte_range("bytes=0-1023"),
+            Some(ByteRange::Bounded {
+                start: 0,
+                end: 1023
+            })
+        );
+    }
+
+    #[test]
+    fn parse_open_range() {
+        assert_eq!(
+            parse_byte_range("bytes=500-"),
+            Some(ByteRange::Open { start: 500 })
+        );
+    }
+
+    #[test]
+    fn parse_suffix_range() {
+        assert_eq!(
+            parse_byte_range("bytes=-500"),
+            Some(ByteRange::Suffix { len: 500 })
+        );
+    }
+
+    #[test]
+    fn reject_invalid_ranges() {
+        assert_eq!(parse_byte_range("bytes=0-1,2-3"), None);
+        assert_eq!(parse_byte_range("bytes="), None);
+        assert_eq!(parse_byte_range("bytes=-"), None);
+        assert_eq!(parse_byte_range("items=0-1"), None);
+        assert_eq!(parse_byte_range("bytes=10-5"), None);
+        assert_eq!(parse_byte_range("bytes=-0"), None);
+        assert_eq!(parse_byte_range("bytes=abc-1"), None);
+    }
+
+    #[test]
+    fn map_ranges_to_object_store() {
+        assert_eq!(
+            ByteRange::Bounded { start: 0, end: 4 }
+                .to_get_range()
+                .unwrap(),
+            GetRange::Bounded(0..5)
         );
         assert_eq!(
-            parse_bytes_range("bytes=500-"),
-            Some("bytes=500-".to_string())
+            ByteRange::Open { start: 6 }.to_get_range().unwrap(),
+            GetRange::Offset(6)
         );
         assert_eq!(
-            parse_bytes_range("bytes=-500"),
-            Some("bytes=-500".to_string())
+            ByteRange::Suffix { len: 5 }.to_get_range().unwrap(),
+            GetRange::Suffix(5)
         );
-        assert_eq!(parse_bytes_range("bytes=0-1,2-3"), None);
-        assert_eq!(parse_bytes_range("bytes="), None);
-        assert_eq!(parse_bytes_range("items=0-1"), None);
+        assert!(
+            ByteRange::Bounded {
+                start: 0,
+                end: u64::MAX
+            }
+            .to_get_range()
+            .is_err()
+        );
     }
 
     #[test]
@@ -323,5 +408,109 @@ mod tests {
         assert_eq!(parse_bool("0"), Some(false));
         assert_eq!(parse_bool("off"), Some(false));
         assert_eq!(parse_bool("maybe"), None);
+    }
+
+    async fn read_body(mut body: ObjectBody) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        body.read_to_end(&mut bytes).await.unwrap();
+        bytes
+    }
+
+    async fn local_storage() -> (tempfile::TempDir, Storage, PathBuf) {
+        let dir = tempfile::tempdir().unwrap();
+        let store = LocalFileSystem::new_with_prefix(dir.path()).unwrap();
+        let storage = Storage::from_store(Arc::new(store));
+        let source = dir.path().join("source.bin");
+        tokio::fs::write(&source, b"hello world").await.unwrap();
+        (dir, storage, source)
+    }
+
+    #[tokio::test]
+    async fn local_put_get_delete_roundtrip() {
+        let (dir, storage, source) = local_storage().await;
+
+        let size = storage.put_object("owner/key", &source).await.unwrap();
+        assert_eq!(size, 11);
+        assert!(dir.path().join("owner/key").is_file());
+
+        let object = storage.get_object("owner/key", None).await.unwrap();
+        assert_eq!(object.content_length, 11);
+        assert_eq!(object.content_range, None);
+        assert_eq!(read_body(object.body).await, b"hello world");
+
+        storage.delete_object("owner/key").await.unwrap();
+        assert!(!dir.path().join("owner/key").exists());
+        storage.delete_object("owner/key").await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn local_get_bounded_range() {
+        let (_dir, storage, source) = local_storage().await;
+        storage.put_object("owner/key", &source).await.unwrap();
+
+        let range = parse_byte_range("bytes=2-6").unwrap();
+        let object = storage.get_object("owner/key", Some(&range)).await.unwrap();
+        assert_eq!(object.content_length, 5);
+        assert_eq!(object.content_range.as_deref(), Some("bytes 2-6/11"));
+        assert_eq!(read_body(object.body).await, b"llo w");
+    }
+
+    #[tokio::test]
+    async fn local_get_open_range() {
+        let (_dir, storage, source) = local_storage().await;
+        storage.put_object("owner/key", &source).await.unwrap();
+
+        let range = parse_byte_range("bytes=6-").unwrap();
+        let object = storage.get_object("owner/key", Some(&range)).await.unwrap();
+        assert_eq!(object.content_length, 5);
+        assert_eq!(object.content_range.as_deref(), Some("bytes 6-10/11"));
+        assert_eq!(read_body(object.body).await, b"world");
+    }
+
+    #[tokio::test]
+    async fn local_get_suffix_range() {
+        let (_dir, storage, source) = local_storage().await;
+        storage.put_object("owner/key", &source).await.unwrap();
+
+        let range = parse_byte_range("bytes=-5").unwrap();
+        let object = storage.get_object("owner/key", Some(&range)).await.unwrap();
+        assert_eq!(object.content_length, 5);
+        assert_eq!(object.content_range.as_deref(), Some("bytes 6-10/11"));
+        assert_eq!(read_body(object.body).await, b"world");
+    }
+
+    #[tokio::test]
+    async fn local_range_is_clamped_to_file() {
+        let (_dir, storage, source) = local_storage().await;
+        storage.put_object("owner/key", &source).await.unwrap();
+
+        let range = parse_byte_range("bytes=0-999").unwrap();
+        let object = storage.get_object("owner/key", Some(&range)).await.unwrap();
+        assert_eq!(object.content_length, 11);
+        assert_eq!(object.content_range.as_deref(), Some("bytes 0-10/11"));
+        assert_eq!(read_body(object.body).await, b"hello world");
+    }
+
+    #[tokio::test]
+    async fn local_range_out_of_bounds_fails() {
+        let (_dir, storage, source) = local_storage().await;
+        storage.put_object("owner/key", &source).await.unwrap();
+
+        let range = parse_byte_range("bytes=11-20").unwrap();
+        assert!(storage.get_object("owner/key", Some(&range)).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn local_missing_object_fails() {
+        let (_dir, storage, _source) = local_storage().await;
+        assert!(storage.get_object("owner/missing", None).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn local_rejects_invalid_keys() {
+        let (_dir, storage, source) = local_storage().await;
+        assert!(storage.put_object("../escape", &source).await.is_err());
+        assert!(storage.put_object("", &source).await.is_err());
+        assert!(storage.delete_object("../escape").await.is_err());
     }
 }

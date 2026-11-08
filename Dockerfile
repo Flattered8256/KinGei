@@ -12,7 +12,7 @@ WORKDIR /app
 ARG DB_BACKEND=sqlite
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        pkg-config cmake clang perl build-essential \
+        pkg-config cmake clang perl build-essential libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 COPY kingei-axum/Cargo.toml kingei-axum/Cargo.lock ./
 COPY kingei-axum/src ./src
@@ -24,7 +24,7 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
 
 FROM debian:bookworm-slim
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ffmpeg ca-certificates curl \
+    && apt-get install -y --no-install-recommends ffmpeg ca-certificates curl libssl3 \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --system --uid 1000 --home-dir /app --create-home app \
     && mkdir -p /data /kingei-data \

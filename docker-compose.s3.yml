@@ -1,0 +1,33 @@
+# 叠加在 docker-compose.yml 上启用 Garage（S3 兼容存储）：
+# docker compose -f docker-compose.yml -f docker-compose.s3.yml up -d --build
+services:
+  kingei-garage:
+    image: dxflrs/garage:v2.5.0
+    command: ["/garage", "server", "--single-node", "--default-bucket"]
+    environment:
+      GARAGE_DEFAULT_ACCESS_KEY: ${S3_ACCESS_KEY}
+      GARAGE_DEFAULT_SECRET_KEY: ${S3_SECRET_KEY}
+      GARAGE_DEFAULT_BUCKET: ${S3_BUCKET}
+    volumes:
+      - ./garage.toml:/etc/garage.toml:ro
+      - ./KinGei-data/garage/meta:/var/lib/garage/meta
+      - ./KinGei-data/garage/data:/var/lib/garage/data
+    healthcheck:
+      test: ["CMD", "/garage", "status"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+
+  kingei-app:
+    environment:
+      STORAGE_DRIVER: s3
+      S3_ENDPOINT: http://kingei-garage:3900
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      S3_BUCKET: ${S3_BUCKET}
+      S3_REGION: ${S3_REGION:-us-east-1}
+    depends_on:
+      kingei-garage:
+        condition: service_healthy

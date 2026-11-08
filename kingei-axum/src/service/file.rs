@@ -8,7 +8,7 @@ use crate::error::file::FileError;
 use crate::model::file::{File, FileStatus};
 use crate::repository::file::{FileRepository, NewThumbnail, ReadyMedia};
 use crate::serializer::file::FileResponse;
-use crate::storage::{ObjectStream, Storage, parse_bytes_range};
+use crate::storage::{ObjectStream, Storage, parse_byte_range};
 use crate::utils::media::{media_kind_from_content_type, probe_path, write_thumbnail};
 
 const MAX_NAME_CHARS: usize = 255;
@@ -62,10 +62,7 @@ impl FileService {
             .to_string();
 
         let object_key = format!("{}/{}", owner_id, Uuid::new_v4());
-        let stored_size = self
-            .storage
-            .put_object(&object_key, &content_type, source)
-            .await?;
+        let stored_size = self.storage.put_object(&object_key, source).await?;
 
         let file = match self
             .repo
@@ -177,11 +174,7 @@ impl FileService {
         }
 
         let object_key = format!("{}/{}", file.owner_id, Uuid::new_v4());
-        match self
-            .storage
-            .put_object(&object_key, "image/jpeg", &thumb_path)
-            .await
-        {
+        match self.storage.put_object(&object_key, &thumb_path).await {
             Ok(size) => (
                 Some(media),
                 Some(NewThumbnail {
@@ -212,10 +205,10 @@ impl FileService {
             return Err(AppError::File(FileError::FileNotReady));
         }
 
-        let range = range_header.and_then(parse_bytes_range);
+        let range = range_header.and_then(parse_byte_range);
         let object = self
             .storage
-            .get_object(&file.object_key, range.as_deref())
+            .get_object(&file.object_key, range.as_ref())
             .await?;
 
         Ok(FileContent {
