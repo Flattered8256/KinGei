@@ -8,6 +8,8 @@ const DEFAULT_INSTANCE: Instance = {
   initializing: false,
   invite_only: false,
   limit_message_delete: false,
+  // /instance 刷新失败时与后端默认 MAX_UPLOAD_SIZE_MB=100 对齐。
+  max_upload_size: 100 * 1024 * 1024,
 }
 
 let inflight: Promise<void> | null = null

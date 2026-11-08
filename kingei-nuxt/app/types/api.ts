@@ -64,6 +64,7 @@ export interface Instance {
   initializing: boolean
   invite_only: boolean
   limit_message_delete: boolean
+  max_upload_size: number
 }
 
 export interface UpdateInstanceRequest {

@@ -1,9 +1,5 @@
 <script setup lang="ts">
-import {
-  isAbortError,
-  isImageType,
-  uploadFile,
-} from '~/utils/api/file'
+import { isAbortError, isImageType } from '~/utils/api/file'
 import { formatFileSize, messagePreviewText } from '~/utils/display'
 
 type PendingAttachment = {
@@ -20,6 +16,7 @@ const chats = useChats()
 const users = useUserDirectory()
 const { isMobile } = useIsMobile()
 const toast = useToast()
+const { upload } = useFileUpload()
 const { t } = useI18n()
 const draft = ref('')
 const area = ref<HTMLTextAreaElement | null>(null)
@@ -139,7 +136,7 @@ async function attach(file: File) {
   }
 
   try {
-    const uploaded = await uploadFile(file, {
+    const uploaded = await upload(file, {
       signal: controller.signal,
       onProgress: (percent) => {
         if (gen === attachGen && pending.value) {

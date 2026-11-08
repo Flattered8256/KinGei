@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { uploadImage } from '~/utils/api/file'
 import { avatarColor, initials } from '~/utils/display'
 
 const props = withDefaults(defineProps<{
@@ -24,6 +23,7 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const toast = useToast()
+const { uploadImage } = useFileUpload()
 const { src, reload } = useFileSrc(() => props.fileId)
 const broken = ref(false)
 const retried = ref(false)

@@ -6,16 +6,23 @@ use crate::serializer::instance::{InstanceResponse, UpdateInstanceRequest};
 
 pub struct InstanceService {
     repo: Arc<InstanceRepository>,
+    max_upload_size: u64,
 }
 
 impl InstanceService {
-    pub fn new(repo: Arc<InstanceRepository>) -> Self {
-        Self { repo }
+    pub fn new(repo: Arc<InstanceRepository>, max_upload_size: u64) -> Self {
+        Self {
+            repo,
+            max_upload_size,
+        }
     }
 
     pub async fn get(&self) -> Result<InstanceResponse, AppError> {
         let instance = self.repo.get().await?;
-        Ok(InstanceResponse::from(instance))
+        Ok(InstanceResponse::from_instance(
+            instance,
+            self.max_upload_size,
+        ))
     }
 
     pub async fn update(
@@ -39,6 +46,9 @@ impl InstanceService {
                 limit_message_delete: request.limit_message_delete,
             })
             .await?;
-        Ok(InstanceResponse::from(updated))
+        Ok(InstanceResponse::from_instance(
+            updated,
+            self.max_upload_size,
+        ))
     }
 }

@@ -147,7 +147,7 @@ HTTP 状态码：`400` 参数或规则不合法、`401` 未登录或凭据错误
 
 ### 文件与对象存储
 
-- 上传一步：`POST /file` 以 `multipart/form-data` 提交，`file` 字段是文件本体，可选的 `name` 文本字段优先于 part 的文件名（避免 multipart 文件名编码差异）。服务端把请求体流式写到临时文件，累计字节超过 `MAX_UPLOAD_SIZE_MB` → `413 FileTooLarge`；非 multipart、缺 `file` 字段或多个 `file` 字段 → `400 InvalidUpload`。
+- 上传一步：`POST /file` 以 `multipart/form-data` 提交，`file` 字段是文件本体，可选的 `name` 文本字段优先于 part 的文件名（避免 multipart 文件名编码差异）。服务端把请求体流式写到临时文件，累计字节超过 `MAX_UPLOAD_SIZE_MB` → `413 FileTooLarge`；非 multipart、缺 `file` 字段或多个 `file` 字段 → `400 InvalidUpload`。客户端应先用 `/instance` 的 `max_upload_size` 校验，避免在流式上传中被 413 中途断开连接。
 - 后端中转：同一个临时文件先 `PutObject` 到对象存储（object key 为 `{owner_id}/{uuid}` 且不进 JSON），再本地 `ffprobe`/`ffmpeg` 出缩略图，最后入库并直接返回 `Ready`，不再从对象存储回拉。落库失败会删掉已上传对象。
 - 媒体探测：`image/jpeg` `image/png` `image/webp` `image/gif`（GIF 按 Image、忽略时长）、`video/mp4` `video/quicktime` `video/webm`。`media` 与 `file` 1:1，只有存在预览才插入；`{ kind, width, height, duration_ms, thumbnail_id }`，宽高是显示尺寸（90°/270° 已对调），缩略图长边 320px。
 - 探测失败不阻断 `Ready`：没有视频流则不插行、`media: null`；探测成功但出图失败仍插行、`thumbnail_id: null`。
@@ -158,7 +158,7 @@ HTTP 状态码：`400` 参数或规则不合法、`401` 未登录或凭据错误
 
 ### 实例与邀请码
 
-- `InstanceResponse`：`allow_add_friend`、`allow_create_group`、`initializing`、`invite_only`、`limit_message_delete`。
+- `InstanceResponse`：`allow_add_friend`、`allow_create_group`、`initializing`、`invite_only`、`limit_message_delete`、`max_upload_size`（字节）。
 - `initializing = true` 表示还没有管理员：第一个注册的用户在写 `user` 的同一事务里成为 Admin 并置 `false`，此时免邀请码。
 - `allow_add_friend = false` 时成员发好友申请 → `403 AddFriendDisabled`；`allow_create_group = false` 时建群 → `403 CreateGroupDisabled`。Admin 不受这两个开关限制，已有好友/群/消息不受影响。
 - `invite_only = true` 且非 `initializing` 时，注册必须带正确 `invite_code`（trim + 大写后匹配），缺码/错码 → `404 InviteNotFound`。

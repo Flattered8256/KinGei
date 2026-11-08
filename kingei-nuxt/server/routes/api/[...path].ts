@@ -3,5 +3,5 @@ export default defineEventHandler((event) => {
   const requestUrl = getRequestURL(event)
   const target = String(config.apiProxyTarget).replace(/\/$/, '')
   const path = requestUrl.pathname.replace(/^\/api/, '') || '/'
-  return proxyRequest(event, `${target}${path}${requestUrl.search}`)
+  return proxyRequest(event, `${target}${path}${requestUrl.search}`, { streamRequest: true })
 })

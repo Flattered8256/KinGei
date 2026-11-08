@@ -41,6 +41,7 @@ impl AppState {
         let instance_repo = Arc::new(InstanceRepository::new(pool.clone()));
         let invite_repo = Arc::new(InviteRepository::new(pool));
         let event_hub = EventHub::new();
+        let max_upload_size = crate::utils::upload::max_upload_bytes();
         Self {
             user_service: UserService::new(
                 user_repo.clone(),
@@ -80,12 +81,8 @@ impl AppState {
                 instance_repo.clone(),
                 event_hub.clone(),
             ),
-            file_service: FileService::new(
-                file_repo,
-                storage,
-                crate::utils::upload::max_upload_bytes(),
-            ),
-            instance_service: InstanceService::new(instance_repo),
+            file_service: FileService::new(file_repo, storage, max_upload_size),
+            instance_service: InstanceService::new(instance_repo, max_upload_size),
             invite_service: InviteService::new(invite_repo),
             event_hub,
         }

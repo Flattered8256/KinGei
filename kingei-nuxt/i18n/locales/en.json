@@ -36,6 +36,7 @@
     "InvalidSize": "Invalid file size",
     "InvalidUpload": "Invalid upload data",
     "FileTooLarge": "File is too large for this server",
+    "FileTooLargeWithSize": "File is too large (max {size})",
     "FileNotReady": "File is not ready",
     "InvalidImage": "Choose a JPEG, PNG, WebP, or GIF image",
     "InviteNotFound": "Invalid invite code",

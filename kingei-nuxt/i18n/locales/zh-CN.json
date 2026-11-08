@@ -36,6 +36,7 @@
     "InvalidSize": "文件大小无效",
     "InvalidUpload": "上传数据无效",
     "FileTooLarge": "文件太大，超出服务器允许的上传大小",
+    "FileTooLargeWithSize": "文件太大，最大允许上传 {size}",
     "FileNotReady": "文件还不能使用",
     "InvalidImage": "请选择 JPEG、PNG、WebP 或 GIF 图片",
     "InviteNotFound": "邀请码无效",
