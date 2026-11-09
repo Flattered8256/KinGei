@@ -96,6 +96,7 @@ async function remove(user: User) {
           :name="user.username"
           :seed="user.id"
           :file-id="user.avatar"
+          :user-id="user.id"
           :size="36"
         />
         <div class="meta">

@@ -14,6 +14,7 @@ use crate::service::friend::FriendService;
 use crate::service::instance::InstanceService;
 use crate::service::invite::InviteService;
 use crate::service::message::MessageService;
+use crate::service::presence::{GRACE, PresenceService};
 use crate::service::user::UserService;
 use crate::storage::Storage;
 use std::sync::Arc;
@@ -27,6 +28,7 @@ pub struct AppState {
     pub file_service: FileService,
     pub instance_service: InstanceService,
     pub invite_service: InviteService,
+    pub presence_service: PresenceService,
     pub event_hub: EventHub,
 }
 
@@ -40,8 +42,17 @@ impl AppState {
         let file_repo = Arc::new(FileRepository::new(pool.clone()));
         let instance_repo = Arc::new(InstanceRepository::new(pool.clone()));
         let invite_repo = Arc::new(InviteRepository::new(pool));
-        let event_hub = EventHub::new();
+        let (event_hub, presence_rx) = EventHub::pair();
         let max_upload_size = crate::utils::upload::max_upload_bytes();
+        let presence_service = PresenceService::new(
+            friend_repo.clone(),
+            friend_request_repo.clone(),
+            chat_repo.clone(),
+            user_repo.clone(),
+            event_hub.clone(),
+            GRACE,
+        );
+        presence_service.clone().spawn(presence_rx);
         Self {
             user_service: UserService::new(
                 user_repo.clone(),
@@ -58,7 +69,7 @@ impl AppState {
             ),
             friend_service: FriendService::new(
                 friend_repo.clone(),
-                friend_request_repo,
+                friend_request_repo.clone(),
                 user_repo.clone(),
                 instance_repo.clone(),
                 event_hub.clone(),
@@ -84,6 +95,7 @@ impl AppState {
             file_service: FileService::new(file_repo, storage, max_upload_size),
             instance_service: InstanceService::new(instance_repo, max_upload_size),
             invite_service: InviteService::new(invite_repo),
+            presence_service,
             event_hub,
         }
     }

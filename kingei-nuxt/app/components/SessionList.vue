@@ -55,6 +55,14 @@ function avatarFileId(chatId: number) {
   return chats.peerOf(chat)?.avatar ?? null
 }
 
+function avatarUserId(chatId: number) {
+  const chat = chats.chats.value.find(item => item.id === chatId)
+  if (!chat || chat.type === 'Group') {
+    return undefined
+  }
+  return chats.peerOf(chat)?.id
+}
+
 function groupLetter(title: string) {
   return initials(title) === '?' ? '#' : initials(title)
 }
@@ -184,6 +192,7 @@ function onClickOutsideMenu() {
           :name="chat.type === 'Group' ? groupLetter(chats.titleOf(chat)) : avatarName(chat.id, chats.titleOf(chat))"
           :seed="avatarSeed(chat.id)"
           :file-id="avatarFileId(chat.id)"
+          :user-id="avatarUserId(chat.id)"
           :size="40"
         />
         <div class="meta">

@@ -69,6 +69,7 @@ const headerAvatar = computed(() => {
       name: letter === '?' ? '#' : letter,
       seed: `group-${current.id}`,
       fileId: current.avatar,
+      userId: null as string | null,
     }
   }
   const peer = chats.peerOf(current)
@@ -76,6 +77,7 @@ const headerAvatar = computed(() => {
     name: peer?.username ?? title.value,
     seed: peer?.id ?? String(current.id),
     fileId: peer?.avatar ?? null,
+    userId: peer?.id ?? null,
   }
 })
 </script>
@@ -98,6 +100,7 @@ const headerAvatar = computed(() => {
         :name="headerAvatar.name"
         :seed="headerAvatar.seed"
         :file-id="headerAvatar.fileId"
+        :user-id="headerAvatar.userId"
         :size="32"
       />
       <div class="who">

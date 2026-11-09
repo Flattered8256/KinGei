@@ -196,6 +196,30 @@ impl FriendRequestRepository {
         .await
     }
 
+    pub async fn list_pending_counterpart_ids(
+        &self,
+        user_id: Uuid,
+    ) -> Result<Vec<Uuid>, sqlx::Error> {
+        let status = Status::Pending;
+        sqlx::query_scalar(
+            r#"
+            SELECT receiver_id
+            FROM friend_request
+            WHERE sender_id = $1 AND status = $2
+            UNION
+            SELECT sender_id
+            FROM friend_request
+            WHERE receiver_id = $3 AND status = $4
+            "#,
+        )
+        .bind(user_id)
+        .bind(status)
+        .bind(user_id)
+        .bind(status)
+        .fetch_all(&self.pool)
+        .await
+    }
+
     pub async fn list_sent(&self, sender_id: Uuid) -> Result<Vec<FriendRequest>, sqlx::Error> {
         sqlx::query_as::<_, FriendRequest>(
             r#"

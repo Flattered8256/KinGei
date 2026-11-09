@@ -11,6 +11,8 @@ export function useAppSync() {
   const messages = useMessages()
   const users = useUserDirectory()
   const instance = useInstance()
+  const presence = usePresence()
+  const sseStatus = useSseStatus()
   const router = useRouter()
   const ready = useAppReady()
 
@@ -18,6 +20,7 @@ export function useAppSync() {
     chats.ingest(event)
     friends.ingest(event)
     messages.ingest(event)
+    presence.ingest(event)
 
     if (event.event === 'chat.deleted' && messages.currentId.value === event.data.chat_id) {
       void router.replace('/chat')
@@ -35,7 +38,12 @@ export function useAppSync() {
     }
     users.remember(user.value)
     try {
-      await Promise.all([chats.refresh(), friends.refresh(), instance.refresh()])
+      await Promise.all([
+        chats.refresh(),
+        friends.refresh(),
+        instance.refresh(),
+        presence.refresh(),
+      ])
     }
     finally {
       if (isAuthenticated.value) {
@@ -49,6 +57,7 @@ export function useAppSync() {
     friends.reset()
     messages.reset()
     users.reset()
+    presence.reset()
     ready.value = false
   }
 
@@ -67,6 +76,14 @@ export function useAppSync() {
     resetAll()
     void router.replace('/login')
   })
+
+  watch(
+    [sseStatus, user],
+    () => {
+      presence.markSelf()
+    },
+    { immediate: true },
+  )
 
   onMounted(() => {
     if (isAuthenticated.value) {

@@ -5,6 +5,7 @@ pub mod file;
 pub mod friend;
 pub mod instance;
 pub mod message;
+pub mod presence;
 pub mod user;
 
 use std::sync::Arc;
@@ -27,6 +28,7 @@ pub fn create_router(state: Arc<AppState>) -> Router {
             chat::protected_routes().merge(message::protected_routes()),
         )
         .nest("/event", event::protected_routes())
+        .nest("/presence", presence::protected_routes())
         .nest("/file", file::protected_routes())
         .nest("/instance", instance::public_routes())
         .nest("/admin", admin::protected_routes(state.clone()))

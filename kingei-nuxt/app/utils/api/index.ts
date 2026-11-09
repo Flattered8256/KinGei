@@ -51,6 +51,8 @@ export {
 export { connectEventStream } from './event'
 export type { EventStreamConnection, EventStreamHandlers } from './event'
 
+export { getPresence } from './presence'
+
 export { getInstance } from './instance'
 
 export {

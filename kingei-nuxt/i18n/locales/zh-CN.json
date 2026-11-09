@@ -183,6 +183,9 @@
   "avatar": {
     "change": "更换"
   },
+  "presence": {
+    "online": "在线"
+  },
   "settings": {
     "title": "设置",
     "general": "通用",

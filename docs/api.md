@@ -96,6 +96,9 @@ HTTP 状态码：`400` 参数或规则不合法、`401` 未登录或凭据错误
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | GET | `/event` | SSE 长连接，`Cache-Control: no-cache`、`X-Accel-Buffering: no`，每 15 秒 `ping` 保活 |
+| GET | `/presence` | 当前可见的在线用户快照，`[{ user_id, online: true }, ...]` |
+
+在线判定：该用户至少一条 `GET /event` 连接，或处于 30 秒重连宽限。进程内、不写库；进程重启后全员离线直到重新连上。管理员看到全部在线用户；成员看到自己 ∪ 好友 ∪ 待处理申请双方 ∪ 共同会话成员中的在线者。
 
 事件名与载荷（载荷与对应 REST 响应同形）：
 
@@ -109,6 +112,7 @@ HTTP 状态码：`400` 参数或规则不合法、`401` 未登录或凭据错误
 | `chat.deleted` | `{ chat_id }` |
 | `friend.request.created` / `.accepted` / `.rejected` / `.cancelled` | `FriendRequestResponse` |
 | `friend.deleted` | `{ friend_id }` |
+| `presence.changed` | `{ user_id, online }`（推给该用户的好友、待处理申请双方、共同会话成员和全体管理员，不含自己） |
 
 ### 文件（Bearer；`/content`、`/download` 例外接受 cookie）
 

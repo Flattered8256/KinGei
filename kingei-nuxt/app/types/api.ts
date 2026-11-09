@@ -229,6 +229,11 @@ export interface FriendDeletedEvent {
   friend_id: string
 }
 
+export interface PresenceChangedEvent {
+  user_id: string
+  online: boolean
+}
+
 export const CLIENT_EVENT_NAMES = [
   'message.created',
   'message.deleted',
@@ -243,6 +248,7 @@ export const CLIENT_EVENT_NAMES = [
   'friend.request.rejected',
   'friend.request.cancelled',
   'friend.deleted',
+  'presence.changed',
 ] as const
 
 export type ClientEventName = (typeof CLIENT_EVENT_NAMES)[number]
@@ -261,6 +267,7 @@ export type ClientEvent =
   | { event: 'friend.request.rejected'; data: FriendRequest }
   | { event: 'friend.request.cancelled'; data: FriendRequest }
   | { event: 'friend.deleted'; data: FriendDeletedEvent }
+  | { event: 'presence.changed'; data: PresenceChangedEvent }
 
 export interface FileResponse {
   id: number

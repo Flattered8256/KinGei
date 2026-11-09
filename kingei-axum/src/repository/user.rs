@@ -119,6 +119,18 @@ impl UserRepository {
         .await
     }
 
+    pub async fn list_ids_by_role(&self, role: UserRole) -> Result<Vec<Uuid>, sqlx::Error> {
+        sqlx::query_scalar(
+            r#"
+            SELECT id FROM "user"
+            WHERE role = $1
+            "#,
+        )
+        .bind(role)
+        .fetch_all(&self.pool)
+        .await
+    }
+
     pub async fn find_by_ids(&self, ids: &[Uuid]) -> Result<Vec<User>, sqlx::Error> {
         if ids.is_empty() {
             return Ok(Vec::new());

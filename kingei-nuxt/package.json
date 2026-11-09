@@ -12,8 +12,10 @@
   },
   "dependencies": {
     "@nuxtjs/i18n": "^10.6.0",
+    "@pinia/nuxt": "^1.0.3",
     "element-plus": "^2.14.7",
     "nuxt": "^4.6.2",
+    "pinia": "^4.1.0",
     "virtua": "^0.53.5",
     "vue": "^3.5.44",
     "vue-router": "^5.4.0"

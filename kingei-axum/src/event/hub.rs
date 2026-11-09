@@ -5,7 +5,7 @@ use std::sync::{Arc, RwLock};
 
 use axum::response::sse::Event;
 use futures::stream::Stream;
-use tokio::sync::{broadcast, oneshot};
+use tokio::sync::{broadcast, mpsc, oneshot};
 use uuid::Uuid;
 
 use crate::event::ClientEvent;
@@ -26,6 +26,13 @@ struct UserMailbox {
 struct Inner {
     mailboxes: RwLock<HashMap<Uuid, UserMailbox>>,
     next_conn_id: AtomicU64,
+    presence: mpsc::UnboundedSender<PresenceSignal>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PresenceSignal {
+    Connected(Uuid),
+    Disconnected(Uuid),
 }
 
 #[derive(Clone)]
@@ -52,13 +59,20 @@ impl Default for EventHub {
 }
 
 impl EventHub {
-    pub fn new() -> Self {
-        Self {
+    pub fn pair() -> (Self, mpsc::UnboundedReceiver<PresenceSignal>) {
+        let (presence, rx) = mpsc::unbounded_channel();
+        let hub = Self {
             inner: Arc::new(Inner {
                 mailboxes: RwLock::new(HashMap::new()),
                 next_conn_id: AtomicU64::new(1),
+                presence,
             }),
-        }
+        };
+        (hub, rx)
+    }
+
+    pub fn new() -> Self {
+        Self::pair().0
     }
 
     pub fn subscribe(&self, user_id: Uuid) -> EventSubscription {
@@ -73,6 +87,7 @@ impl EventHub {
                 conns: VecDeque::new(),
             }
         });
+        let first = mailbox.conns.is_empty();
 
         // 同一用户最多 4 条 SSE，超出关掉最老的，避免刷新页面堆连接。
         while mailbox.conns.len() >= MAX_CONNECTIONS_PER_USER {
@@ -87,6 +102,9 @@ impl EventHub {
         });
         let rx = mailbox.sender.subscribe();
         drop(mailboxes);
+        if first {
+            let _ = self.inner.presence.send(PresenceSignal::Connected(user_id));
+        }
 
         EventSubscription {
             rx,
@@ -108,11 +126,17 @@ impl EventHub {
 
     pub fn disconnect(&self, user_id: Uuid) {
         let mut mailboxes = write_lock(&self.inner.mailboxes);
-        if let Some(mailbox) = mailboxes.remove(&user_id) {
-            for conn in mailbox.conns {
-                let _ = conn.cancel.send(());
-            }
+        let Some(mailbox) = mailboxes.remove(&user_id) else {
+            return;
+        };
+        for conn in mailbox.conns {
+            let _ = conn.cancel.send(());
         }
+        drop(mailboxes);
+        let _ = self
+            .inner
+            .presence
+            .send(PresenceSignal::Disconnected(user_id));
     }
 
     pub fn publish_many(&self, user_ids: impl IntoIterator<Item = Uuid>, event: Arc<ClientEvent>) {
@@ -171,6 +195,11 @@ impl Drop for ConnectionGuard {
         mailbox.conns.retain(|conn| conn.id != self.conn_id);
         if mailbox.conns.is_empty() {
             mailboxes.remove(&self.user_id);
+            drop(mailboxes);
+            let _ = self
+                .inner
+                .presence
+                .send(PresenceSignal::Disconnected(self.user_id));
         }
     }
 }
@@ -182,4 +211,41 @@ fn read_lock<T>(lock: &RwLock<T>) -> std::sync::RwLockReadGuard<'_, T> {
 fn write_lock<T>(lock: &RwLock<T>) -> std::sync::RwLockWriteGuard<'_, T> {
     lock.write()
         .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn first_subscribe_emits_connected_last_drop_emits_disconnected() {
+        let (hub, mut rx) = EventHub::pair();
+        let user_id = Uuid::new_v4();
+
+        let first = hub.subscribe(user_id);
+        assert_eq!(rx.try_recv(), Ok(PresenceSignal::Connected(user_id)));
+
+        let second = hub.subscribe(user_id);
+        assert!(rx.try_recv().is_err());
+
+        drop(second);
+        assert!(rx.try_recv().is_err());
+
+        drop(first);
+        assert_eq!(rx.try_recv(), Ok(PresenceSignal::Disconnected(user_id)));
+    }
+
+    #[test]
+    fn disconnect_emits_once_and_drops_do_not_repeat() {
+        let (hub, mut rx) = EventHub::pair();
+        let user_id = Uuid::new_v4();
+        let sub = hub.subscribe(user_id);
+        assert_eq!(rx.try_recv(), Ok(PresenceSignal::Connected(user_id)));
+
+        hub.disconnect(user_id);
+        assert_eq!(rx.try_recv(), Ok(PresenceSignal::Disconnected(user_id)));
+
+        drop(sub);
+        assert!(rx.try_recv().is_err());
+    }
 }

@@ -3,7 +3,8 @@ use uuid::Uuid;
 
 use crate::serializer::chat::ChatResponse;
 use crate::serializer::event::{
-    ChatDeletedEvent, ChatMemberRemovedEvent, FriendDeletedEvent, ReadReceiptEvent,
+    ChatDeletedEvent, ChatMemberRemovedEvent, FriendDeletedEvent, PresenceChangedEvent,
+    ReadReceiptEvent,
 };
 use crate::serializer::friend::FriendRequestResponse;
 use crate::serializer::message::MessageResponse;
@@ -23,6 +24,7 @@ pub enum ClientEvent {
     FriendRequestRejected(FriendRequestResponse),
     FriendRequestCancelled(FriendRequestResponse),
     FriendDeleted(FriendDeletedEvent),
+    PresenceChanged(PresenceChangedEvent),
 }
 
 impl ClientEvent {
@@ -41,6 +43,7 @@ impl ClientEvent {
             Self::FriendRequestRejected(_) => "friend.request.rejected",
             Self::FriendRequestCancelled(_) => "friend.request.cancelled",
             Self::FriendDeleted(_) => "friend.deleted",
+            Self::PresenceChanged(_) => "presence.changed",
         }
     }
 
@@ -60,6 +63,7 @@ impl ClientEvent {
             Self::FriendRequestRejected(data) => event.json_data(data),
             Self::FriendRequestCancelled(data) => event.json_data(data),
             Self::FriendDeleted(data) => event.json_data(data),
+            Self::PresenceChanged(data) => event.json_data(data),
         }
     }
 
@@ -81,5 +85,9 @@ impl ClientEvent {
             user_id,
             last_read_message_id,
         })
+    }
+
+    pub fn presence_changed(user_id: Uuid, online: bool) -> Self {
+        Self::PresenceChanged(PresenceChangedEvent { user_id, online })
     }
 }

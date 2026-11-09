@@ -32,6 +32,7 @@ const settingsActive = computed(() => route.path.startsWith('/settings'))
         :name="user?.username"
         :seed="user?.id"
         :file-id="user?.avatar"
+        :user-id="user?.id"
         :size="40"
       />
     </NuxtLink>

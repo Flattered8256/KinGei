@@ -23,3 +23,9 @@ pub struct ChatDeletedEvent {
 pub struct FriendDeletedEvent {
     pub friend_id: Uuid,
 }
+
+#[derive(Debug, Clone, Serialize)]
+pub struct PresenceChangedEvent {
+    pub user_id: Uuid,
+    pub online: bool,
+}

@@ -88,6 +88,7 @@ const listsEmpty = computed(() =>
             :name="request.sender.username"
             :seed="request.sender.id"
             :file-id="request.sender.avatar"
+            :user-id="request.sender.id"
             :size="40"
           />
           <div class="meta">
@@ -127,6 +128,7 @@ const listsEmpty = computed(() =>
             :name="request.receiver.username"
             :seed="request.receiver.id"
             :file-id="request.receiver.avatar"
+            :user-id="request.receiver.id"
             :size="40"
           />
           <div class="meta">
@@ -164,6 +166,7 @@ const listsEmpty = computed(() =>
           :name="friend.user.username"
           :seed="friend.user.id"
           :file-id="friend.user.avatar"
+          :user-id="friend.user.id"
           :size="40"
         />
         <div class="meta">

@@ -395,6 +395,7 @@ onBeforeUnmount(() => {
                 :name="sender(item)?.username"
                 :seed="item.sender_id"
                 :file-id="sender(item)?.avatar"
+                :user-id="item.sender_id"
                 :size="36"
               />
               <div class="bubble-wrap">
@@ -474,6 +475,7 @@ onBeforeUnmount(() => {
                 :name="user?.username"
                 :seed="user?.id"
                 :file-id="user?.avatar"
+                :user-id="user?.id"
                 :size="36"
               />
             </div>

@@ -183,6 +183,9 @@
   "avatar": {
     "change": "Change"
   },
+  "presence": {
+    "online": "Online"
+  },
   "settings": {
     "title": "Settings",
     "general": "General",

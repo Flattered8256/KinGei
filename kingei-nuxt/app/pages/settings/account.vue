@@ -72,6 +72,7 @@ async function onAvatar(id: number) {
         :name="user.username"
         :seed="user.id"
         :file-id="user.avatar"
+        :user-id="user.id"
         :size="56"
         editable
         @uploaded="onAvatar"

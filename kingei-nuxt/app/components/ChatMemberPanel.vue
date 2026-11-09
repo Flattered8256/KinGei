@@ -196,6 +196,7 @@ async function leave() {
           :name="member.user.username"
           :seed="member.user.id"
           :file-id="member.user.avatar"
+          :user-id="member.user.id"
           :size="36"
         />
         <div class="who">

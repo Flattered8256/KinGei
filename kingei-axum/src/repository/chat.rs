@@ -190,6 +190,21 @@ impl ChatRepository {
         .await
     }
 
+    pub async fn list_peer_ids(&self, user_id: Uuid) -> Result<Vec<Uuid>, sqlx::Error> {
+        sqlx::query_scalar(
+            r#"
+            SELECT DISTINCT peer.user_id
+            FROM chat_member me
+            INNER JOIN chat_member peer
+                ON peer.chat_id = me.chat_id AND peer.user_id != me.user_id
+            WHERE me.user_id = $1
+            "#,
+        )
+        .bind(user_id)
+        .fetch_all(&self.pool)
+        .await
+    }
+
     pub async fn list_members(&self, chat_id: i64) -> Result<Vec<ChatMember>, sqlx::Error> {
         sqlx::query_as::<_, ChatMember>(
             r#"
