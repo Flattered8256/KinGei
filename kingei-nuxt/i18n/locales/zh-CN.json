@@ -75,6 +75,7 @@
   },
   "toast": {
     "requestSent": "申请已发送",
+    "nowFriends": "已添加好友",
     "accepted": "已接受",
     "rejected": "已拒绝",
     "cancelled": "已撤回",

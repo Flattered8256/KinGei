@@ -307,6 +307,60 @@ impl FriendRequestRepository {
         Ok((request, vec![a, b]))
     }
 
+    pub async fn create_accepted_friendship(
+        &self,
+        sender_id: Uuid,
+        receiver_id: Uuid,
+    ) -> Result<(FriendRequest, Vec<Friend>), sqlx::Error> {
+        let mut tx = self.pool.begin().await?;
+        let now = Utc::now();
+        let status = Status::Accept;
+
+        let request = sqlx::query_as::<_, FriendRequest>(
+            r#"
+            INSERT INTO friend_request(sender_id, receiver_id, status, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING id, sender_id, receiver_id, status, created_at, updated_at
+            "#,
+        )
+        .bind(&sender_id)
+        .bind(&receiver_id)
+        .bind(&status)
+        .bind(&now)
+        .bind(&now)
+        .fetch_one(&mut *tx)
+        .await?;
+
+        let a = sqlx::query_as::<_, Friend>(
+            r#"
+            INSERT INTO friend(user_id, friend_id, created_at)
+            VALUES ($1, $2, $3)
+            RETURNING id, user_id, friend_id, created_at
+            "#,
+        )
+        .bind(&sender_id)
+        .bind(&receiver_id)
+        .bind(&now)
+        .fetch_one(&mut *tx)
+        .await?;
+
+        let b = sqlx::query_as::<_, Friend>(
+            r#"
+            INSERT INTO friend(user_id, friend_id, created_at)
+            VALUES ($1, $2, $3)
+            RETURNING id, user_id, friend_id, created_at
+            "#,
+        )
+        .bind(&receiver_id)
+        .bind(&sender_id)
+        .bind(&now)
+        .fetch_one(&mut *tx)
+        .await?;
+
+        tx.commit().await?;
+        Ok((request, vec![a, b]))
+    }
+
     pub async fn delete(&self, id: i64) -> Result<Option<FriendRequest>, sqlx::Error> {
         sqlx::query_as::<_, FriendRequest>(
             r#"

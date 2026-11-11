@@ -75,6 +75,7 @@
   },
   "toast": {
     "requestSent": "Request sent",
+    "nowFriends": "Added as friend",
     "accepted": "Request accepted",
     "rejected": "Request declined",
     "cancelled": "Request cancelled",

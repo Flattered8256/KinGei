@@ -76,8 +76,8 @@ async function sendRequest() {
   }
   friendPending.value = true
   try {
-    await friends.request(found.value.id)
-    toast.success(t('toast.requestSent'))
+    const created = await friends.request(found.value.id)
+    toast.success(t(created.status === 'Accept' ? 'toast.nowFriends' : 'toast.requestSent'))
     close()
   }
   catch (err) {

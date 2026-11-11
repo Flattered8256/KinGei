@@ -16,6 +16,7 @@ export function useFriends() {
   const apiI18n = useApiI18n()
   const toast = useToast()
   const users = useUserDirectory()
+  const presence = usePresence()
 
   const friends = useState<Friend[]>('friends.list', () => [])
   const incoming = useState<FriendRequest[]>('friends.incoming', () => [])
@@ -67,9 +68,18 @@ export function useFriends() {
     return found
   }
 
+  async function onBecameFriends() {
+    await refresh()
+    await presence.refresh()
+  }
+
   async function request(receiverId: string) {
     const created = await sendFriendRequest({ receiver_id: receiverId })
     users.rememberRequest(created)
+    if (created.status === 'Accept') {
+      await onBecameFriends()
+      return created
+    }
     if (!outgoing.value.some(item => item.id === created.id)) {
       outgoing.value = [created, ...outgoing.value]
     }
@@ -79,7 +89,7 @@ export function useFriends() {
   async function accept(id: number) {
     await acceptFriendRequest(id)
     incoming.value = incoming.value.filter(item => item.id !== id)
-    await refresh()
+    await onBecameFriends()
   }
 
   async function reject(id: number) {
@@ -116,7 +126,7 @@ export function useFriends() {
         users.rememberRequest(event.data)
         incoming.value = incoming.value.filter(item => item.id !== event.data.id)
         outgoing.value = outgoing.value.filter(item => item.id !== event.data.id)
-        void refresh()
+        void onBecameFriends()
         break
       case 'friend.request.rejected':
       case 'friend.request.cancelled':

@@ -67,7 +67,7 @@ HTTP 状态码：`400` 参数或规则不合法、`401` 未登录或凭据错误
 | --- | --- | --- | --- |
 | GET | `/friend` | 好友列表 | `[FriendResponse]` |
 | DELETE | `/friend/{friend_id}` | 删除好友 | `204` |
-| POST | `/friend/request` | 发起申请，`receiver_id` | `FriendRequestResponse` |
+| POST | `/friend/request` | 发起申请，`receiver_id`；Admin 发出即成为好友 | `FriendRequestResponse` |
 | GET | `/friend/request/received` | 收到的申请 | `[FriendRequestResponse]` |
 | GET | `/friend/request/sent` | 发出的申请 | `[FriendRequestResponse]` |
 | PATCH | `/friend/request/{id}/accept` | 同意 | `FriendRequestResponse` |
@@ -133,6 +133,13 @@ HTTP 状态码：`400` 参数或规则不合法、`401` 未登录或凭据错误
 | POST | `/admin/invite` | 生成或替换 8 位码，无请求体 | `{ code }` |
 
 ## 行为要点
+
+### 好友
+
+- 成员发申请为 `Pending`，对方同意后才写入 `friend`。
+- Admin 发申请直接 `Accept` 并建立双向好友，向对方推 `friend.request.accepted`，不推 `friend.request.created`。
+- 若对方已有发给 Admin 的 Pending，Admin 再发视为同意该申请，响应里的 `sender` / `receiver` 仍是原申请双方。
+- `allow_add_friend = false` 时成员发申请 → `403 AddFriendDisabled`；Admin 不受限。
 
 ### 会话
 

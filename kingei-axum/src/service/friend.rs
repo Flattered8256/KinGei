@@ -76,17 +76,18 @@ impl FriendService {
             return Err(AppError::Friend(FriendError::AlreadyFriends));
         }
 
-        if self
+        let reverse_pending = self
+            .request_repo
+            .find_by_status(receiver_id, sender_id, Status::Pending)
+            .await?;
+        let outgoing_pending = self
             .request_repo
             .find_by_status(sender_id, receiver_id, Status::Pending)
-            .await?
-            .is_some()
-            || self
-                .request_repo
-                .find_by_status(receiver_id, sender_id, Status::Pending)
-                .await?
-                .is_some()
-        {
+            .await?;
+        if let Some(pending) = reverse_pending.or(outgoing_pending) {
+            if sender.role == UserRole::Admin {
+                return self.complete_request(pending, sender_id).await;
+            }
             return Err(AppError::Friend(FriendError::RequestAlreadyPending));
         }
 
@@ -95,6 +96,9 @@ impl FriendService {
             .find_by_pair(sender_id, receiver_id)
             .await?
         {
+            if sender.role == UserRole::Admin {
+                return self.complete_request(existing, sender_id).await;
+            }
             let updated = self
                 .request_repo
                 .update_status(existing.id, Status::Pending)
@@ -104,6 +108,19 @@ impl FriendService {
             self.emit(
                 receiver_id,
                 ClientEvent::FriendRequestCreated(response.clone()),
+            );
+            return Ok(response);
+        }
+
+        if sender.role == UserRole::Admin {
+            let (created, _) = self
+                .request_repo
+                .create_accepted_friendship(sender_id, receiver_id)
+                .await?;
+            let response = self.to_response(created).await?;
+            self.emit(
+                receiver_id,
+                ClientEvent::FriendRequestAccepted(response.clone()),
             );
             return Ok(response);
         }
@@ -149,17 +166,7 @@ impl FriendService {
             return Err(AppError::Friend(FriendError::RequestNotPending));
         }
 
-        let (accepted, _) = self
-            .request_repo
-            .accept_and_create_friend(request.id, request.sender_id, request.receiver_id)
-            .await?;
-
-        let response = self.to_response(accepted).await?;
-        self.emit(
-            request.sender_id,
-            ClientEvent::FriendRequestAccepted(response.clone()),
-        );
-        Ok(response)
+        self.complete_request(request, user_id).await
     }
 
     pub async fn reject(
@@ -255,6 +262,28 @@ impl FriendService {
         self.friend_repo.delete(user_id, friend_id).await?;
         self.emit(friend_id, ClientEvent::friend_deleted(user_id));
         Ok(())
+    }
+
+    async fn complete_request(
+        &self,
+        request: FriendRequest,
+        actor_id: Uuid,
+    ) -> Result<FriendRequestResponse, AppError> {
+        let (accepted, _) = self
+            .request_repo
+            .accept_and_create_friend(request.id, request.sender_id, request.receiver_id)
+            .await?;
+        let response = self.to_response(accepted).await?;
+        let other_id = if request.sender_id == actor_id {
+            request.receiver_id
+        } else {
+            request.sender_id
+        };
+        self.emit(
+            other_id,
+            ClientEvent::FriendRequestAccepted(response.clone()),
+        );
+        Ok(response)
     }
 
     fn emit(&self, user_id: Uuid, event: ClientEvent) {
@@ -378,6 +407,77 @@ mod tests {
             .unwrap();
         assert_eq!(created.sender.id, admin_id);
         assert_eq!(created.receiver.id, member_id);
+        assert_eq!(created.status, Status::Accept);
+        let friends = service.list_friends(admin_id).await.unwrap();
+        assert_eq!(friends.len(), 1);
+        assert_eq!(friends[0].user.id, member_id);
+    }
+
+    #[tokio::test]
+    async fn admin_send_request_becomes_friends() {
+        let (service, admin_id, member_id, _) = setup().await;
+
+        let created = service
+            .send_request(
+                admin_id,
+                SendFriendRequest {
+                    receiver_id: member_id,
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(created.status, Status::Accept);
+        assert_eq!(service.list_friends(admin_id).await.unwrap().len(), 1);
+        assert_eq!(service.list_friends(member_id).await.unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn member_send_request_stays_pending() {
+        let (service, admin_id, member_id, _) = setup().await;
+
+        let created = service
+            .send_request(
+                member_id,
+                SendFriendRequest {
+                    receiver_id: admin_id,
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(created.status, Status::Pending);
+        assert!(service.list_friends(admin_id).await.unwrap().is_empty());
+        assert!(service.list_friends(member_id).await.unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn admin_send_accepts_reverse_pending() {
+        let (service, admin_id, member_id, _) = setup().await;
+
+        let pending = service
+            .send_request(
+                member_id,
+                SendFriendRequest {
+                    receiver_id: admin_id,
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(pending.status, Status::Pending);
+
+        let accepted = service
+            .send_request(
+                admin_id,
+                SendFriendRequest {
+                    receiver_id: member_id,
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(accepted.id, pending.id);
+        assert_eq!(accepted.status, Status::Accept);
+        assert_eq!(accepted.sender.id, member_id);
+        assert_eq!(accepted.receiver.id, admin_id);
+        assert_eq!(service.list_friends(admin_id).await.unwrap().len(), 1);
     }
 
     async fn setup() -> (FriendService, Uuid, Uuid, Arc<InstanceRepository>) {
