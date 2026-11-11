@@ -233,6 +233,10 @@ export function useSystemNotify() {
     if (message.sender_id === user.value?.id || message.deleted) {
       return
     }
+    const chat = chats.chats.value.find(item => item.id === message.chat_id)
+    if (chat?.type === 'Group') {
+      return
+    }
     const { title, body } = copyOf(message)
     const sender = users.get(message.sender_id)
     const senderName = users.label(message.sender_id, t('app.unknownUser'))
