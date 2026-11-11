@@ -96,22 +96,23 @@ const listsEmpty = computed(() =>
               class="truncate"
               :title="request.sender.username"
             >{{ request.sender.username }}</strong>
-            <div class="row-actions">
-              <button
-                type="button"
-                class="link"
-                @click="acceptRequest(request)"
-              >
-                {{ $t('friends.accept') }}
-              </button>
-              <button
-                type="button"
-                class="link danger"
-                @click="run(() => friends.reject(request.id), 'toast.rejected')"
-              >
-                {{ $t('friends.reject') }}
-              </button>
-            </div>
+            <span class="muted truncate">{{ $t('friends.incomingHint') }}</span>
+          </div>
+          <div class="row-actions">
+            <button
+              type="button"
+              class="btn btn-sm btn-primary"
+              @click="acceptRequest(request)"
+            >
+              {{ $t('friends.accept') }}
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm btn-secondary"
+              @click="run(() => friends.reject(request.id), 'toast.rejected')"
+            >
+              {{ $t('friends.reject') }}
+            </button>
           </div>
         </div>
       </template>
@@ -136,9 +137,12 @@ const listsEmpty = computed(() =>
               class="truncate"
               :title="request.receiver.username"
             >{{ request.receiver.username }}</strong>
+            <span class="muted truncate">{{ $t('friends.outgoingHint') }}</span>
+          </div>
+          <div class="row-actions">
             <button
               type="button"
-              class="link"
+              class="btn btn-sm btn-secondary"
               @click="run(() => friends.cancel(request.id), 'toast.cancelled')"
             >
               {{ $t('friends.cancelRequest') }}
@@ -243,16 +247,8 @@ h1 {
 
 .row-actions {
   display: flex;
-  gap: 10px;
-}
-
-.link {
-  color: var(--color-primary);
-  font-size: 13px;
-}
-
-.link.danger {
-  color: var(--color-danger);
+  flex-shrink: 0;
+  gap: 6px;
 }
 
 .pad {

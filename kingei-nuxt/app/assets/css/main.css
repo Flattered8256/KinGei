@@ -247,6 +247,13 @@ select.input {
   width: 100%;
 }
 
+.btn-sm {
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: 13px;
+  border-radius: var(--radius-sm);
+}
+
 .muted {
   color: var(--color-muted);
 }
