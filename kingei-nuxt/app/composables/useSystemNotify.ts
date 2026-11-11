@@ -1,5 +1,5 @@
 import type { Chat, FriendRequest, Message } from '~/types/api'
-import { chatTitle, messagePreviewText } from '~/utils/display'
+import { avatarColor, chatTitle, initials, messagePreviewText } from '~/utils/display'
 
 const STORAGE_KEY = 'kingei.notify'
 const BODY_MAX = 120
@@ -146,11 +146,30 @@ export function useSystemNotify() {
     })
   }
 
-  function fileIcon(fileId: number | null | undefined) {
-    if (fileId == null) {
+  function placeholderIcon(name: string, seed: string) {
+    const size = 128
+    const canvas = document.createElement('canvas')
+    canvas.width = size
+    canvas.height = size
+    const ctx = canvas.getContext('2d')
+    if (!ctx) {
       return `${location.origin}/favicon.ico`
     }
-    return `${location.origin}/api/file/${fileId}/content`
+    ctx.fillStyle = avatarColor(seed)
+    ctx.fillRect(0, 0, size, size)
+    ctx.fillStyle = '#fff'
+    ctx.font = `600 ${Math.round(size * 0.4)}px system-ui, sans-serif`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(initials(name), size / 2, size / 2)
+    return canvas.toDataURL('image/png')
+  }
+
+  function noticeIcon(fileId: number | null | undefined, name: string, seed: string) {
+    if (fileId != null) {
+      return `${location.origin}/api/file/${fileId}/content`
+    }
+    return placeholderIcon(name, seed)
   }
 
   function copyOf(message: Message) {
@@ -216,11 +235,12 @@ export function useSystemNotify() {
     }
     const { title, body } = copyOf(message)
     const sender = users.get(message.sender_id)
+    const senderName = users.label(message.sender_id, t('app.unknownUser'))
     show({
       tag: `chat-${message.chat_id}`,
       title,
       body,
-      icon: fileIcon(sender?.avatar),
+      icon: noticeIcon(sender?.avatar, senderName, message.sender_id),
       href: `/chat/${message.chat_id}`,
     })
   }
@@ -233,7 +253,7 @@ export function useSystemNotify() {
       tag: `friend-${request.id}`,
       title: request.sender.username,
       body: t('notify.friendRequest'),
-      icon: fileIcon(request.sender.avatar),
+      icon: noticeIcon(request.sender.avatar, request.sender.username, request.sender.id),
       href: '/friends',
     })
   }
@@ -248,7 +268,7 @@ export function useSystemNotify() {
       tag: `friend-${request.id}`,
       title: other.username,
       body: t('notify.nowFriends'),
-      icon: fileIcon(other.avatar),
+      icon: noticeIcon(other.avatar, other.username, other.id),
       href: `/friends/${other.id}`,
     })
   }
@@ -257,11 +277,12 @@ export function useSystemNotify() {
     if (chat.type !== 'Group') {
       return
     }
+    const title = chatTitle(chat, user.value?.id, t('chat.untitledGroup'))
     show({
       tag: `invite-${chat.id}`,
-      title: chatTitle(chat, user.value?.id, t('chat.untitledGroup')),
+      title,
       body: t('notify.groupInvite'),
-      icon: fileIcon(chat.avatar),
+      icon: noticeIcon(chat.avatar, title, `group-${chat.id}`),
       href: `/chat/${chat.id}`,
     })
   }
