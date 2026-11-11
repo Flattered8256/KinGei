@@ -189,6 +189,12 @@
   "presence": {
     "online": "在线"
   },
+  "notify": {
+    "friendRequest": "想加你为好友",
+    "nowFriends": "已成为好友",
+    "groupInvite": "你被拉进了群聊",
+    "groupMessage": "{name}: {text}"
+  },
   "settings": {
     "title": "设置",
     "general": "通用",
@@ -196,6 +202,10 @@
     "account": "我的账号",
     "language": "语言",
     "appearance": "外观",
+    "notifications": "通知",
+    "notificationsHint": "后台运行时，使用系统通知提醒新消息",
+    "notificationsDenied": "浏览器已拒绝通知，请在站点设置中允许",
+    "notificationsUnsupported": "当前环境不支持系统通知",
     "site": "站点",
     "users": "用户",
     "logout": "退出登录",

@@ -189,6 +189,12 @@
   "presence": {
     "online": "Online"
   },
+  "notify": {
+    "friendRequest": "sent you a friend request",
+    "nowFriends": "You are now friends",
+    "groupInvite": "You were added to this group",
+    "groupMessage": "{name}: {text}"
+  },
   "settings": {
     "title": "Settings",
     "general": "General",
@@ -196,6 +202,10 @@
     "account": "My account",
     "language": "Language",
     "appearance": "Appearance",
+    "notifications": "Notifications",
+    "notificationsHint": "When running in the background, use system notifications for new messages",
+    "notificationsDenied": "Notifications are blocked. Allow them in the browser site settings",
+    "notificationsUnsupported": "System notifications are not available in this environment",
     "site": "Site",
     "users": "Users",
     "logout": "Log out",

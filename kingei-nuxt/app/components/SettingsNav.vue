@@ -8,6 +8,7 @@ const general = [
   { to: '/settings/account', key: 'account' },
   { to: '/settings/language', key: 'language' },
   { to: '/settings/appearance', key: 'appearance' },
+  { to: '/settings/notifications', key: 'notifications' },
 ]
 
 const admin = [
