@@ -13,6 +13,7 @@ type PendingAttachment = {
 
 const messages = useMessages()
 const chats = useChats()
+const typing = useTyping()
 const users = useUserDirectory()
 const { isMobile } = useIsMobile()
 const toast = useToast()
@@ -261,8 +262,12 @@ function onQuoteSelect() {
   }
 }
 
-watch(draft, () => {
+watch(draft, (text) => {
   nextTick(fit)
+  const id = messages.currentId.value
+  if (id != null) {
+    void typing.report(id, Boolean(text.trim()))
+  }
 })
 
 watch(replyTo, (target) => {
@@ -279,9 +284,13 @@ watch(
   (id, prev) => {
     if (prev != null) {
       messages.saveDraft(prev, draft.value)
+      void typing.report(prev, false)
     }
     draft.value = messages.takeDraft(id)
     clearPending()
+    if (id != null) {
+      void typing.report(id, Boolean(draft.value.trim()))
+    }
     nextTick(fit)
   },
   { immediate: true, flush: 'sync' },
@@ -290,6 +299,7 @@ watch(
 onMounted(fit)
 onUnmounted(() => {
   messages.saveDraft(messages.currentId.value, draft.value)
+  void typing.report(messages.currentId.value, false)
   clearPending()
 })
 </script>

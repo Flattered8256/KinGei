@@ -4,7 +4,7 @@ use uuid::Uuid;
 use crate::serializer::chat::ChatResponse;
 use crate::serializer::event::{
     ChatDeletedEvent, ChatMemberRemovedEvent, FriendDeletedEvent, PresenceChangedEvent,
-    ReadReceiptEvent,
+    ReadReceiptEvent, TypingChangedEvent,
 };
 use crate::serializer::friend::FriendRequestResponse;
 use crate::serializer::message::MessageResponse;
@@ -25,6 +25,7 @@ pub enum ClientEvent {
     FriendRequestCancelled(FriendRequestResponse),
     FriendDeleted(FriendDeletedEvent),
     PresenceChanged(PresenceChangedEvent),
+    TypingChanged(TypingChangedEvent),
 }
 
 impl ClientEvent {
@@ -44,6 +45,7 @@ impl ClientEvent {
             Self::FriendRequestCancelled(_) => "friend.request.cancelled",
             Self::FriendDeleted(_) => "friend.deleted",
             Self::PresenceChanged(_) => "presence.changed",
+            Self::TypingChanged(_) => "typing.changed",
         }
     }
 
@@ -64,6 +66,7 @@ impl ClientEvent {
             Self::FriendRequestCancelled(data) => event.json_data(data),
             Self::FriendDeleted(data) => event.json_data(data),
             Self::PresenceChanged(data) => event.json_data(data),
+            Self::TypingChanged(data) => event.json_data(data),
         }
     }
 
@@ -89,5 +92,13 @@ impl ClientEvent {
 
     pub fn presence_changed(user_id: Uuid, online: bool) -> Self {
         Self::PresenceChanged(PresenceChangedEvent { user_id, online })
+    }
+
+    pub fn typing_changed(chat_id: i64, user_id: Uuid, typing: bool) -> Self {
+        Self::TypingChanged(TypingChangedEvent {
+            chat_id,
+            user_id,
+            typing,
+        })
     }
 }

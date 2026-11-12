@@ -90,6 +90,7 @@ HTTP 状态码：`400` 参数或规则不合法、`401` 未登录或凭据错误
 | POST | `/chat/{id}/message/{message_id}` | 回复该条 | `MessageResponse` |
 | DELETE | `/chat/{id}/message/{message_id}` | 软删 | `MessageResponse` |
 | PATCH | `/chat/{id}/read` | 更新已读游标，`last_read_message_id` | `ReadCursorResponse` |
+| POST | `/chat/{id}/typing` | 上报正在输入，`{ typing }`；进程内 8 秒 TTL | `204` |
 
 ### 事件（Bearer）
 
@@ -113,6 +114,7 @@ HTTP 状态码：`400` 参数或规则不合法、`401` 未登录或凭据错误
 | `friend.request.created` / `.accepted` / `.rejected` / `.cancelled` | `FriendRequestResponse` |
 | `friend.deleted` | `{ friend_id }` |
 | `presence.changed` | `{ user_id, online }`（推给该用户的好友、待处理申请双方、共同会话成员和全体管理员，不含自己） |
+| `typing.changed` | `{ chat_id, user_id, typing }`（推给该会话其他成员，不含自己；续期也会再推 `true`） |
 
 ### 文件（Bearer；`/content`、`/download` 例外接受 cookie）
 
@@ -155,6 +157,7 @@ HTTP 状态码：`400` 参数或规则不合法、`401` 未登录或凭据错误
 - 回复：`reply_to` 只嵌一层，内层 `reply_to` 恒为 `null`；目标不在本会话 → `404 MessageNotFound`，已删除 → `409 ReplyTargetDeleted`。
 - 软删：`deleted = true`，同时 `content` 置空、`file` 与 `reply_to` 为 `null`；重复删除 → `409 MessageAlreadyDeleted`；非本人且非管理员 → `403 CannotDeleteMessage`。
 - 删除时限：仅当实例开关 `limit_message_delete = true` 时生效，超过 120 秒 → `400 CannotDeleteOld`。
+- 正在输入：`POST /chat/{id}/typing` body `{ typing: bool }`。须是会话成员；私聊额外校验好友，失败码与发消息相同（`ChatNotFound` / `NotMember` / `NotFriends`）。状态只在内存，8 秒无刷新则服务端推 `typing: false`。刷新会再推 `true`，对端用来续显示。发消息成功后服务端清掉该用户在该会话的 typing。无快照接口。
 
 ### 文件与对象存储
 

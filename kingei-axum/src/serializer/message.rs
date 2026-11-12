@@ -23,6 +23,11 @@ pub struct UpdateReadCursorRequest {
     pub last_read_message_id: i64,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct SetTypingRequest {
+    pub typing: bool,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct MessageResponse {
     pub id: i64,

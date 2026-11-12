@@ -6,4 +6,5 @@ pub mod instance;
 pub mod invite;
 pub mod message;
 pub mod presence;
+pub mod typing;
 pub mod user;

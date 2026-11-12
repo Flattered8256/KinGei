@@ -15,6 +15,7 @@ use crate::service::instance::InstanceService;
 use crate::service::invite::InviteService;
 use crate::service::message::MessageService;
 use crate::service::presence::{GRACE, PresenceService};
+use crate::service::typing::{TTL as TYPING_TTL, TypingService};
 use crate::service::user::UserService;
 use crate::storage::Storage;
 use std::sync::Arc;
@@ -29,6 +30,7 @@ pub struct AppState {
     pub instance_service: InstanceService,
     pub invite_service: InviteService,
     pub presence_service: PresenceService,
+    pub typing_service: TypingService,
     pub event_hub: EventHub,
 }
 
@@ -53,6 +55,12 @@ impl AppState {
             GRACE,
         );
         presence_service.clone().spawn(presence_rx);
+        let typing_service = TypingService::new(
+            chat_repo.clone(),
+            friend_repo.clone(),
+            event_hub.clone(),
+            TYPING_TTL,
+        );
         Self {
             user_service: UserService::new(
                 user_repo.clone(),
@@ -91,11 +99,13 @@ impl AppState {
                 user_repo,
                 instance_repo.clone(),
                 event_hub.clone(),
+                typing_service.clone(),
             ),
             file_service: FileService::new(file_repo, storage, max_upload_size),
             instance_service: InstanceService::new(instance_repo, max_upload_size),
             invite_service: InviteService::new(invite_repo),
             presence_service,
+            typing_service,
             event_hub,
         }
     }

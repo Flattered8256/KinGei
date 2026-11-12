@@ -22,6 +22,7 @@ use crate::serializer::message::{
     UpdateReadCursorRequest,
 };
 use crate::service::file::require_ready_file;
+use crate::service::typing::TypingService;
 
 const DEFAULT_MESSAGE_LIMIT: i64 = 50;
 const MAX_MESSAGE_LIMIT: i64 = 100;
@@ -35,9 +36,11 @@ pub struct MessageService {
     user_repo: Arc<UserRepository>,
     instance_repo: Arc<InstanceRepository>,
     event_hub: EventHub,
+    typing: TypingService,
 }
 
 impl MessageService {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         message_repo: Arc<MessageRepository>,
         chat_repo: Arc<ChatRepository>,
@@ -46,6 +49,7 @@ impl MessageService {
         user_repo: Arc<UserRepository>,
         instance_repo: Arc<InstanceRepository>,
         event_hub: EventHub,
+        typing: TypingService,
     ) -> Self {
         Self {
             message_repo,
@@ -55,6 +59,7 @@ impl MessageService {
             user_repo,
             instance_repo,
             event_hub,
+            typing,
         }
     }
 
@@ -115,6 +120,7 @@ impl MessageService {
         let response = MessageResponse::from_message(created, file, reply_to);
         self.publish_message_created(chat.id, response.clone())
             .await;
+        self.typing.clear(user_id, chat.id).await;
         Ok(response)
     }
 
@@ -801,14 +807,23 @@ mod tests {
         chat_repo.add_member(chat.id, admin.id).await.unwrap();
         chat_repo.add_member(chat.id, member.id).await.unwrap();
 
+        let event_hub = EventHub::new();
+        let friend_repo = Arc::new(FriendRepository::new(pool.clone()));
+        let typing = crate::service::typing::TypingService::new(
+            chat_repo.clone(),
+            friend_repo.clone(),
+            event_hub.clone(),
+            crate::service::typing::TTL,
+        );
         let service = MessageService::new(
             message_repo.clone(),
             chat_repo.clone(),
-            Arc::new(FriendRepository::new(pool.clone())),
+            friend_repo,
             Arc::new(FileRepository::new(pool.clone())),
             user_repo,
             instance_repo.clone(),
-            EventHub::new(),
+            event_hub,
+            typing,
         );
 
         Fixture {

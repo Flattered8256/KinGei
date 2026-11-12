@@ -29,3 +29,10 @@ pub struct PresenceChangedEvent {
     pub user_id: Uuid,
     pub online: bool,
 }
+
+#[derive(Debug, Clone, Serialize)]
+pub struct TypingChangedEvent {
+    pub chat_id: i64,
+    pub user_id: Uuid,
+    pub typing: bool,
+}

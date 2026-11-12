@@ -12,6 +12,7 @@ export function useAppSync() {
   const users = useUserDirectory()
   const instance = useInstance()
   const presence = usePresence()
+  const typing = useTyping()
   const notify = useSystemNotify()
   const sseStatus = useSseStatus()
   const router = useRouter()
@@ -25,6 +26,7 @@ export function useAppSync() {
     friends.ingest(event)
     messages.ingest(event)
     presence.ingest(event)
+    typing.ingest(event)
 
     if (event.event === 'message.created') {
       notify.onMessage(event.data)
@@ -75,6 +77,7 @@ export function useAppSync() {
     messages.reset()
     users.reset()
     presence.reset()
+    typing.reset()
     ready.value = false
   }
 

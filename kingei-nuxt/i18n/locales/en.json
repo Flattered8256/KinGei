@@ -158,7 +158,11 @@
     "messageDeleted": "This message was deleted",
     "reply": "Reply",
     "cancelReply": "Cancel reply",
-    "replyTo": "Reply to {name}"
+    "replyTo": "Reply to {name}",
+    "typingDirect": "Typing…",
+    "typingOne": "{name} is typing…",
+    "typingTwo": "{a} and {b} are typing…",
+    "typingMany": "{a}, {b}, and {n} people are typing…"
   },
   "friends": {
     "title": "Friends",

@@ -3,12 +3,13 @@ use std::sync::Arc;
 use axum::{
     Extension, Json,
     extract::{Path, Query, State},
+    http::StatusCode,
 };
 use uuid::Uuid;
 
 use crate::error::AppError;
 use crate::serializer::message::{
-    ListMessageQuery, MessageResponse, ReadCursorResponse, SendMessageRequest,
+    ListMessageQuery, MessageResponse, ReadCursorResponse, SendMessageRequest, SetTypingRequest,
     UpdateReadCursorRequest,
 };
 use crate::state::AppState;
@@ -69,4 +70,14 @@ pub async fn update_read_cursor(
         .update_read_cursor(user_id, id, req)
         .await?;
     Ok(Json(result))
+}
+
+pub async fn set_typing(
+    State(state): State<Arc<AppState>>,
+    Extension(user_id): Extension<Uuid>,
+    Path(id): Path<i64>,
+    Json(req): Json<SetTypingRequest>,
+) -> Result<StatusCode, AppError> {
+    state.typing_service.set(user_id, id, req.typing).await?;
+    Ok(StatusCode::NO_CONTENT)
 }

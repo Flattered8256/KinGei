@@ -158,7 +158,11 @@
     "messageDeleted": "该消息已删除",
     "reply": "回复",
     "cancelReply": "取消回复",
-    "replyTo": "回复 {name}"
+    "replyTo": "回复 {name}",
+    "typingDirect": "对方正在输入…",
+    "typingOne": "{name} 正在输入…",
+    "typingTwo": "{a} 和 {b} 正在输入…",
+    "typingMany": "{a}、{b} 等 {n} 人正在输入…"
   },
   "friends": {
     "title": "好友",

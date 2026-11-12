@@ -12,6 +12,7 @@ const route = useRoute()
 const { isMobile } = useIsMobile()
 const chats = useChats()
 const messages = useMessages()
+const typing = useTyping()
 const showMembers = ref(false)
 const missing = ref(false)
 const fetching = ref(false)
@@ -57,6 +58,7 @@ const showRoomOverlay = computed(() =>
 
 const title = computed(() => (chat.value ? chats.titleOf(chat.value) : ''))
 const isGroup = computed(() => chat.value?.type === 'Group')
+const typingLabel = computed(() => (chat.value ? typing.labelOf(chat.value) : ''))
 
 const headerAvatar = computed(() => {
   const current = chat.value
@@ -125,6 +127,17 @@ const headerAvatar = computed(() => {
     <div class="main">
       <div class="conversation">
         <MessageThread :chat="chat" />
+        <p
+          class="typing"
+          aria-live="polite"
+        >
+          <template v-if="typingLabel">
+            <span class="dots" aria-hidden="true">
+              <i /><i /><i />
+            </span>
+            <span>{{ typingLabel }}</span>
+          </template>
+        </p>
         <MessageComposer />
       </div>
       <ChatMemberPanel
@@ -196,6 +209,56 @@ const headerAvatar = computed(() => {
   min-height: 0;
   display: flex;
   flex-direction: column;
+}
+
+.typing {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  height: 20px;
+  margin: 0;
+  padding: 0 16px;
+  overflow: hidden;
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.dots i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  animation: typing-dot 1.2s ease-in-out infinite;
+}
+
+.dots i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.dots i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes typing-dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(0);
+  }
+
+  40% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
 }
 
 .drawer-backdrop {

@@ -5,7 +5,7 @@ import type {
   SendMessageRequest,
   UpdateReadCursorRequest,
 } from '~/types/api'
-import { apiFetch } from './http'
+import { apiFetch, apiFetchVoid } from './http'
 
 export function listMessages(chatId: number, query: ListMessageQuery = {}) {
   return apiFetch<Message[]>(`/chat/${chatId}/message`, {
@@ -41,5 +41,12 @@ export function updateReadCursor(chatId: number, body: UpdateReadCursorRequest) 
   return apiFetch<ReadCursor>(`/chat/${chatId}/read`, {
     method: 'PATCH',
     body,
+  })
+}
+
+export function setTyping(chatId: number, typing: boolean) {
+  return apiFetchVoid(`/chat/${chatId}/typing`, {
+    method: 'POST',
+    body: { typing },
   })
 }
