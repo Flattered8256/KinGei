@@ -51,12 +51,7 @@ docker compose -f docker-compose.yml -f docker-compose.s3.yml -f docker-compose.
 
 打开注册页，创建第一个账号，默认第一个注册的账号为管理员账号。
 
-### 存储方式
 
-- **local（默认）**：文件写在 `STORAGE_LOCAL_DIR`，Docker 下是 `KinGei-data/files`；不需要额外进程。
-- **s3**：使用 S3 兼容对象存储。仓库自带的 `docker-compose.s3.yml` 会启动单机 Garage 并自动建桶；接入外部 S3/MinIO 时请先创建 `S3_BUCKET`，`object_store` 不会自动建桶（`S3_MANAGE_BUCKET` 已移除）。启动时会校验 bucket，凭据需要 `ListBucket` 权限。
-- 切换后端不会迁移已有文件。需要迁移时停服后按 object key 把对象同步到目标位置；local 下 key 就是相对路径。
-- 升级提示：默认后端已从 S3 改为 local。已有 Garage 数据的部署请继续使用 S3 叠加命令（或设置 `STORAGE_DRIVER=s3`），否则旧文件不会出现在本地目录。
 
 ### 更新
 
