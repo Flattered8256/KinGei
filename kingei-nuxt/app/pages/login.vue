@@ -42,11 +42,12 @@ function toggleLocale() {
       @submit.prevent="submit"
     >
       <div class="brand">
-        <Avatar
-          name="K"
-          :size="56"
-          :hash="false"
-        />
+        <img
+          src="/logo.svg"
+          width="120"
+          height="120"
+          :alt="$t('app.name')"
+        >
         <h1>{{ $t('auth.loginTitle', { name: $t('app.name') }) }}</h1>
       </div>
       <label class="field">

@@ -1,1 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"><path fill-rule="evenodd" d="M81 36 64 0 47 36l-1 2-9-10a6 6 0 0 0-9 9l10 10h-2L0 64l36 17h2L28 91a6 6 0 1 0 9 9l9-10 1 2 17 36 17-36v-2l9 10a6 6 0 1 0 9-9l-9-9 2-1 36-17-36-17-2-1 9-9a6 6 0 1 0-9-9l-9 10v-2Zm-17 2-2 5c-4 8-11 15-19 19l-5 2 5 2c8 4 15 11 19 19l2 5 2-5c4-8 11-15 19-19l5-2-5-2c-8-4-15-11-19-19l-2-5Z" clip-rule="evenodd"/><path d="M118 19a6 6 0 0 0-9-9l-3 3a6 6 0 1 0 9 9l3-3Zm-96 4c-2 2-6 2-9 0l-3-3a6 6 0 1 1 9-9l3 3c3 2 3 6 0 9Zm0 82c-2-2-6-2-9 0l-3 3a6 6 0 1 0 9 9l3-3c3-2 3-6 0-9Zm96 4a6 6 0 0 1-9 9l-3-3a6 6 0 1 1 9-9l3 3Z"/><style>path{fill:#000}@media (prefers-color-scheme:dark){path{fill:#fff}}</style></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="KinGei">
+  <title>KinGei</title>
+  <g stroke-linejoin="round" stroke-width="0.6">
+    <!-- left hull -->
+    <polygon fill="#31d8ef" stroke="#31d8ef" points="64,540 355.5,620 300,755 160,755"/>
+    <!-- right hull -->
+    <polygon fill="#91e9db" stroke="#91e9db" points="960,540 668.5,620 724,755 864,755"/>
+    <!-- left lid / upturned bow -->
+    <polygon fill="#27d3e9" stroke="#27d3e9" points="64,540 386.8,569 355.5,620"/>
+    <!-- right lid / upturned stern -->
+    <polygon fill="#66dfd0" stroke="#66dfd0" points="960,540 637.2,569 668.5,620"/>
+    <!-- center hull, no vertical crease -->
+    <polygon fill="#6adfd7" stroke="#6adfd7" points="355.5,620 668.5,620 724,755 300,755"/>
+    <!-- sails, center crease kept -->
+    <polygon fill="#57e3f6" stroke="#57e3f6" points="512,280 355.5,620 512,620"/>
+    <polygon fill="#a0f1e2" stroke="#a0f1e2" points="512,280 512,620 668.5,620"/>
+  </g>
+</svg>

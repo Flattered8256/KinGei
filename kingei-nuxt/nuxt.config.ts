@@ -9,6 +9,7 @@ export default defineNuxtConfig({
       title: 'KinGei',
       htmlAttrs: { lang: 'zh-CN' },
       link: [
+        { rel: 'icon', type: 'image/svg+xml', href: '/logo.svg' },
         { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
         { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: 'anonymous' },
         {

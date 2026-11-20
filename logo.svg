@@ -1,6 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="KinGei">
   <title>KinGei</title>
-  <rect width="1024" height="1024" fill="#19191b"/>
   <g stroke-linejoin="round" stroke-width="0.6">
     <!-- left hull -->
     <polygon fill="#31d8ef" stroke="#31d8ef" points="64,540 355.5,620 300,755 160,755"/>

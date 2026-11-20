@@ -122,11 +122,12 @@ function onClickOutsideMenu() {
   <section class="sessions">
     <header class="head">
       <div class="brand">
-        <Avatar
-          name="K"
-          :size="32"
-          :hash="false"
-        />
+        <img
+          src="/logo.svg"
+          width="32"
+          height="32"
+          alt=""
+        >
         <strong>{{ $t('app.name') }}</strong>
       </div>
       <div class="actions">
