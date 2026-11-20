@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="KinGei">
+  <title>KinGei</title>
+  <rect width="1024" height="1024" fill="#19191b"/>
+  <g stroke-linejoin="round" stroke-width="0.6">
+    <!-- left hull -->
+    <polygon fill="#31d8ef" stroke="#31d8ef" points="64,540 355.5,620 300,755 160,755"/>
+    <!-- right hull -->
+    <polygon fill="#91e9db" stroke="#91e9db" points="960,540 668.5,620 724,755 864,755"/>
+    <!-- left lid / upturned bow -->
+    <polygon fill="#27d3e9" stroke="#27d3e9" points="64,540 386.8,569 355.5,620"/>
+    <!-- right lid / upturned stern -->
+    <polygon fill="#66dfd0" stroke="#66dfd0" points="960,540 637.2,569 668.5,620"/>
+    <!-- center hull, no vertical crease -->
+    <polygon fill="#6adfd7" stroke="#6adfd7" points="355.5,620 668.5,620 724,755 300,755"/>
+    <!-- sails, center crease kept -->
+    <polygon fill="#57e3f6" stroke="#57e3f6" points="512,280 355.5,620 512,620"/>
+    <polygon fill="#a0f1e2" stroke="#a0f1e2" points="512,280 512,620 668.5,620"/>
+  </g>
+</svg>
