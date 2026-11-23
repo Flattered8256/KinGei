@@ -1,0 +1,41 @@
+starlight-tabs .tablist-wrapper {
+	overflow-x: auto;
+	-webkit-overflow-scrolling: touch;
+}
+
+starlight-tabs .tablist-wrapper [role='tablist'] {
+	border-bottom: none;
+	flex-wrap: nowrap;
+	width: max-content;
+	gap: 0.2rem;
+	padding: 0.2rem;
+	border-radius: 0.5rem;
+	background: var(--sl-color-gray-6);
+}
+
+starlight-tabs .tab {
+	flex: none;
+}
+
+starlight-tabs .tab > [role='tab'] {
+	box-shadow: none;
+	border-radius: 0.375rem;
+	padding: 0.4rem 0.85rem;
+	font-size: var(--sl-text-sm);
+	white-space: nowrap;
+}
+
+starlight-tabs .tab [role='tab'][aria-selected='true'] {
+	background: var(--sl-color-bg);
+	color: var(--sl-color-white);
+}
+
+@media (max-width: 49.99rem) {
+	starlight-tabs .tab > [role='tab'] {
+		padding: 0.35rem 0.65rem;
+	}
+
+	starlight-tabs .tab [role='tab'] svg {
+		display: none;
+	}
+}

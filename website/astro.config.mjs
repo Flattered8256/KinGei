@@ -11,18 +11,23 @@ export default defineConfig({
 				src: './src/assets/logo.svg',
 				alt: 'KinGei',
 			},
-			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/withastro/starlight' }],
+			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/Flattered8256/KinGei' }],
+			customCss: ['./src/styles/custom.css'],
+			defaultLocale: 'root',
+			locales: {
+				root: {
+					label: '简体中文',
+					lang: 'zh-CN',
+				},
+				en: {
+					label: 'English',
+				},
+			},
 			sidebar: [
 				{
-					label: 'Guides',
-					items: [
-						// Each item here is one entry in the navigation menu.
-						{ label: 'Example Guide', slug: 'guides/example' },
-					],
-				},
-				{
-					label: 'Reference',
-					items: [{ autogenerate: { directory: 'reference' } }],
+					label: '开始',
+					translations: { en: 'Start' },
+					items: [{ slug: 'guides/docker' }],
 				},
 			],
 		}),

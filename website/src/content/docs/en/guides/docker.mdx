@@ -1,0 +1,73 @@
+---
+title: Deploy with Docker
+description: Clone the repo and start KinGei from source with Docker Compose.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## 1. Clone the repo
+
+```bash
+git clone https://github.com/Flattered8256/KinGei.git
+cd KinGei
+```
+
+## 2. Prepare environment variables
+
+```bash
+cp .env.example .env
+```
+
+Edit:
+
+| Variable | Description |
+| --- | --- |
+| `PORT` | Port, default `3000` |
+
+File storage is only accessed by the backend. You do not need a public storage domain; uploads and downloads are proxied.
+
+## 3. Start
+
+<Tabs>
+<TabItem label="Local disk" icon="laptop">
+
+```bash
+docker compose up -d --build
+```
+
+</TabItem>
+<TabItem label="S3" icon="cloud-download">
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.s3.yml up -d --build
+```
+
+</TabItem>
+<TabItem label="PostgreSQL" icon="database">
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d --build
+```
+
+</TabItem>
+<TabItem label="PostgreSQL + S3" icon="server">
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.s3.yml -f docker-compose.postgres.yml up -d --build
+```
+
+</TabItem>
+</Tabs>
+
+## 4. Register the admin account
+
+Open the site in a browser. The default port is `3000`.
+
+The first registered account is the admin.
+
+## Update
+
+```bash
+git pull
+docker compose up -d --build
+```

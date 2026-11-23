@@ -1,0 +1,73 @@
+---
+title: docker部署
+description: 克隆仓库，用 Docker Compose 从源码构建并启动 KinGei。
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## 1. 克隆仓库
+
+```bash
+git clone https://github.com/Flattered8256/KinGei.git
+cd KinGei
+```
+
+## 2. 准备环境变量
+
+```bash
+cp .env.example .env
+```
+
+编辑：
+
+| 变量 | 说明 |
+| --- | --- |
+| `PORT` | 端口，默认 `3000` |
+
+文件存储只由后端访问，不需要对外暴露域名；上传和下载都由后端中转。
+
+## 3. 启动
+
+<Tabs>
+<TabItem label="本地磁盘" icon="laptop">
+
+```bash
+docker compose up -d --build
+```
+
+</TabItem>
+<TabItem label="S3" icon="cloud-download">
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.s3.yml up -d --build
+```
+
+</TabItem>
+<TabItem label="PostgreSQL" icon="database">
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d --build
+```
+
+</TabItem>
+<TabItem label="PostgreSQL + S3" icon="server">
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.s3.yml -f docker-compose.postgres.yml up -d --build
+```
+
+</TabItem>
+</Tabs>
+
+## 4. 注册管理员账号
+
+浏览器访问服务器地址，端口默认 `3000`。
+
+第一个注册的账号是管理员。
+
+## 更新
+
+```bash
+git pull
+docker compose up -d --build
+```
