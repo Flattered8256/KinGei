@@ -4,6 +4,8 @@ import starlight from '@astrojs/starlight';
 
 // https://astro.build/config
 export default defineConfig({
+	site: 'https://flattered8256.github.io',
+	base: '/KinGei',
 	integrations: [
 		starlight({
 			title: 'KinGei',
