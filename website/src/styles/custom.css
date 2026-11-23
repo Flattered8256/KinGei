@@ -1,3 +1,8 @@
+/* Starlight search sets body overflow:hidden; keep the classic scrollbar width. */
+html {
+	scrollbar-gutter: stable;
+}
+
 starlight-tabs .tablist-wrapper {
 	overflow-x: auto;
 	-webkit-overflow-scrolling: touch;
