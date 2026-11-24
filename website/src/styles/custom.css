@@ -25,18 +25,54 @@ html {
 	font-size: clamp(var(--sl-text-3xl), calc(0.2rem + 3.6vw), var(--sl-text-5xl));
 }
 
-@media (width >= 50rem) {
-	.hero {
-		padding-block-end: 1.5rem;
-	}
-}
-
 :root:not([data-theme='light']) .hero > img {
 	filter: drop-shadow(0 0 2.5rem hsla(190, 86%, 53%, 0.45));
 }
 
 [data-has-hero] .hero + .sl-markdown-content {
-	margin-top: 0.75rem;
+	margin-top: 0;
+}
+
+@media (width >= 50rem) {
+	html[data-has-hero] {
+		/* 1.5rem = Starlight .content-panel padding-block */
+		--kg-splash-page: calc(100svh - var(--sl-nav-height) - 1.5rem);
+	}
+
+	[data-has-hero] .hero {
+		min-height: var(--kg-splash-page);
+		padding-block: 2.5rem 1.5rem;
+	}
+
+	[data-has-hero] .splash-section {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		min-height: var(--kg-splash-page);
+	}
+
+	[data-has-hero] .sl-markdown-content > .splash-section {
+		margin-top: 0;
+	}
+
+	[data-has-hero] .splash-section .screenshot {
+		width: 100%;
+	}
+
+	[data-has-hero] .splash-section .screenshot img {
+		width: auto;
+		max-width: 100%;
+		max-height: calc(var(--kg-splash-page) - 2rem);
+		object-fit: contain;
+		justify-self: center;
+	}
+}
+
+@media print {
+	[data-has-hero] .hero,
+	[data-has-hero] .splash-section {
+		min-height: 0;
+	}
 }
 
 .card {

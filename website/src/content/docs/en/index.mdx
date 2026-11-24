@@ -19,22 +19,26 @@ hero:
 
 import { Card, CardGrid } from '@astrojs/starlight/components';
 
-<figure class="screenshot">
-	<img
-		class="light:sl-hidden"
-		src="/KinGei/screenshots/chat-black.png"
-		alt="KinGei group chat with image, reply, and member list"
-		width="2560"
-		height="1440"
-	/>
-	<img
-		class="dark:sl-hidden"
-		src="/KinGei/screenshots/chat-light.png"
-		alt=""
-		width="2560"
-		height="1440"
-	/>
-</figure>
+<section class="splash-section">
+	<figure class="screenshot">
+		<img
+			class="light:sl-hidden"
+			src="/KinGei/screenshots/chat-black.png"
+			alt="KinGei group chat with image, reply, and member list"
+			width="2560"
+			height="1440"
+		/>
+		<img
+			class="dark:sl-hidden"
+			src="/KinGei/screenshots/chat-light.png"
+			alt=""
+			width="2560"
+			height="1440"
+		/>
+	</figure>
+</section>
+
+<section class="splash-section">
 
 ## What you can do
 
@@ -52,3 +56,5 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 		Sign-up options, member management.
 	</Card>
 </CardGrid>
+
+</section>
