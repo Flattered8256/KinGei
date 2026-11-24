@@ -3,6 +3,51 @@ html {
 	scrollbar-gutter: stable;
 }
 
+/* KinGei cyan #22CCEE. Light accent is darker for link contrast on white. */
+:root {
+	--sl-color-accent-low: hsl(190, 54%, 20%);
+	--sl-color-accent: hsl(190, 86%, 53%);
+	--sl-color-accent-high: hsl(190, 90%, 80%);
+}
+
+:root[data-theme='light'] {
+	--sl-color-accent-high: hsl(190, 80%, 28%);
+	--sl-color-accent: hsl(190, 85%, 36%);
+	--sl-color-accent-low: hsl(190, 88%, 90%);
+}
+
+.hero .copy > * {
+	max-width: min(50ch, 100%);
+}
+
+.hero h1 {
+	overflow-wrap: break-word;
+	font-size: clamp(var(--sl-text-3xl), calc(0.2rem + 3.6vw), var(--sl-text-5xl));
+}
+
+@media (width >= 50rem) {
+	.hero {
+		padding-block-end: 1.5rem;
+	}
+}
+
+:root:not([data-theme='light']) .hero > img {
+	filter: drop-shadow(0 0 2.5rem hsla(190, 86%, 53%, 0.45));
+}
+
+[data-has-hero] .hero + .sl-markdown-content {
+	margin-top: 0.75rem;
+}
+
+.card {
+	padding: 1.25rem 1.5rem;
+}
+
+.card .icon {
+	border-color: var(--sl-color-accent);
+	background-color: var(--sl-color-accent-low);
+}
+
 starlight-tabs .tablist-wrapper {
 	overflow-x: auto;
 	-webkit-overflow-scrolling: touch;
@@ -45,19 +90,17 @@ starlight-tabs .tab [role='tab'][aria-selected='true'] {
 	}
 }
 
-@media (width >= 50rem) {
-	.hero {
-		padding-block-end: 1.5rem;
-	}
-}
-
 .screenshot {
 	display: grid;
-	margin-block: 1.5rem 0;
+	margin-block: 0;
 	border-radius: 0.75rem;
 	overflow: hidden;
 	border: 1px solid var(--sl-color-gray-5);
 	box-shadow: var(--sl-shadow-md);
+}
+
+:root:not([data-theme='light']) .screenshot {
+	box-shadow: var(--sl-shadow-md), 0 0 5rem -1.25rem hsla(190, 86%, 53%, 0.35);
 }
 
 .screenshot img {
