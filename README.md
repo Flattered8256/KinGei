@@ -1,9 +1,8 @@
 # KinGei
 
-KinGei 是完全开源的高性能即时通讯软件，采用 Rust 编写。支持好友、私聊、群聊与文件附件以及站点管理，可 Docker 自托管。运行时内存约 20MB，这允许你能部署到大多数linux边缘开发板以及免费托管到云平台。
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-仓库：https://github.com/Flattered8256/KinGei
-
+[KinGei](https://flattered8256.github.io/KinGei/) 是完全开源的高性能即时通讯软件，采用 Rust 编写。支持好友、私聊、群聊与文件附件以及站点管理，可 Docker 自托管。运行时内存约 20MB，这允许你能部署到大多数linux边缘开发板以及免费托管到云平台。
 
 ## 部署
 
