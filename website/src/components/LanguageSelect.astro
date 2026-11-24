@@ -1,0 +1,75 @@
+---
+import config from 'virtual:starlight/user-config';
+
+const shortLabel: Record<string, string> = {
+	root: '中文',
+	en: 'EN',
+};
+
+const current = Astro.locals.starlightRoute.locale ?? 'root';
+const locales = config.locales ?? {};
+const targetCode = Object.keys(locales).find((code) => code !== current);
+const target = targetCode ? locales[targetCode] : undefined;
+const href = targetCode ? swapLocalePath(Astro.url.pathname, current, targetCode) : '';
+const targetLang = target?.lang ?? (targetCode === 'root' ? 'zh-CN' : targetCode);
+
+function stripTrailingSlash(path: string): string {
+	return path.endsWith('/') ? path.slice(0, -1) : path;
+}
+
+function swapLocalePath(pathname: string, from: string, to: string): string {
+	const base = stripTrailingSlash(import.meta.env.BASE_URL);
+	let rest = pathname.startsWith(base) ? pathname.slice(base.length) : pathname;
+	if (!rest.startsWith('/')) rest = `/${rest}`;
+
+	const fromPrefix = from === 'root' ? '' : from;
+	if (fromPrefix) {
+		const prefix = `/${fromPrefix}`;
+		if (rest === prefix || rest === `${prefix}/`) rest = '/';
+		else if (rest.startsWith(`${prefix}/`)) rest = rest.slice(prefix.length);
+	}
+
+	const toPrefix = to === 'root' ? '' : to;
+	if (toPrefix) {
+		rest = rest === '/' ? `/${toPrefix}/` : `/${toPrefix}${rest}`;
+	}
+
+	return `${base}${rest}`;
+}
+---
+
+{
+	config.isMultilingual && target && targetCode && (
+		<a
+			class="lang-switch"
+			href={href}
+			hreflang={targetLang}
+			lang={targetLang}
+			translate="no"
+			aria-label={`${Astro.locals.t('languageSelect.accessibleLabel')}: ${target.label}`}
+		>
+			{shortLabel[targetCode] ?? target.label}
+		</a>
+	)
+}
+
+<style>
+	@layer starlight.components {
+		.lang-switch {
+			display: flex;
+			align-items: center;
+			margin-block: -0.5em;
+			padding: 0.5em;
+			color: var(--sl-color-gray-2);
+			font-size: var(--sl-text-sm);
+			font-weight: 600;
+			letter-spacing: 0.02em;
+			line-height: 1;
+			text-decoration: none;
+		}
+
+		.lang-switch:hover {
+			color: var(--sl-color-white);
+		}
+	}
+</style>

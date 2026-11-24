@@ -15,6 +15,12 @@ export default defineConfig({
 			},
 			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/Flattered8256/KinGei' }],
 			customCss: ['./src/styles/custom.css'],
+			components: {
+				Header: './src/components/Header.astro',
+				ThemeSelect: './src/components/ThemeSelect.astro',
+				LanguageSelect: './src/components/LanguageSelect.astro',
+				MobileMenuFooter: './src/components/MobileMenuFooter.astro',
+			},
 			defaultLocale: 'root',
 			locales: {
 				root: {
