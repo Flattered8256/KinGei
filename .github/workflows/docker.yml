@@ -1,0 +1,153 @@
+name: Publish Docker image
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+            db: sqlite
+          - platform: linux/amd64
+            runner: ubuntu-latest
+            db: postgres
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            db: sqlite
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            db: postgres
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+      actions: write
+    steps:
+      - name: Prepare
+        run: |
+          echo "REGISTRY_IMAGE=${REGISTRY}/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+          platform="${{ matrix.platform }}"
+          echo "PLATFORM_PAIR=${platform//\//-}" >> "$GITHUB_ENV"
+
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY_IMAGE }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          build-args: |
+            DB_BACKEND=${{ matrix.db }}
+          labels: ${{ steps.meta.outputs.labels }}
+          outputs: type=image,name=${{ env.REGISTRY_IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ matrix.db }}-${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.db }}-${{ matrix.platform }}
+          provenance: false
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.db }}-${{ env.PLATFORM_PAIR }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        db: [sqlite, postgres]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      FLOATING_TAG: ${{ github.ref_name == github.event.repository.default_branch || startsWith(github.ref, 'refs/tags/v') }}
+    steps:
+      - name: Set image name
+        run: echo "REGISTRY_IMAGE=${REGISTRY}/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-${{ matrix.db }}-*
+          merge-multiple: true
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY_IMAGE }}
+          flavor: |
+            latest=false
+          tags: |
+            type=raw,value=latest,enable=${{ matrix.db == 'sqlite' && env.FLOATING_TAG == 'true' }}
+            type=raw,value=postgres,enable=${{ matrix.db == 'postgres' && env.FLOATING_TAG == 'true' }}
+            type=ref,event=branch,enable=${{ matrix.db == 'sqlite' }}
+            type=ref,event=branch,suffix=-postgres,enable=${{ matrix.db == 'postgres' }}
+            type=semver,pattern={{version}},enable=${{ matrix.db == 'sqlite' }}
+            type=semver,pattern={{version}},suffix=-postgres,enable=${{ matrix.db == 'postgres' }}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ matrix.db == 'sqlite' }}
+            type=semver,pattern={{major}}.{{minor}},suffix=-postgres,enable=${{ matrix.db == 'postgres' }}
+            type=semver,pattern={{major}},enable=${{ matrix.db == 'sqlite' }}
+            type=semver,pattern={{major}},suffix=-postgres,enable=${{ matrix.db == 'postgres' }}
+
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          docker buildx imagetools create \
+            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf "${REGISTRY_IMAGE}@sha256:%s " *)
+
+      - name: Inspect image
+        run: docker buildx imagetools inspect "${REGISTRY_IMAGE}:${{ steps.meta.outputs.version }}"

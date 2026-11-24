@@ -23,12 +23,13 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
     && cp /app/target/release/kinGei /app/kinGei
 
 FROM debian:bookworm-slim
+ARG DB_BACKEND=sqlite
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ffmpeg ca-certificates curl libssl3 \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --system --uid 1000 --home-dir /app --create-home app \
-    && mkdir -p /data /kingei-data \
-    && chown app:app /data /kingei-data
+    && mkdir -p /kingei-data/database/sqlite /kingei-data/files \
+    && chown -R app:app /kingei-data
 WORKDIR /app
 COPY --from=builder /app/kinGei /app/kinGei
 COPY --from=web /src/.output/public /app/public
@@ -36,8 +37,11 @@ COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 RUN chmod +x /app/docker-entrypoint.sh \
     && chown -R app:app /app
 USER app
+ENV KINGEI_DB_BACKEND=${DB_BACKEND}
 ENV PORT=3000
 ENV STATIC_DIR=/app/public
+ENV STORAGE_DRIVER=local
+ENV STORAGE_LOCAL_DIR=/kingei-data/files
 EXPOSE 3000
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["./kinGei"]
