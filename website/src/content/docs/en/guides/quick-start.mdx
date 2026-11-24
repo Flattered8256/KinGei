@@ -1,0 +1,41 @@
+---
+title: Quick start
+description: Start KinGei with a single Docker command.
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+
+You need [Docker](https://docs.docker.com/get-docker/) installed.
+
+<Steps>
+
+1. Start
+
+   ```bash
+   docker run -d --name kingei --restart unless-stopped -p 3000:3000 -v ./KinGei-data:/kingei-data ghcr.io/flattered8256/kingei:latest
+   ```
+
+2. Open the site
+
+   Open the server in a browser on port 3000.
+
+3. Register the admin account
+
+   The first registered account is the admin.
+
+</Steps>
+
+<Aside>
+Data is stored in `KinGei-data/` in the current directory: the database, uploaded files, and JWT. Copy this directory when backing up or migrating.
+</Aside>
+
+## Update
+
+```bash
+docker pull ghcr.io/flattered8256/kingei:latest
+docker rm -f kingei
+docker run -d --name kingei --restart unless-stopped -p 3000:3000 -v ./KinGei-data:/kingei-data ghcr.io/flattered8256/kingei:latest
+```
+
+
+To build from source, see [Deploy with Docker](../docker/).

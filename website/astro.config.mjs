@@ -29,7 +29,7 @@ export default defineConfig({
 				{
 					label: '开始',
 					translations: { en: 'Start' },
-					items: [{ slug: 'guides/docker' }],
+					items: [{ slug: 'guides/quick-start' }, { slug: 'guides/docker' }],
 				},
 			],
 		}),

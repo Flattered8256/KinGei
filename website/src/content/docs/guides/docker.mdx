@@ -3,7 +3,11 @@ title: docker部署
 description: 克隆仓库，用 Docker Compose 从源码构建并启动 KinGei。
 ---
 
-import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+
+<Aside type="tip">
+只想用官方镜像跑起来，见 [快速开始](../quick-start/)。
+</Aside>
 
 ## 1. 克隆仓库
 
@@ -62,7 +66,7 @@ docker compose -f docker-compose.yml -f docker-compose.s3.yml -f docker-compose.
 
 浏览器访问服务器地址，端口默认 `3000`。
 
-第一个注册的账号是管理员。
+首次注册的账号为管理员。
 
 ## 更新
 
